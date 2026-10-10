@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/your-org/dsh-panellist/main/docs/config.schema.json",
+  "title": "dsh-panellist configuration",
+  "description": "Shape of $DSH_HOME/panellist.json. One document holds one profile section per DSH profile id, because different profiles mount different plugins.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "profiles"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "description": "Bumped when the shape changes. Older documents are migrated on read; a failed parse is backed up and defaults are used."
+    },
+    "profiles": {
+      "type": "object",
+      "description": "Keyed by DSH profile id. A profile section is created on first write.",
+      "maxProperties": 64,
+      "propertyNames": { "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+      "additionalProperties": { "$ref": "#/$defs/profile" }
+    }
+  },
+  "$defs": {
+    "panelId": {
+      "type": "string",
+      "description": "A panel entry id as registered into the rail, discovered at runtime. Never hardcoded.",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "groupId": {
+      "type": "string",
+      "description": "A group id owned by this plugin. Must not collide with any plugin's panel id.",
+      "pattern": "^group:[A-Za-z0-9_-]{1,64}$"
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sequence": {
+          "type": "array",
+          "description": "Partially authoritative: listed items appear in this order; panel entries that are not listed are appended at the end in the shell's own order.",
+          "maxItems": 200,
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/entryItem" },
+              { "$ref": "#/$defs/groupItem" }
+            ]
+          }
+        },
+        "entries": {
+          "type": "object",
+          "description": "Per-panel display overrides, keyed by panel id. An id that is no longer registered is preserved and reported as an orphan.",
+          "maxProperties": 200,
+          "additionalProperties": { "$ref": "#/$defs/entryOverride" }
+        },
+        "locked": {
+          "type": "array",
+          "description": "Panel ids this plugin must not touch at all.",
+          "maxItems": 200,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/panelId" }
+        },
+        "meta": { "$ref": "#/$defs/meta" }
+      }
+    },
+    "entryItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "const": "entry" },
+        "id": { "$ref": "#/$defs/panelId" }
+      }
+    },
+    "groupItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "members"],
+      "properties": {
+        "type": { "const": "group" },
+        "id": { "$ref": "#/$defs/groupId" },
+        "label": {
+          "type": "string",
+          "description": "Group trigger name. Defaults to the first member's effective name.",
+          "maxLength": 64
+        },
+        "icon": {
+          "description": "Group trigger icon. Defaults to the first member's effective icon.",
+          "allOf": [{ "$ref": "#/$defs/icon" }]
+        },
+        "hidden": {
+          "type": "boolean",
+          "description": "Hides the group trigger itself from the rail.",
+          "default": false
+        },
+        "members": {
+          "type": "array",
+          "description": "Ordered panel ids inside this group. One level of nesting only: a member may not be another group.",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/panelId" }
+        }
+      }
+    },
+    "entryOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Display-name override. Affects the rail row text, the collapsed tooltip and the accessible name only.",
+          "maxLength": 64
+        },
+        "icon": { "$ref": "#/$defs/icon" },
+        "hidden": {
+          "type": "boolean",
+          "description": "Hides the row. A hidden panel that is currently active still shows its row.",
+          "default": false
+        }
+      }
+    },
+    "icon": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "const": "original" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "name"],
+          "properties": {
+            "kind": { "const": "builtin" },
+            "name": {
+              "type": "string",
+              "description": "Name in the icon set bundled with the plugin (no network, no extra dependency).",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "svg"],
+          "properties": {
+            "kind": { "const": "custom" },
+            "svg": {
+              "type": "string",
+              "description": "Inline SVG source. Sanitized against an allow-list (no script, foreignObject, event attributes or external references) on write and on read, capped at 64 KB, and rendered inline so it can follow the theme.",
+              "minLength": 16,
+              "maxLength": 65536
+            }
+          }
+        }
+      ]
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}
