@@ -25,7 +25,7 @@ function panelRows(ids: readonly string[]): LiveRow[] {
 
 function renderPage(profile: ProfileConfig): ReturnType<typeof createHarness> {
   const harness = createHarness({ profile })
-  render(<Section deps={harness.deps} close={() => {}} />)
+  render(<Section deps={harness.deps} />)
   return harness
 }
 
@@ -237,7 +237,7 @@ describe('SequenceEditor', () => {
 
   it('says so when nothing is registered at all', () => {
     const harness = createHarness({ profile: emptyProfileConfig(), registered: [] })
-    render(<Section deps={harness.deps} close={() => {}} />)
+    render(<Section deps={harness.deps} />)
     expect(screen.getByText('No panel is registered on this profile yet.')).toBeTruthy()
   })
 })

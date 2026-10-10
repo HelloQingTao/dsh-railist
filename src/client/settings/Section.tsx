@@ -20,8 +20,6 @@ import { SequenceEditor, type SequenceSelection } from './SequenceEditor.tsx'
 
 export interface SectionProps {
   deps: SettingsUnitDeps
-  /** The one shell affordance a settings section receives. */
-  close: () => void
 }
 
 /**
@@ -66,7 +64,7 @@ function useSelfCheckState(deps: SettingsUnitDeps): SelfCheckState {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
-export function Section({ deps, close }: SectionProps): ReactNode {
+export function Section({ deps }: SectionProps): ReactNode {
   useControllerSubscription(deps)
   const t = useTranslate(deps)
   const selfCheck = useSelfCheckState(deps)
@@ -97,14 +95,14 @@ export function Section({ deps, close }: SectionProps): ReactNode {
 
   return (
     <section className="dsh-panellist-settings" aria-label={t('settings.title')}>
+      {/* The header is text only: the settings dialog already owns the close
+          affordance (its X, next to this text), and a second button for the same
+          action was one more thing to keep in sync with it. */}
       <header className="dsh-panellist-settings-header">
         <div className="dsh-panellist-settings-headerText">
           <h2 className="dsh-panellist-settings-title">{t('settings.title')}</h2>
           <p className="dsh-panellist-settings-subtitle">{t('settings.subtitle')}</p>
         </div>
-        <button type="button" className="dsh-panellist-settings-action" onClick={close}>
-          {t('common.done')}
-        </button>
       </header>
 
       {snapshot.status === 'loading' ? <p className="dsh-panellist-settings-hint">{t('common.loading')}</p> : null}

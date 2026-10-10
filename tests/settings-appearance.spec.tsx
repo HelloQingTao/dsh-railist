@@ -31,7 +31,7 @@ function selectRow(id: string): void {
 
 function renderPage(profile: ProfileConfig, sanitizeSvg?: (source: string) => { ok: true; svg: string } | { ok: false; reason: string }): ReturnType<typeof createHarness> {
   const harness = createHarness({ profile, ...(sanitizeSvg === undefined ? {} : { sanitizeSvg }) })
-  render(<Section deps={harness.deps} close={() => {}} />)
+  render(<Section deps={harness.deps} />)
   return harness
 }
 
@@ -142,7 +142,7 @@ describe('AppearanceEditor (panel row)', () => {
       translate: createTranslator({ getLocale: () => ({ active: 'zh-CN' }), subscribe: () => () => {} }),
       sanitizeSvg: () => ({ ok: false, reason: 'raw english detail', code: 'forbidden' }),
     })
-    render(<Section deps={harness.deps} close={() => {}} />)
+    render(<Section deps={harness.deps} />)
     selectRow('plugins')
 
     fireEvent.click(screen.getByRole('radio', { name: '粘贴 SVG' }))
@@ -159,7 +159,7 @@ describe('AppearanceEditor (panel row)', () => {
       profile: profileWith(['plugins']),
       sanitizeSvg: () => ({ ok: false, reason: 'raw english detail' }),
     })
-    render(<Section deps={harness.deps} close={() => {}} />)
+    render(<Section deps={harness.deps} />)
     selectRow('plugins')
 
     fireEvent.click(screen.getByRole('radio', { name: 'Paste SVG' }))

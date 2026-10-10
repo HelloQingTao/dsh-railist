@@ -18,7 +18,7 @@ function profileWith(ids: readonly string[]): ProfileConfig {
 }
 
 function renderPage(harness: ReturnType<typeof createHarness>): void {
-  render(<Section deps={harness.deps} close={() => {}} />)
+  render(<Section deps={harness.deps} />)
 }
 
 afterEach(() => {
@@ -149,7 +149,7 @@ describe('configuration block', () => {
   it('surfaces a store failure with the failure copy', () => {
     const harness = createHarness({ profile: profileWith(['plugins']) })
     const failing = { ...harness.deps, snapshot: () => ({ ...harness.snapshot(), error: 'disk is locked', status: 'ready' as const }) }
-    render(<Section deps={failing} close={() => {}} />)
+    render(<Section deps={failing} />)
     expect(screen.getByText('Could not save: disk is locked')).toBeTruthy()
   })
 })
@@ -220,10 +220,13 @@ describe('createSettingsUnit', () => {
     expect(harness.cssChunks.get('settings')).toBe(SETTINGS_CSS)
     expect(harness.cssChunks.get('settings')).toContain('dsh-panellist-settings')
 
-    const Component = section?.component as ((props: { close: () => void }) => ReactNode) | undefined
+    const Component = section?.component as (() => ReactNode) | undefined
     if (Component === undefined) throw new Error('expected the section component')
-    render(<Component close={() => {}} />)
+    render(<Component />)
     expect(screen.getByRole('heading', { name: 'Panel list' })).toBeTruthy()
+    // The shell's dialog owns the close affordance (its X); the page must not
+    // grow a second button for the same action.
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull()
 
     unit.dispose()
   })

@@ -20,9 +20,7 @@ export function createSettingsUnit(deps: SettingsUnitDeps): SettingsUnit {
   // the first frame it renders.
   deps.styles.register('settings', SETTINGS_CSS)
 
-  const SettingsSection = (props: { close: () => void }): ReactNode => (
-    <Section deps={deps} close={props.close} />
-  )
+  const SettingsSection = (): ReactNode => <Section deps={deps} />
 
   const dispose = deps.ctx.slots.inject('settings.section', () => deps.ctx.slots.register({
     name: 'settings.section',
