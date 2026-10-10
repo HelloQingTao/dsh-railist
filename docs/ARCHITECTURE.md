@@ -130,6 +130,8 @@ Notes:
 
 Both are plain field writes on the entry (§2 facts 2-3). The sequence contributes explicit `order` values with gaps (10, 20, 30, …) so that a later manual insert needs no renumbering pass; unconfigured panels keep their registered `order` and therefore land after the configured block only if their own value happens to be higher — the model instead assigns unconfigured panels orders above the configured block, preserving their relative order (confirmed: unconfigured entries append at the end).
 
+**Nothing is written until something is configured.** `buildPlan` always returns the whole rail in `rows` (that is what the settings page edits), but a row's `order` stays `null` — "leave the native order alone" — while the user's sequence holds no live row. That is the one place where "the list you see" and "what we write" deliberately differ, and it is what keeps a fresh install inert on a rail other plugins also touch. `Plan.reordering` is the flag a consumer checks to know which mode it is in.
+
 ### 4.4 The CSS layer
 
 One stylesheet, injected once per page and adopted by a document id so a re-evaluated bundle cannot produce a second copy:
@@ -176,7 +178,9 @@ Because the row is a native row, box geometry, hover background, `aria-current` 
 
 The section registers into `settings.section` with id `dsh-panellist`, a late `order`, and the label 「面板列表」/ "Panel list". The shell projects only `id`, `order` and `label` and picks the glyph from its closed list (§2 fact 11), so a `MutationObserver` on `document.body` matches `[role="dialog"] nav button` by `textContent` against our own label, stamps `data-dsh-panellist-settings-nav`, and our stylesheet supplies the plugin glyph. Markers are removed and the observer is disconnected on dispose. If no row matches within a bounded time, the plugin keeps the native gear and reports the failure in its own self-check panel — never an error.
 
-The page itself: sequence editor (drag as the primary channel, move-up/move-down buttons as the keyboard-accessible fallback), per-item overrides (name, icon, hidden, locked), group editing, import/export, open-config-file, orphan cleanup, and the self-check status with a re-run button.
+The page itself: sequence editor, per-item overrides (name, icon, hidden, locked), group editing, import/export, open-config-file, orphan cleanup, and the self-check status with a re-run button.
+
+**The sequence editor lists the whole rail, always.** `plan.rows` is every row the rail shows — the configured block first, then the rest in the contributors' own order — and a row's `order` is `null` until something is configured, which is what makes a fresh install write nothing at all (§4.3). Editing the list therefore needs no "adopt this one first" step: the first structural edit materializes the current order, and the per-item actions (move, group, ungroup, hide/show) work on any row from the first open. Hide/show is also available per row in the list, not only inside the appearance editor, because it is the action users reach for most often.
 
 ---
 

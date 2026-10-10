@@ -107,42 +107,15 @@ describe('buildPlan: takeover scope', () => {
     expect(plan.unmanaged).toEqual(['first'])
   })
 
-  it('marks which rows the user configured and lists the rest as the appendix', () => {
-    // `rows` is the RAIL order; `configured` is what the editor's sequence list
-    // filters on, and `appendix` is the pool a per-item take-over draws from.
-    const plan = buildPlan(PANELS, shape(['d']))
-    expect(plan.rows.map(row => [row.id, row.configured])).toEqual([
-      ['d', true],
-      ['a', false],
-      ['b', false],
-      ['c', false],
-      ['e', false],
-    ])
-    expect(plan.appendix).toEqual(['a', 'b', 'c', 'e'])
-    expect(plan.unmanaged).toEqual(['a', 'b', 'c', 'e'])
-  })
-
-  it('separates "not in the sequence" from "never configured"', () => {
-    // A hand-edited config can give a panel an override without putting it in
-    // the sequence: it is managed, so it is NOT unmanaged, but it is still not
-    // in the sequence and must stay reachable from the editor's pool.
-    const plan = buildPlan(PANELS, profile({ entries: { c: { hidden: true } } }))
-    expect(plan.reordering).toBe(false)
-    expect(plan.appendix).toEqual(['a', 'b', 'c', 'd', 'e'])
-    expect(plan.unmanaged).toEqual(['a', 'b', 'd', 'e'])
-  })
-
-  it('has no appendix rows that are in the sequence', () => {
-    const plan = buildPlan(PANELS, shape(['c', { group: 'group:g1', members: ['a'] }, 'e']))
-    const inSequence = plan.rows.filter(row => row.configured).map(row => row.id)
-    expect(inSequence).toEqual(['c', 'group:g1', 'e'])
-    expect(plan.appendix).toEqual(['b', 'd'])
-  })
-
-  it('an empty sequence is a strict no-op on the rail', () => {
+  it('lists the whole rail from the start and writes no order until something is configured', () => {
+    // The editor has no "not configured yet" pool: every registered panel is a
+    // row from the first open, in the contributors' own order. What a fresh
+    // install does NOT do is take over the order — every row's order is null, so
+    // the rewrite pass writes nothing.
     const plan = buildPlan(PANELS, profile())
     expect(plan.reordering).toBe(false)
-    expect(plan.rows).toEqual([])
+    expect(plan.rows.map(row => row.id)).toEqual(['a', 'b', 'c', 'd', 'e'])
+    expect(plan.rows.every(row => row.order === null)).toBe(true)
     for (const panel of plan.panels.values()) {
       expect(panel.order).toBeNull()
       expect(panel.managed).toBe(false)
@@ -150,7 +123,29 @@ describe('buildPlan: takeover scope', () => {
     expect(plan.unmanaged).toEqual(['a', 'b', 'c', 'd', 'e'])
   })
 
-  it('unconfigured panels append after the configured block, keeping native order', () => {
+  it('still keys off the declared order when nothing is configured', () => {
+    const registered: RegisteredPanel[] = [
+      { id: 'late', label: 'Late', order: 30 },
+      { id: 'early', label: 'Early', order: 10 },
+      { id: 'middle', label: 'Middle', order: 20 },
+    ]
+    const plan = buildPlan(registered, profile())
+    expect(plan.rows.map(row => row.id)).toEqual(['early', 'middle', 'late'])
+    expect(plan.rows.every(row => row.order === null)).toBe(true)
+  })
+
+  it('an override alone is applied without reordering', () => {
+    const plan = buildPlan(PANELS, profile({ entries: { b: { label: 'Bee' } } }))
+    expect(plan.reordering).toBe(false)
+    expect(plan.panels.get('b')?.label).toBe('Bee')
+    expect(plan.panels.get('b')?.order).toBeNull()
+    expect(plan.panels.get('b')?.managed).toBe(true)
+    expect(plan.unmanaged).not.toContain('b')
+    // The row is still listed, at its own place in the rail order.
+    expect(plan.rows.map(row => row.id)).toEqual(['a', 'b', 'c', 'd', 'e'])
+  })
+
+  it('unconfigured panels keep the tail of the rail, in native order', () => {
     const plan = buildPlan(PANELS, shape(['d']))
     expect(plan.rows.map(row => row.id)).toEqual(['d', 'a', 'b', 'c', 'e'])
     expect(plan.rows.map(row => row.order)).toEqual([10, 20, 30, 40, 50])
@@ -161,16 +156,8 @@ describe('buildPlan: takeover scope', () => {
     const plan = buildPlan(PANELS, shape(['ghost']))
     expect(plan.reordering).toBe(false)
     expect(plan.orphans).toEqual(['ghost'])
-    expect(plan.rows).toEqual([])
-  })
-
-  it('an override alone is applied without reordering', () => {
-    const plan = buildPlan(PANELS, profile({ entries: { b: { label: 'Bee' } } }))
-    expect(plan.reordering).toBe(false)
-    expect(plan.panels.get('b')?.label).toBe('Bee')
-    expect(plan.panels.get('b')?.order).toBeNull()
-    expect(plan.panels.get('b')?.managed).toBe(true)
-    expect(plan.unmanaged).not.toContain('b')
+    expect(plan.rows.map(row => row.id)).toEqual(['a', 'b', 'c', 'd', 'e'])
+    expect(plan.rows.every(row => row.order === null)).toBe(true)
   })
 
   it('hidden is a hide-unless-active flag, never a suppression', () => {
@@ -186,9 +173,9 @@ describe('buildPlan: takeover scope', () => {
     expect(panel?.order).toBeNull()
     expect(panel?.label).toBe('B')
     expect(panel?.managed).toBe(false)
-    // Nothing is left in the configured block, so the rail keeps its native
-    // order and the locked panel is among the untouched ones.
-    expect(plan.rows).toEqual([])
+    // Nothing live is left in the configured block, so the rail keeps its native
+    // order; the locked panel itself is not a row (it has its own list).
+    expect(plan.rows.map(row => row.id)).toEqual(['a', 'c', 'd', 'e'])
     expect(plan.unmanaged).toEqual(['a', 'c', 'd', 'e'])
     expect(plan.warnings).toContainEqual({ code: 'locked-in-sequence', panelId: 'b' })
   })
@@ -218,7 +205,9 @@ describe('buildPlan: orphans and warnings', () => {
 
   it('a group whose members all vanished renders no row but keeps its config', () => {
     const plan = buildPlan(PANELS, profile({ sequence: [{ type: 'group', id: 'group:g1', members: ['ghost'] }] }))
-    expect(plan.rows).toEqual([])
+    // No group row, and (nothing left configured) the panels keep their own order.
+    expect(plan.rows.map(row => row.id)).toEqual(['a', 'b', 'c', 'd', 'e'])
+    expect(plan.rows.every(row => row.order === null)).toBe(true)
     expect(plan.groups.get('group:g1')?.order).toBeNull()
     expect(plan.dormantGroups).toEqual(['group:g1'])
   })
@@ -231,7 +220,12 @@ describe('buildPlan: orphans and warnings', () => {
     }))
     expect(plan.warnings).toContainEqual({ code: 'group-id-collision', groupId: 'group:g1' })
     expect(plan.groups.has('group:g1')).toBe(false)
-    expect(plan.rows).toEqual([])
+    // The squatter is just an ordinary registered panel from the model's point
+    // of view, so it keeps its own row (the rail adapter filters our namespace
+    // out before buildPlan ever sees it).
+    expect(plan.rows.map(row => [row.kind, row.id, row.order])).toEqual([
+      ['panel', 'dsh-panellist:group:g1', null],
+    ])
   })
 
   it('reports the single-member group and a group id that collides with a panel', () => {

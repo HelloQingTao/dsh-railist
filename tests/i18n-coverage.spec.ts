@@ -21,12 +21,21 @@ function read(file: string): string {
   return readFileSync(file, 'utf8')
 }
 
-/** Every `t('key')` / `translate.t('key')` call site in the client half. */
+/**
+ * Every dictionary key referenced anywhere in the client half.
+ *
+ * The scan is over string literals rather than `t('…')` call sites: some keys
+ * are reached through a lookup table (the sanitiser's failure codes), which is
+ * still a literal but not a call. Matching literals against the dictionary
+ * cannot produce a false "missing" (that direction is checked separately).
+ */
 function usedKeys(): Map<string, string[]> {
+  const known = new Set(Object.keys(en))
   const keys = new Map<string, string[]>()
   for (const file of SOURCE_FILES) {
-    for (const match of read(file).matchAll(/\bt\(\s*'([a-zA-Z][\w.-]*)'/g)) {
+    for (const match of read(file).matchAll(/'([a-zA-Z][\w.-]*)'/g)) {
       const key = match[1] as string
+      if (!known.has(key)) continue
       const where = keys.get(key) ?? []
       where.push(file)
       keys.set(key, where)
@@ -51,6 +60,16 @@ describe('i18n', () => {
       if (!known.has(key)) missing.push(`${key} (${[...new Set(where)].join(', ')})`)
     }
     expect(missing).toEqual([])
+  })
+
+  it('carries no key that nothing renders', () => {
+    // The mirror of the check above, and the one that catches the leftovers a
+    // feature removal leaves behind (the keys survive the code that used them).
+    // Two families are built at runtime from closed sets and are listed below.
+    const used = new Set(usedKeys().keys())
+    const generated = /^(warning|probe)\./
+    const unused = Object.keys(en).filter(key => !used.has(key) && !generated.test(key))
+    expect(unused).toEqual([])
   })
 
   it('documents every warning and probe key the model can produce', () => {

@@ -12,8 +12,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { API_PREFIX } from '../shared/protocol.ts'
-import { createApiHandler, type ApiHandlerOptions } from './routes.ts'
+import { createApiHandler, ROUTE_REGISTRATION, type ApiHandlerOptions } from './routes.ts'
 import { PanellistStore } from './store.ts'
 
 /** Plugin id the composition mounts this module as (`cordis.patch.yml`). */
@@ -66,7 +65,7 @@ export function apply(ctx: Context, config?: PanellistPluginConfig): void {
   ctx.inject(['webServer'], (webCtx) => {
     const webServer = webCtx.reflect.get('webServer') as WebServerLike
     webCtx.effect(
-      () => webServer.register({ kind: 'prefix', path: API_PREFIX, handler }),
+      () => webServer.register({ ...ROUTE_REGISTRATION, handler }),
       'dsh-panellist: loopback api route',
     )
   })

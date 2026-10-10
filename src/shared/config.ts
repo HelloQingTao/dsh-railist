@@ -132,8 +132,12 @@ export function groupRailId(groupId: string): string {
   return `${RAIL_ID_PREFIX}${groupId}`
 }
 
-/** Whether a rail id belongs to a group row registered by this plugin. */
-export function isGroupRailId(railId: string): boolean {
+/**
+ * Whether a rail id lives in this plugin's namespace — a group row, or the
+ * throwaway row the sync nudge registers. Everything in that namespace belongs
+ * to this plugin and is never mistaken for a panel contributed by someone else.
+ */
+export function isOwnRailId(railId: string): boolean {
   return railId.startsWith(RAIL_ID_PREFIX)
 }
 
@@ -168,11 +172,6 @@ export function emptyConfig(): PanellistConfig {
   return { schemaVersion: SCHEMA_VERSION, profiles: {} }
 }
 
-/** The profile section of `profileId`, creating nothing. */
-export function profileOf(config: PanellistConfig, profileId: string): ProfileConfig {
-  return config.profiles[profileId] ?? emptyProfileConfig()
-}
-
 /** A structured clone of one profile section (never shares arrays with the input). */
 export function cloneProfileConfig(profile: ProfileConfig): ProfileConfig {
   return {
@@ -188,20 +187,4 @@ export function cloneProfileConfig(profile: ProfileConfig): ProfileConfig {
     locked: [...profile.locked],
     ...(profile.meta === undefined ? {} : { meta: { ...profile.meta } }),
   }
-}
-
-/** A structured clone of the whole document. */
-export function cloneConfig(config: PanellistConfig): PanellistConfig {
-  return {
-    schemaVersion: SCHEMA_VERSION,
-    profiles: Object.fromEntries(
-      Object.entries(config.profiles).map(([id, profile]) => [id, cloneProfileConfig(profile)]),
-    ),
-  }
-}
-
-/** Whether an override carries any opinion at all. */
-export function isEmptyOverride(override: EntryOverride | undefined): boolean {
-  return override === undefined
-    || (override.label === undefined && override.icon === undefined && override.hidden !== true)
 }

@@ -16,7 +16,6 @@ import { useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { mintGroupId, type ProfileConfig } from '../../shared/config.ts'
 import {
   addToGroup,
-  adoptPanel,
   createGroup,
   dissolveGroup,
   materializeSequence,
@@ -24,8 +23,9 @@ import {
   moveMemberTo,
   moveRow,
   moveRowTo,
-  releasePanel,
   removeFromGroup,
+  setGroupHidden,
+  setPanelHidden,
   type LiveRow,
 } from '../../shared/edit.ts'
 import type { Plan, RegisteredPanel } from '../../shared/model.ts'
@@ -94,20 +94,18 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
   const dragRef = useRef<DragPayload | null>(null)
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
   /**
-   * The rows the user actually configured.
-   *
-   * `plan.rows` is the RAIL order, which also holds every registered but
-   * unconfigured row that the model appends after the configured block. Using
-   * it as the sequence list made a single take-over look like taking over
-   * everything at once (found on a real DSH window).
+   * The whole rail, listed from the start: the sequence is not a separate
+   * "configured" subset any more, so there is nothing for the user to opt into
+   * before they can touch a panel.
    */
-  const rows = plan.rows.filter(row => row.configured)
+  const rows = plan.rows
 
-  /** The whole live rail order: what "use the current rail order" snapshots. */
+  /** The live rail order: what "use the current rail order" snapshots. */
   const railRows = (): LiveRow[] => {
     if (plan.rows.length > 0) return plan.rows.map(row => ({ kind: row.kind, id: row.id }))
-    // Nothing is configured yet, so the rail order IS the registration order:
-    // sort by the declared order only — a stable sort keeps ledger order on ties.
+    // Nothing is registered-but-unsorted yet, so the rail order IS the
+    // registration order: sort by the declared order only — a stable sort keeps
+    // ledger order on ties, exactly like the shell.
     return [...registered]
       .sort((left, right) => left.order - right.order)
       .map(panel => ({ kind: 'panel' as const, id: panel.id }))
@@ -173,12 +171,13 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
   }
 
   /**
-   * Hand one panel back to its contributor. Deliberately NOT materializing:
-   * adopting every other row as a side effect of releasing one would be the
-   * opposite of what the button says.
+   * Hide or show one row. A panel keeps its rail position and stays selectable
+   * while hidden (README §2.3); a group trigger follows the same rule.
    */
-  const release = (id: string): void => {
-    apply(profile => releasePanel(profile, id))
+  const toggleHidden = (kind: 'panel' | 'group', id: string, hidden: boolean): void => {
+    apply(profile => (kind === 'group'
+      ? setGroupHidden(profile, id, hidden)
+      : setPanelHidden(profile, id, hidden)))
   }
 
   const dropOnRow = (event: DragEvent<HTMLLIElement>, index: number): void => {
@@ -215,20 +214,6 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
       return
     }
     applyStructural(profile => moveRowTo(profile, payload.id, rows.length))
-  }
-
-  /**
-   * A row dropped onto the "not in the sequence" list leaves the sequence: a
-   * panel is released back to its contributor, a group is dissolved into the
-   * bare rows it held.
-   */
-  const dropOnUnmanaged = (event: DragEvent<HTMLUListElement>): void => {
-    event.preventDefault()
-    const payload = payloadOf(event)
-    endDrag()
-    if (payload === null) return
-    if (payload.kind === 'group') applyStructural(profile => dissolveGroup(profile, payload.id))
-    else apply(profile => releasePanel(profile, payload.id))
   }
 
   const dropOnMember = (event: DragEvent<HTMLLIElement>, groupId: string, index: number, members: readonly string[]): void => {
@@ -338,25 +323,26 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                 >{t('settings.sequence.ungroup')}</button>
               )
               : (
-                <>
-                  <button
-                    type="button"
-                    className="dsh-panellist-settings-action"
-                    data-action="groupWithNext"
-                    disabled={locked || !canGroupWithNext}
-                    onClick={() => groupWithNext(index)}
-                  >{t('settings.sequence.groupWithNext')}</button>
-                  <button
-                    type="button"
-                    className="dsh-panellist-settings-action"
-                    data-action="release"
-                    disabled={locked}
-                    aria-label={t('settings.sequence.release')}
-                    title={t('settings.sequence.releaseHint')}
-                    onClick={() => release(row.id)}
-                  >{t('settings.sequence.release')}</button>
-                </>
+                <button
+                  type="button"
+                  className="dsh-panellist-settings-action"
+                  data-action="groupWithNext"
+                  disabled={locked || !canGroupWithNext}
+                  onClick={() => groupWithNext(index)}
+                >{t('settings.sequence.groupWithNext')}</button>
               )}
+            {/* Show/hide straight from the list: the per-row visibility toggle
+                is the one action a user reaches for most often. */}
+            <button
+              type="button"
+              className="dsh-panellist-settings-action"
+              data-action="toggleHidden"
+              data-hidden={hidden ? 'true' : 'false'}
+              aria-pressed={hidden}
+              aria-label={hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}
+              title={t('settings.appearance.hiddenHint')}
+              onClick={() => toggleHidden(row.kind, row.id, !hidden)}
+            >{hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}</button>
           </span>
         </div>
         {isGroup && members.length > 0
@@ -422,12 +408,6 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
     )
   }
 
-  /**
-   * Everything registered that is NOT in the sequence — the pool a per-item
-   * take-over draws from, and where a released panel lands again.
-   */
-  const unmanaged = plan.appendix
-
   return (
     <section className="dsh-panellist-settings-block">
       <h3 className="dsh-panellist-settings-blockTitle">{t('settings.sequence.title')}</h3>
@@ -441,6 +421,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
               <button
                 type="button"
                 className="dsh-panellist-settings-action"
+                data-action="materialize"
                 disabled={registered.length === 0}
                 onClick={() => apply(profile => materializeSequence(profile, railRows()))}
               >{t('settings.sequence.materialize')}</button>
@@ -449,7 +430,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
         )
         : null}
 
-      {rows.length === 0 && registered.length === 0
+      {rows.length === 0
         ? <p className="dsh-panellist-settings-hint">{t('settings.sequence.empty')}</p>
         : (
           <div
@@ -460,45 +441,6 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
           >
             <ol className="dsh-panellist-settings-rows">{rows.map((_row, index) => renderRow(index))}</ol>
           </div>
-        )}
-
-      {unmanaged.length === 0
-        ? null
-        : (
-          <details className="dsh-panellist-settings-unmanaged" data-section="unmanaged">
-            <summary>{t('settings.sequence.unmanagedSection', { count: unmanaged.length })}</summary>
-            <p className="dsh-panellist-settings-hint">{t('settings.sequence.unmanagedHint')}</p>
-            <ul
-              className="dsh-panellist-settings-plainList"
-              // Dropping a row here takes it out of the sequence: the gesture
-              // and the "Release to original" button do the same thing.
-              onDragOver={allowDrop}
-              onDrop={dropOnUnmanaged}
-            >
-              {unmanaged.map(id => {
-                const panel = plan.panels.get(id)
-                return (
-                  <li key={id} data-unmanaged-id={id}>
-                    <span className="dsh-panellist-settings-plainListGlyph">{glyph({ icon: panel?.icon ?? null, native: nativeGlyph(id), size: 16 })}</span>
-                    <span className="dsh-panellist-settings-plainListLabel">{panel?.label ?? id}</span>
-                    {panel?.hidden === true
-                      ? <span className="dsh-panellist-settings-badge" data-badge="hidden">{t('settings.appearance.hidden')}</span>
-                      : null}
-                    {/* Per-item takeover. `apply`, not `applyStructural`: materializing
-                        first would take over every other panel as a side effect. */}
-                    <button
-                      type="button"
-                      className="dsh-panellist-settings-action"
-                      data-action="adopt"
-                      aria-label={`${t('settings.sequence.adopt')}: ${panel?.label ?? id}`}
-                      title={t('settings.sequence.adoptHint')}
-                      onClick={() => apply(edit => adoptPanel(edit, id))}
-                    >{t('settings.sequence.adopt')}</button>
-                  </li>
-                )
-              })}
-            </ul>
-          </details>
         )}
     </section>
   )

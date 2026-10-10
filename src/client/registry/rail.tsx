@@ -23,7 +23,7 @@
 import type { ReactNode } from 'react'
 import type { StoredEntry, SlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import type { Plan, RegisteredPanel } from '../../shared/model.ts'
-import { RAIL_ID_PREFIX } from '../../shared/config.ts'
+import { RAIL_ID_PREFIX, isOwnRailId } from '../../shared/config.ts'
 import type { ClientContext } from '../ctx.ts'
 import type { GlyphComponent, GlyphProps, GlyphRequest, RailRowRegistration } from '../contracts.ts'
 import { optionalService } from '../service.ts'
@@ -36,11 +36,6 @@ export const MAIN_SLOT = 'main'
 
 /** Identity of the throwaway registration used to make the shell re-read. */
 export const NUDGE_ID = `${RAIL_ID_PREFIX}nudge`
-
-/** Whether an id belongs to this plugin (group rows, the nudge row). */
-export function isOwnRailId(id: string): boolean {
-  return id.startsWith(RAIL_ID_PREFIX)
-}
 
 /** `resolveSlotLabel` without a value import from ui-slots (forbidden in the browser bundle). */
 function resolveLabel(label: SlotLabel | undefined): string | undefined {

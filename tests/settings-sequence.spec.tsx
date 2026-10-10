@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createHarness } from './helpers/settings-harness.tsx'
 import { Section } from '../src/client/settings/Section.tsx'
 import { emptyProfileConfig, type ProfileConfig } from '../src/shared/config.ts'
-import { materializeSequence, adoptPanel, moveRow, releasePanel, type LiveRow } from '../src/shared/edit.ts'
+import { materializeSequence, moveRow, setGroupHidden, setPanelHidden, type LiveRow } from '../src/shared/edit.ts'
 
 function profileWith(ids: readonly string[]): ProfileConfig {
   return { sequence: ids.map(id => ({ type: 'entry' as const, id })), entries: {}, locked: [] }
@@ -97,67 +97,6 @@ describe('SequenceEditor', () => {
     expect(next?.sequence[1]).toEqual({ type: 'entry', id: 'skills' })
   })
 
-  it('previews an unconfigured panel with its own rail glyph, not the fallback', () => {
-    // On-device regression: every row under "not configured" showed the same
-    // generic placeholder, because the page was never handed the contributor's
-    // own glyph component.
-    renderPage(emptyProfileConfig())
-    const list = document.querySelector('[data-section="unmanaged"]')
-    expect(list).not.toBeNull()
-    for (const id of ['plugins', 'schedules', 'skills']) {
-      expect(list?.querySelector(`[data-native-panel="${id}"]`), `${id} should preview its own glyph`).not.toBeNull()
-    }
-    // The picker's "keep original" preview is the same story for a configured row.
-    expect(list?.querySelector('[data-glyph="native"][data-native="yes"]')).not.toBeNull()
-    // Icon and label are separate flex items: as inline content the contributor's
-    // SVG sits on the text baseline and collides with the name.
-    const first = list?.querySelector('[data-unmanaged-id="plugins"]')
-    expect(first?.querySelector('.dsh-panellist-settings-plainListGlyph')).not.toBeNull()
-    expect(first?.querySelector('.dsh-panellist-settings-plainListLabel')?.textContent).toBe('Plugins')
-  })
-
-  it('takes over ONE unconfigured panel without materializing the rest', () => {
-    // The per-item counterpart of "use the current order as a starting point":
-    // adopting one panel must leave every other panel unmanaged.
-    const harness = renderPage(emptyProfileConfig())
-    const item = document.querySelector('[data-unmanaged-id="schedules"]')
-    const button = item?.querySelector('[data-action="adopt"]')
-    expect(button).not.toBeNull()
-    fireEvent.click(button as HTMLElement)
-    expect(harness.updates[0]).toEqual(adoptPanel(emptyProfileConfig(), 'schedules'))
-    expect(harness.updates[0]?.sequence).toEqual([{ type: 'entry', id: 'schedules' }])
-  })
-
-  it('shows ONLY the configured row after taking over one panel', () => {
-    // Regression from a real DSH window: the sequence list was rendering
-    // `plan.rows`, which is the RAIL order and therefore already contains every
-    // registered-but-unconfigured row the model appends after the configured
-    // block. Adopting one panel made all six look adopted.
-    const harness = renderPage(emptyProfileConfig())
-    fireEvent.click(document.querySelector('[data-unmanaged-id="schedules"] [data-action="adopt"]') as HTMLElement)
-    const produced = harness.updates[0] as ProfileConfig
-    expect(produced.sequence).toEqual([{ type: 'entry', id: 'schedules' }])
-
-    // The store accepts the edit; the page re-plans from the new profile.
-    harness.setProfile(produced)
-    expect(document.querySelectorAll('[data-row-kind]')).toHaveLength(1)
-    expect(document.querySelector('[data-row-id="schedules"]')).not.toBeNull()
-    // ...and the other two are still waiting, untouched.
-    expect([...document.querySelectorAll('[data-unmanaged-id]')].map(node => node.getAttribute('data-unmanaged-id')))
-      .toEqual(['plugins', 'skills'])
-  })
-
-  it('releases one panel back to its contributor', () => {
-    const initial = profileWith(['plugins', 'schedules', 'skills'])
-    const harness = renderPage(initial)
-    fireEvent.click(within(rowOf('schedules')).getByRole('button', { name: 'Release to original' }))
-    expect(harness.updates[0]).toEqual(releasePanel(initial, 'schedules'))
-    expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['plugins', 'skills'])
-    // Releasing is not a materialization either: the rows the user kept stay
-    // exactly as configured.
-    expect(harness.updates[0]?.entries).toEqual({})
-  })
-
   it('dissolves a group back into bare rows', () => {
     const profile: ProfileConfig = {
       sequence: [{ type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] }, { type: 'entry', id: 'skills' }],
@@ -220,19 +159,48 @@ describe('SequenceEditor', () => {
     expect(next?.sequence[1]).toEqual({ type: 'entry', id: 'plugins' })
   })
 
-  it('shows the gated hint and materializes the native rail order on demand', () => {
+  it('lists the whole rail from the start, with the gate explained', () => {
     const harness = renderPage(emptyProfileConfig())
 
     expect(harness.plan().reordering).toBe(false)
-    expect(screen.getByText(/Nothing is configured yet/)).toBeTruthy()
-    expect(screen.getByText('Not configured (3)')).toBeTruthy()
-    // The hint now says what the user can DO here, not just what we do not do;
-    // it is asserted loosely so copy edits do not break the behaviour spec.
-    expect(screen.getByText(/this plugin only takes over what you configure/)).toBeTruthy()
+    expect(screen.getByText(/writes no order at all/)).toBeTruthy()
+    // Every registered panel is a row from the first open: there is no
+    // "configured yet?" pool to opt into.
+    expect(document.querySelectorAll('[data-row-kind]')).toHaveLength(3)
+    expect(document.querySelector('[data-row-id="schedules"]')).not.toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Use the current rail order as a starting point' }))
 
     expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['plugins', 'schedules', 'skills'])
+  })
+
+  it('hides and shows a row straight from the list', () => {
+    const initial = profileWith(['plugins', 'schedules'])
+    const harness = renderPage(initial)
+
+    const hide = within(rowOf('plugins')).getByRole('button', { name: 'Hide' })
+    expect(hide.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(hide)
+    expect(harness.updates[0]).toEqual(setPanelHidden(initial, 'plugins', true))
+
+    // The store accepts it: the same button now offers the way back.
+    const hidden = setPanelHidden(initial, 'plugins', true)
+    harness.setProfile(hidden)
+    const show = within(rowOf('plugins')).getByRole('button', { name: 'Show' })
+    expect(show.getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(show)
+    expect(harness.updates[1]).toEqual(setPanelHidden(hidden, 'plugins', false))
+  })
+
+  it('hides a group trigger through the same button', () => {
+    const initial: ProfileConfig = {
+      sequence: [{ type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] }],
+      entries: {},
+      locked: [],
+    }
+    const harness = renderPage(initial)
+    fireEvent.click(within(rowOf('group:g1')).getByRole('button', { name: 'Hide' }))
+    expect(harness.updates[0]).toEqual(setGroupHidden(initial, 'group:g1', true))
   })
 
   it('says so when nothing is registered at all', () => {

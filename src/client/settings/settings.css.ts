@@ -102,10 +102,6 @@ export const SETTINGS_CSS = `
   border-left-color: var(--dsh-panellist-warn);
 }
 
-.dsh-panellist-settings-banner-error {
-  border-left-color: var(--dsh-panellist-danger);
-}
-
 .dsh-panellist-settings-action {
   flex: none;
   display: inline-flex;
@@ -399,18 +395,6 @@ export const SETTINGS_CSS = `
   align-items: center;
 }
 
-/*
- * Only the label may be truncated, and it owns the slack so a per-item action
- * lands at the end of the row instead of hugging the name.
- */
-.dsh-panellist-settings-plainList li > .dsh-panellist-settings-plainListLabel {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .dsh-panellist-settings-lockedRow {
   display: flex;
   align-items: center;
@@ -467,23 +451,5 @@ export const SETTINGS_CSS = `
   padding: 0;
   list-style: none;
   color: var(--dsh-panellist-muted);
-}
-
-.dsh-panellist-settings-unmanaged > summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-
-/*
- * Explicit spacing rather than relying on the browser's default margins for
- * disclosure content: without it the hint crowds the summary and the list, and
- * the three blocks read as one mangled paragraph.
- */
-.dsh-panellist-settings-unmanaged > .dsh-panellist-settings-hint {
-  margin-top: 4px;
-}
-
-.dsh-panellist-settings-unmanaged > .dsh-panellist-settings-plainList {
-  margin-top: 8px;
 }
 `.trim()

@@ -97,10 +97,9 @@ Three sources, and you can switch back to the original icon at any time:
 
 ### 2.8 Unconfigured items and Orphans
 
-- A newly installed plugin registers a Panel entry you have not configured → it is **appended to the end of the Sequence** (arranged by its own order).
+- A newly installed plugin registers a Panel entry you have not touched yet → it is **listed in the sequence straight away** (after the configured entries, arranged by its own order); there is nothing to opt into first.
 - The contributor of a Panel entry is uninstalled while the config still holds it → the config is **kept**, the management panel marks it "missing", and offers a "Clean up orphans" button.
-- The config **only takes over the Panel entries and Groups the user has configured**; anything the user has not configured is left untouched (keeping the conflict surface with other plugins that move rows on the rail to a minimum).
-- The "not configured" list is not a read-only ornament: it turns "which Panels we never touch" into a checkable fact, and every item in it can be **taken over on its own** (added to the sequence) while every sequence row can be **released back to its original** (removed from the sequence, its overrides and lock cleared). Neither action takes over or releases any other panel — "Use the current rail order as a starting point" is the button that does that all at once.
+- Until you change something, this plugin writes **no `order` at all**: the rail keeps the contributors' own order. The first change (a drag, a rename, a hide) turns the current order into an explicit sequence, and you own it from then on.
 
 ### 2.9 Locked entries
 
@@ -112,9 +111,16 @@ Config changes **take effect immediately**: no need to restart DSH, no need to r
 
 ### 2.11 Scope of takeover
 
-Only "Panel entries the user has configured + Groups" are taken over. Unconfigured items render with native DSH behavior.
+The management panel **lists the whole rail from the first time it is opened**: there is nothing to "adopt" before you can touch a Panel entry, and there is no "not taken over yet" list. (An earlier design had a "not configured" list with per-item take-over / release buttons; it was removed on user feedback — it only added a step.)
 
-Implementation detail (`src/shared/model.ts`): **`order` is only written when the Sequence is non-empty**. An empty Sequence = this plugin is read-only on the rail (which is the state right after installation, a pure no-op). When the Sequence is non-empty, unconfigured Panel entries are appended after the configured block while keeping their native order relative to one another — this is where the "append to the end" and "do not touch unconfigured items" rules intersect: only the `order` field is written for them, and name/icon/hidden are left entirely alone.
+What still holds is the **minimal-intervention property in what gets WRITTEN**, not in the UI:
+
+- The config's `sequence` is **partially authoritative**: it records only what you actually changed.
+- A `sequence` that is empty means **no `order` is written at all** (the state right after installation, a pure no-op), and an unconfigured Panel's name/icon/hidden state is left entirely alone; it keeps the contributor's own order.
+- Your first structural change (a drag, a merge into a Group) writes the current order out as an explicit sequence; unconfigured entries stay after the configured block in their own native order (README §2.8).
+- A locked Panel entry never takes part (§2.9).
+
+Implementation (`src/shared/model.ts`): `rows` is always the whole rail (an unconfigured row's `order` is `null`, meaning "do not write"), while `reordering` decides whether an `order` is written at all.
 
 ---
 
@@ -127,7 +133,7 @@ Adds one item to the left side of the Settings dialog:
 
 Page content:
 
-1. **Sequence editor** — in list form, with **drag and drop** as the main channel (reordering, dragging into an existing Group, dragging a member back out) and each row's "Group with next" button for creating a Group; each item's **Move up/Move down** buttons are the fallback (keyboard and accessibility accessible); each row also offers **"Release to original"** (drop this panel from the sequence and clear its name/icon/hidden/locked overrides, handing it back to its contributor). Every item in the "not configured" list below carries a **"Take over"** button that adds that one panel to the sequence, and dragging a sequence row **onto that list** is the same as pressing "Release to original" (a group dropped there is dissolved). Neither per-item action touches any other panel, while the "Use the current rail order as a starting point" button above takes over everything at once;
+1. **Sequence editor** — lists the whole rail (every Panel entry from the start, with nothing to adopt first). **Drag and drop** is the main channel (reordering, dragging into an existing Group, dragging a member back out); each row's "Group with next" button creates a Group and "Ungroup" dissolves one; **Move up/Move down** are the keyboard fallback; and every row carries a **"Hide"/"Show"** button that toggles that row's visibility in place (Group rows included). While nothing is configured, a banner above the list explains the state and offers "Use the current rail order as a starting point" — which only writes the current order out as an explicit sequence, without moving anything;
 2. **Appearance override for an item** — name, icon (keep the original icon / built-in icon set / paste SVG), Shown or Hidden, locked;
 3. **Group editing** — Group trigger name, Group trigger icon, member order;
 4. **Config import / export** (JSON);
@@ -335,7 +341,7 @@ dsh-panellist/
 3. ✅ **Minimal closed loop** — registry rewrite (order/name/icon/hidden flag) → hiding → settings tab → persistence;
 4. ✅ **Groups** — Group trigger rows, popup menus, drag-and-drop editing, the Group overview fallback page;
 5. ✅ **Hardening** — the four self-checks and read-only degradation, SVG sanitization, import/export, Orphan cleanup, bilingual;
-6. ⏳ **Verification and release** — tests are complete (20 specs / 285 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
+6. ⏳ **Verification and release** — tests are complete (20 specs / 277 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
 
 On-device verification must happen with DSH fully closed (see the link install and rollback in §6), because it modifies the profile's `node_modules`.
 

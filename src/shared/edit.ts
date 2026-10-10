@@ -204,45 +204,6 @@ export function moveRowTo(profile: ProfileConfig, itemId: string, index: number)
 }
 
 /**
- * Take over ONE panel without touching any other (README §2.11).
- *
- * This is the per-item counterpart of {@link materializeSequence}: it appends a
- * single entry to the sequence and deliberately does NOT materialize first,
- * because materializing would take over every other panel as a side effect —
- * exactly what a user asking for "just this one" does not want.
- *
- * Placement follows the documented model: the configured block comes first, so
- * an adopted panel sits at the end of that block (at the top of the rail while
- * nothing else is configured), and unconfigured panels are appended after it.
- */
-export function adoptPanel(profile: ProfileConfig, panelId: string): ProfileConfig {
-  const next = base(profile)
-  const already = next.sequence.some(item => (isEntryItem(item)
-    ? item.id === panelId
-    : item.members.includes(panelId)))
-  if (already) return next
-  next.sequence.push({ type: 'entry', id: panelId })
-  return next
-}
-
-/**
- * Give ONE panel back to its contributor: it leaves the sequence (and any
- * group), loses every display override and is unlocked again, so the model
- * treats it as unmanaged and the rewrite pass restores the registration's own
- * order, name and glyph.
- *
- * The counterpart of {@link adoptPanel}; like it, it does not materialize, so
- * releasing one panel cannot adopt the others.
- */
-export function releasePanel(profile: ProfileConfig, panelId: string): ProfileConfig {
-  const next = base(profile)
-  next.sequence = withoutPanel(next.sequence, panelId)
-  delete next.entries[panelId]
-  next.locked = next.locked.filter(id => id !== panelId)
-  return next
-}
-
-/**
  * Collect `panelIds` into a new group placed at the position of the topmost
  * member (README §2.6), or at `index` when given.
  */

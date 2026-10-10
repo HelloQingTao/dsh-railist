@@ -14,16 +14,11 @@ export type Lang = 'zh' | 'en'
 
 /** The reference dictionary: every key must exist here. */
 export const en = {
-  'common.applied': 'Saved',
   'common.cancel': 'Cancel',
-  'common.close': 'Close',
   'common.confirm': 'Confirm',
-  'common.copy': 'Copy',
   'common.done': 'Done',
   'common.failed': 'Failed',
   'common.loading': 'Loading…',
-  'common.reset': 'Reset',
-  'common.retry': 'Retry',
   'common.save': 'Save',
 
   'settings.nav': 'Panel list',
@@ -34,7 +29,7 @@ export const en = {
   'settings.sequence.hint': 'Drag to reorder, or drop one row onto another to create a group. Move-up / move-down and “Group with next” are the keyboard-accessible fallbacks.',
   'settings.sequence.empty': 'No panel is registered on this profile yet.',
   'settings.sequence.materialize': 'Use the current rail order as a starting point',
-  'settings.sequence.gatedHint': 'Nothing is configured yet, so the rail keeps its native order. Move any row to take over the order of the panels you touch.',
+  'settings.sequence.gatedHint': 'Nothing is configured yet: the rail keeps the order its contributors chose, and this plugin writes no order at all. Your first change turns this list into an explicit order.',
   'settings.sequence.groupWithNext': 'Group with next',
   'settings.sequence.moveUp': 'Move up',
   'settings.sequence.moveDown': 'Move down',
@@ -42,12 +37,8 @@ export const en = {
   'settings.sequence.removeFromGroup': 'Take out of group',
   'settings.sequence.members': '{count} panels',
   'settings.sequence.groupHidden': 'This group is hidden.',
-  'settings.sequence.unmanagedSection': 'Not configured ({count})',
-  'settings.sequence.unmanagedHint': 'These panels are never reordered, renamed, re-iconed or hidden — this plugin only takes over what you configure. Take one over on its own, or leave it entirely alone.',
-  'settings.sequence.adopt': 'Take over',
-  'settings.sequence.adoptHint': 'Add this panel to the sequence, leaving every other panel untouched.',
-  'settings.sequence.release': 'Release to original',
-  'settings.sequence.releaseHint': 'Drop this panel from the sequence and clear its name, icon, hidden and locked overrides: its contributor owns it again.',
+  'settings.sequence.show': 'Show',
+  'settings.sequence.hide': 'Hide',
 
   'settings.group.rename': 'Group name',
   'settings.group.icon': 'Group icon',
@@ -125,8 +116,6 @@ export const en = {
 
   'error.load': 'Could not read the configuration: {reason}',
   'error.save': 'Could not save: {reason}',
-  'error.route': 'The plugin’s host route is unreachable. Configuration changes are kept in this page only.',
-  'error.health': 'Storage problem: {reason}',
 } as const
 
 /** Every translatable key. */
@@ -134,16 +123,11 @@ export type I18nKey = keyof typeof en
 
 /** The Chinese dictionary; a total map, so a missing key is a type error. */
 export const zh: Record<I18nKey, string> = {
-  'common.applied': '已保存',
   'common.cancel': '取消',
-  'common.close': '关闭',
   'common.confirm': '确认',
-  'common.copy': '复制',
   'common.done': '完成',
   'common.failed': '失败',
   'common.loading': '加载中…',
-  'common.reset': '重置',
-  'common.retry': '重试',
   'common.save': '保存',
 
   'settings.nav': '面板列表',
@@ -154,7 +138,7 @@ export const zh: Record<I18nKey, string> = {
   'settings.sequence.hint': '拖拽排序；把一行拖到另一行上即可建组。上下移动与「与下一项合并为分组」是键盘可达的兜底操作。',
   'settings.sequence.empty': '这个 profile 还没有注册任何面板。',
   'settings.sequence.materialize': '以当前轨道顺序作为起点',
-  'settings.sequence.gatedHint': '还没有配置任何项，轨道保持原生顺序。移动任意一行即表示你接管了所触及面板的顺序。',
+  'settings.sequence.gatedHint': '还没有配置任何项：轨道保持贡献者自己的顺序，本插件不写任何顺序。你做出第一处改动时，这份列表就变成显式顺序。',
   'settings.sequence.groupWithNext': '与下一项合并为分组',
   'settings.sequence.moveUp': '上移',
   'settings.sequence.moveDown': '下移',
@@ -162,12 +146,8 @@ export const zh: Record<I18nKey, string> = {
   'settings.sequence.removeFromGroup': '移出分组',
   'settings.sequence.members': '{count} 个面板',
   'settings.sequence.groupHidden': '该分组已隐藏。',
-  'settings.sequence.unmanagedSection': '未配置（{count}）',
-  'settings.sequence.unmanagedHint': '这些面板不会被排序、改名、换图标或隐藏——本插件只接管你配置过的东西。可以单独接管一项，也可以完全不碰。',
-  'settings.sequence.adopt': '接管',
-  'settings.sequence.adoptHint': '把这一项加进序列，其它面板一概不动。',
-  'settings.sequence.release': '恢复原生',
-  'settings.sequence.releaseHint': '把这一项移出序列，并清掉它的名称、图标、隐藏与锁定设置：它重新完全由贡献它的插件决定。',
+  'settings.sequence.show': '显示',
+  'settings.sequence.hide': '隐藏',
 
   'settings.group.rename': '分组名称',
   'settings.group.icon': '分组图标',
@@ -245,8 +225,6 @@ export const zh: Record<I18nKey, string> = {
 
   'error.load': '读取配置失败：{reason}',
   'error.save': '保存失败：{reason}',
-  'error.route': '插件的宿主路由不可达。配置改动只保留在当前页面。',
-  'error.health': '存储异常：{reason}',
 }
 
 const DICTS: Record<Lang, Record<I18nKey, string>> = { en, zh }

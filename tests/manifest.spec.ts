@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest'
 import { name as pluginName } from '../src/plugin/index.ts'
 import { SCHEMA_VERSION } from '../src/shared/config.ts'
 import { API_PREFIX } from '../src/shared/protocol.ts'
+import { ROUTE_REGISTRATION } from '../src/plugin/routes.ts'
 
 const root = process.cwd()
 const manifest: {
@@ -125,7 +126,10 @@ describe('runtime file contracts', () => {
       JSON.parse(readFileSync(resolve(root, 'docs/config.schema.json'), 'utf8'))
     expect(schema.properties.schemaVersion.const).toBe(SCHEMA_VERSION)
     expect(API_PREFIX).toBe('/panellist/api')
-    // The prefix the browser half calls must be the one the host registers.
-    expect(readFileSync(resolve(root, 'src/plugin/index.ts'), 'utf8')).toContain('path: API_PREFIX')
+    // The prefix the browser half calls, the registration the host half makes and
+    // the description `plugin/index.ts` gives the loader are one value.
+    expect(ROUTE_REGISTRATION.path).toBe(API_PREFIX)
+    expect(ROUTE_REGISTRATION.kind).toBe('prefix')
+    expect(readFileSync(resolve(root, 'src/plugin/index.ts'), 'utf8')).toContain('ROUTE_REGISTRATION')
   })
 })

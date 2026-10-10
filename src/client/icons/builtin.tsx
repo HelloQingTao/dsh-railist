@@ -311,6 +311,13 @@ export const BUILTIN_GLYPHS: Record<BuiltinIconName, BuiltinGlyphRenderer> = GLY
  * and names the missing glyph in the error when that happens.
  */
 type MissingBuiltinGlyph = Exclude<BuiltinIconName, keyof typeof GLYPH_CATALOGUE>
+/**
+ * Compile-time witness, intentionally exported: the VALUE is meaningless, the
+ * TYPE is the assertion. A non-exported unused const would be an error under
+ * `noUnusedLocals`, and the failure mode it guards (a name added to the frozen
+ * catalogue with no glyph behind it) is exactly what a reader would otherwise
+ * only discover as a blank icon at runtime.
+ */
 export const BUILTIN_GLYPHS_ARE_EXHAUSTIVE: MissingBuiltinGlyph extends never
   ? true
   : `missing builtin glyph: ${MissingBuiltinGlyph}` = true
