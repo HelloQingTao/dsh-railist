@@ -305,7 +305,7 @@ dsh-panellist/
 │     ├─ groups/              # 组头行、捕获阶段点击拦截、弹出菜单、概览页
 │     ├─ settings/            # 设置页签：序列编辑、外观覆盖、配置、自检
 │     └─ icons/               # 24 个内置图标 + SVG 白名单净化
-├─ tests/                     # 19 个 spec（模型、宿主半、改写、探针、分组、设置、图标、文案一致性）
+├─ tests/                     # 20 个 spec（模型、宿主半、改写、探针、分组、设置、图标、文案一致性、打包契约）
 ├─ docs/
 │  ├─ adr/0001-registry-rewrite-plus-minimal-dom.md
 │  ├─ ARCHITECTURE.md
@@ -334,9 +334,29 @@ dsh-panellist/
 3. ✅ **最小闭环**——注册表改写（顺序/名称/图标/隐藏标记）→ 隐藏 → 设置页签 → 持久化；
 4. ✅ **分组**——组头行、弹出菜单、拖拽编辑、分组概览兜底页；
 5. ✅ **加固**——四项自检与只读降级、SVG 净化、导入导出、孤儿清理、中英双语；
-6. ⏳ **验证与发布**——测试已补齐（19 个 spec / 257 条用例，`pnpm check` 全绿）；**待办：真机验证（`link:` 进 desktop profile 后重启 DSH）与截图，然后决定是否发布 npm**。
+6. ⏳ **验证与发布**——测试已补齐（20 个 spec / 266 条用例，`pnpm check` 全绿）；**待办：真机验证（`link:` 进 desktop profile 后重启 DSH）与截图，然后决定是否发布 npm**。
 
 真机验证要在 DSH 完全退出后进行（见 §6 的 link 安装与回滚），因为它会改动 profile 的 `node_modules`。
+
+### 不启动应用也能做的静态校验
+
+挂载层本身可以离线验：用 CLI 把本仓库的 patch 叠加到任意**非 desktop** profile 上，只导出组合结果（`desktop` profile 由 Electron 应用独占管理，CLI 会直接拒绝，这是刻意的）。
+
+```bash
+# 造一个临时 profile（从内置 web 模板派生），叠加本仓库的挂载层，只打印组合树
+dsh panellist-dryrun --from-default-profile web \
+  --patch E:/ai-code-space/dsh-panellist/cordis.patch.yml --dump-config
+```
+
+组合树里应当出现下面这两行（已实测）：
+
+```
+# == E:/ai-code-space/dsh-panellist/cordis.patch.yml
+- id: panellist
+  name: dsh-panellist
+```
+
+这条命令不启动任何服务、不装依赖；验证完把 `$DSH_HOME/profiles/panellist-dryrun` 删掉即可。`tests/manifest.spec.ts` 把这几个一致性断言（包名 = 插件 `name` 导出 = patch 里的 `name`、运行时读取的文件都在 `files` 里、schema 版本与路由前缀单一来源）变成了每次 `pnpm check` 都会跑的用例。
 
 ---
 

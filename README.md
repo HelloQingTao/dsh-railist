@@ -305,7 +305,7 @@ dsh-panellist/
 │     ├─ groups/              # Group trigger rows, capture-phase click interception, popup menu, overview page
 │     ├─ settings/            # settings tab: Sequence editing, appearance overrides, config, self-checks
 │     └─ icons/               # 24 built-in icons + SVG allowlist sanitization
-├─ tests/                     # 19 specs (model, host half, rewriting, probe, groups, settings, icons, copy consistency)
+├─ tests/                     # 20 specs (model, host half, rewriting, probe, groups, settings, icons, copy consistency, packaging contract)
 ├─ docs/
 │  ├─ adr/0001-registry-rewrite-plus-minimal-dom.md
 │  ├─ ARCHITECTURE.md
@@ -334,9 +334,30 @@ dsh-panellist/
 3. ✅ **Minimal closed loop** — registry rewrite (order/name/icon/hidden flag) → hiding → settings tab → persistence;
 4. ✅ **Groups** — Group trigger rows, popup menus, drag-and-drop editing, the Group overview fallback page;
 5. ✅ **Hardening** — the four self-checks and read-only degradation, SVG sanitization, import/export, Orphan cleanup, bilingual;
-6. ⏳ **Verification and release** — tests are complete (19 specs / 257 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
+6. ⏳ **Verification and release** — tests are complete (20 specs / 266 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
 
 On-device verification must happen with DSH fully closed (see the link install and rollback in §6), because it modifies the profile's `node_modules`.
+
+### Static checks that need no application start
+
+The mount layer can be verified offline: point the CLI at any **non-desktop** profile with this repository's patch layered on top.
+
+```bash
+# Create a throwaway profile (derived from the shipped web template), layer this
+# repository's mount patch onto it, and print the composed tree only.
+dsh panellist-dryrun --from-default-profile web \
+  --patch E:/ai-code-space/dsh-panellist/cordis.patch.yml --dump-config
+```
+
+The composed tree contains (measured on this machine):
+
+```
+# == E:/ai-code-space/dsh-panellist/cordis.patch.yml
+- id: panellist
+  name: dsh-panellist
+```
+
+Nothing is served and nothing is installed; delete `$DSH_HOME/profiles/panellist-dryrun` afterwards. `desktop` itself is managed exclusively by the Electron application and the CLI refuses it outright — deliberate, and the reason this recipe uses a throwaway profile. `tests/manifest.spec.ts` turns the consistency invariants (package name = the plugin's `name` export = the patch's `name`, every runtime-read file listed in `files`, one source of truth for the schema version and the route prefix) into cases that run on every `pnpm check`.
 
 ---
 
