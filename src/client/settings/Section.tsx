@@ -1,5 +1,5 @@
 /**
- * The settings page (README §3, ARCHITECTURE §6, task item 1).
+ * The settings page (README §3).
  *
  * Sections render inside the settings dialog's content column, so this page
  * owns its own header and cards. It is the single owner of reactivity: the

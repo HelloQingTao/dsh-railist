@@ -70,11 +70,11 @@ describe('package manifest', () => {
     // The host reads the schema next to its own module; the loader reads the
     // patch layer; the README pair is the documented behaviour contract.
     expect(manifest.dsh.bundle.patch).toBe('./cordis.patch.yml')
-    for (const required of ['lib/types', 'cordis.patch.yml', 'docs/config.schema.json', 'README.md', 'README.zh-CN.md']) {
+    for (const required of ['lib/types', 'cordis.patch.yml', 'schema/config.schema.json', 'README.md', 'README.zh-CN.md']) {
       expect(manifest.files, `files must include ${required}`).toContain(required)
     }
     expect(existsSync(resolve(root, 'cordis.patch.yml'))).toBe(true)
-    expect(existsSync(resolve(root, 'docs/config.schema.json'))).toBe(true)
+    expect(existsSync(resolve(root, 'schema/config.schema.json'))).toBe(true)
   })
 
   it('mounts exactly one enabled row, under a reserved entry id', () => {
@@ -123,7 +123,7 @@ describe('package manifest', () => {
 describe('runtime file contracts', () => {
   it('keeps the schema version and the route prefix single-sourced', () => {
     const schema: { properties: { schemaVersion: { const: number } } } =
-      JSON.parse(readFileSync(resolve(root, 'docs/config.schema.json'), 'utf8'))
+      JSON.parse(readFileSync(resolve(root, 'schema', 'config.schema.json'), 'utf8'))
     expect(schema.properties.schemaVersion.const).toBe(SCHEMA_VERSION)
     expect(API_PREFIX).toBe('/panellist/api')
     // The prefix the browser half calls, the registration the host half makes and

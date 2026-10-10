@@ -5,7 +5,7 @@
  * Registered once at unit construction (the lifecycle doc: chunks are ordered by
  * registration, so a unit registers while it is built, never lazily).
  *
- * Token names are the ones the shipped shell uses (README §5 / ARCHITECTURE §5):
+ * Token names are the ones the shipped shell uses (README §2.6):
  * `--dsw-alias-interactive-bg-hover` is exactly the fill `_panelRow:hover` and
  * `_panelActive` paint, which is what makes a group trigger look like a
  * selected row without the shell ever selecting it.

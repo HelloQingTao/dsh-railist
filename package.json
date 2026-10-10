@@ -21,10 +21,9 @@
     "lib/client.js",
     "lib/types",
     "cordis.patch.yml",
-    "docs/config.schema.json",
+    "schema/config.schema.json",
     "README.md",
     "README.zh-CN.md",
-    "GLOSSARY.md",
     "LICENSE"
   ],
   "publishConfig": {

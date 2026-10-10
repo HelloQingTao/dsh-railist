@@ -8,7 +8,7 @@
  * 2. **Rewriting** — write `order`, `label` and the glyph `component` of the
  *    entries the plan manages. The stored entry object is not frozen and is
  *    handed back by `entriesOfSlot`, so a post-hoc write is visible to the
- *    shell (verified fact 3 in docs/ARCHITECTURE.md). Every original field is
+ *    shell (verified against the slot registry's own source). Every original field is
  *    captured the first time an entry is seen, so "no opinion" always means
  *    "restore the contributor's own value".
  * 3. **Contribution** — register our own group rows (and their `main` pages)

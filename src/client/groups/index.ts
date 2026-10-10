@@ -2,8 +2,8 @@
  * The groups unit: it reconciles the plan's groups into real rail rows and owns
  * the flyout they open.
  *
- * A group row is a genuine registration into `sidebar.panellist` (ARCHITECTURE
- * §5), so the shell places it by `order`, renders its `label` and reuses both as
+ * A group row is a genuine registration into `sidebar.panellist`
+ * so the shell places it by `order`, renders its `label` and reuses both as
  * the accessible name and the collapsed tooltip. This module owns only the
  * reconcile/registration lifecycle; `Row.tsx` owns the glyph and its wiring,
  * `Flyout.tsx` the overlay, `Overview.tsx` the insurance `main` page.

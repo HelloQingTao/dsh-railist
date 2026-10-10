@@ -1,5 +1,5 @@
 /**
- * The settings unit (README §3, ARCHITECTURE §6).
+ * The settings unit (README §3).
  *
  * Registers one `settings.section` entry — id `dsh-panellist`, a late order,
  * and a label thunk so a locale switch needs no re-registration — and hands the

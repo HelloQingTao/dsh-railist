@@ -7,7 +7,7 @@
  * first paint is already in place (never a visible jump), and dismissal driven by
  * capture-phase document listeners.
  *
- * Differences that come from this shell (ARCHITECTURE §5):
+ * Differences that come from this shell:
  * - the anchor is a rail row, so placement depends on the rail's state: a
  *   collapsed 56 px rail flies out to the RIGHT of the row, a wide rail drops
  *   BELOW it; both flip at the viewport edges with an 8 px margin;

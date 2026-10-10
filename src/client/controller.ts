@@ -1,7 +1,7 @@
 /**
  * The client controller: the one place that knows how the units fit together.
  *
- * Data flow (ARCHITECTURE §1):
+ * Data flow:
  *
  *   store ──profile──┐
  *                    ├─▶ buildPlan ──▶ rail.applyOverrides()  (order/label/glyph writes)

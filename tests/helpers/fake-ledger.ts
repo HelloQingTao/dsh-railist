@@ -2,7 +2,7 @@
  * A faithful-enough fake of the shell's slot ledger.
  *
  * It reproduces the three properties the rewrite pass depends on and that
- * docs/ARCHITECTURE.md recorded as verified facts:
+ * were verified against the slot registry's own source:
  *   - `register()` copies the options into a FRESH object and stores it plainly
  *     (never frozen), and `entries`/`entriesOfSlot` hand that stored object back;
  *   - a raw field write on a stored entry bumps no version and notifies nobody;

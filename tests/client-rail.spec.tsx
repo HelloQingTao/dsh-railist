@@ -2,7 +2,7 @@
  * The rewrite pass, exercised against a fake ledger that reproduces the shell's
  * documented mutation semantics.
  *
- * This is the test that would catch the failure modes docs/ARCHITECTURE.md §10
+ * This is the test that would catch the failure modes this pass avoids:
  * lists: a frozen entry, a snapshot that hides the write, and a wrapper that
  * loses the contributor's component on restore.
  */

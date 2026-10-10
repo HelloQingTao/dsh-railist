@@ -1,5 +1,5 @@
 /**
- * The four startup self-checks (README §5, ARCHITECTURE §7).
+ * The four startup self-checks (README §5).
  *
  * This plugin rests on four *internal* facts of the shell, so it measures each
  * one instead of assuming it, and degrades the affected feature — never
@@ -35,7 +35,7 @@ const PROBE_DECLARATION_TIMEOUT_MS = 5000
 /**
  * The selector the hide rule uses — imported, never restated: a probe that
  * measures a different shape than the rule matches is worse than no probe
- * (`rail/css.ts` owns the string, ARCHITECTURE §4.4).
+ * (`rail/css.ts` owns the string).
  */
 const ROW_SELECTOR = PANEL_ROW_SELECTOR
 

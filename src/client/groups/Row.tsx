@@ -4,7 +4,7 @@
  *
  * The row belongs to the shell (one `<button>` per entry), so this glyph must not
  * nest an interactive element. Instead it installs CAPTURE-phase `click` and
- * `keydown` listeners on its ancestor button (ARCHITECTURE §5): capture runs
+ * `keydown` listeners on its ancestor button: capture runs
  * before React's delegated handler at the root, so a single `stopPropagation()`
  * keeps the shell's own `selectPanel` from ever running while
  * `preventDefault()` cancels the row's default activation.

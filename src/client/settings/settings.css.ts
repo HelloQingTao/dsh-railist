@@ -1,5 +1,5 @@
 /**
- * The settings page's CSS chunk (README §3, ARCHITECTURE §6).
+ * The settings page's CSS chunk (README §3).
  *
  * Every class is namespaced `dsh-panellist-settings-`. Colour comes from the
  * shell's own alias tokens (`--dsw-alias-*`, the names the shipped settings

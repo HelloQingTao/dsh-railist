@@ -231,7 +231,7 @@ describe('controller: wiring', () => {
     h.ledger.register({ name: MAIN, key: 'memory' }, () => null)
     await h.settle()
     // Configured first, then the unconfigured block in the contributors' own
-    // order (plugins 0, memory 5, schedules 10) — README §2.8 + ARCHITECTURE §4.3.
+    // order (plugins 0, memory 5, schedules 10) — README §2.8.
     expect(h.controller.plan().rows.map(row => row.id)).toEqual(['skills', 'plugins', 'memory', 'schedules'])
     expect(entry(h.ledger, 'memory').options.order).toBe(30)
   })

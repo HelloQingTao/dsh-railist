@@ -1,7 +1,7 @@
 /**
  * The normative schema and the documentation must not drift apart.
  *
- * `docs/config.schema.json` is what the host validates with; README.zh-CN.md
+ * `schema/config.schema.json` is what the host validates with; README.zh-CN.md
  * §4.2 shows users what to hand-edit. This spec compiles the real schema file
  * and runs the real documented example (and the documented negative case)
  * through it, so an edit to either side that breaks the other fails the suite.
@@ -16,7 +16,7 @@ import { normalizeConfigDocument } from '../src/shared/validate.ts'
 
 // `import.meta.url` is not a file: URL under the jsdom test transform, so the
 // schema is located from the project root instead.
-const schemaPath = resolve(process.cwd(), 'docs', 'config.schema.json')
+const schemaPath = resolve(process.cwd(), 'schema', 'config.schema.json')
 const schema: unknown = JSON.parse(readFileSync(schemaPath, 'utf8'))
 
 const ajv = new Ajv2020({ allErrors: true, strict: false })
@@ -51,7 +51,7 @@ const README_EXAMPLE = {
 /** The shape a fresh install writes: an empty document. */
 const FRESH = { schemaVersion: SCHEMA_VERSION, profiles: {} }
 
-describe('docs/config.schema.json', () => {
+describe('schema/config.schema.json', () => {
   it('accepts the documented example', () => {
     const ok = validate(README_EXAMPLE)
     expect(validate.errors ?? []).toEqual([])

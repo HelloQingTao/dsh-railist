@@ -13,7 +13,7 @@
  *   writes a `0600` temp file next to the target and renames it, falling back
  *   to a direct write when Windows refuses the replace.
  *
- * `docs/config.schema.json` is the normative shape: ajv is the authority here,
+ * `schema/config.schema.json` is the normative shape: ajv is the authority here,
  * while `src/shared/validate.ts` is the browser half's lenient mirror.
  * @module
  */
@@ -43,7 +43,7 @@ const PROFILES_DIR_NAME = 'profiles'
  * Where the compiled schema may sit relative to this module: `src/plugin/`
  * when the source runs (tests, `tsc`), `lib/` after the build. First hit wins.
  */
-const SCHEMA_CANDIDATES = ['../docs/config.schema.json', '../../docs/config.schema.json'] as const
+const SCHEMA_CANDIDATES = ['../schema/config.schema.json', '../../schema/config.schema.json'] as const
 
 /** Mirrors `profiles.propertyNames` in the schema; also keeps a crafted id out of the path join. */
 const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
@@ -144,7 +144,7 @@ async function readSchema(): Promise<object> {
     }
   }
   throw new Error(
-    `dsh-panellist: docs/config.schema.json not found next to ${import.meta.url} `
+    `dsh-panellist: schema/config.schema.json not found next to ${import.meta.url} `
     + `(tried ${SCHEMA_CANDIDATES.join(', ')})`,
   )
 }
