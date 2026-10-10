@@ -25,7 +25,7 @@ import type { Translator } from './i18n/index.ts'
 import { createRailAdapter } from './registry/rail.tsx'
 import { createSettingsUnit } from './settings/index.tsx'
 import { createSelfCheck } from './rail/probe.ts'
-import { createSettingsNavMarker, GROUP_ACTIVE_CSS, HIDE_CSS, settingsNavCss } from './rail/css.ts'
+import { createSettingsNavMarker, HIDE_CSS, settingsNavCss } from './rail/css.ts'
 import type { StyleRegistry } from './styles.ts'
 
 /** What the wiring needs from the outside (all pure inputs). */
@@ -92,7 +92,6 @@ export function createController(deps: ControllerDeps): PanellistController {
   let cascade = 0
 
   styles.register('rail', HIDE_CSS)
-  styles.register('rail-group-active', GROUP_ACTIVE_CSS)
   styles.register('settings-nav', settingsNavCss(deps.glyphDataUri('list')))
 
   // --- plan -----------------------------------------------------------------

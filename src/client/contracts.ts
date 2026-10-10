@@ -113,21 +113,21 @@ export interface ProbeResult {
 
 /** Aggregate self-check state. */
 export interface SelfCheckState {
+  /**
+   * One entry per probe, in a fixed order. Each failed entry carries the detail
+   * the settings page prints plus its impact copy, so no aggregate boolean is
+   * kept alongside it: a second copy of "which feature is off" is a second thing
+   * to keep true.
+   */
   results: readonly ProbeResult[]
   /** Any failure at all: the settings page shows the degraded banner. */
   degraded: boolean
-  /** Probe 1 failed: no rewriting happens at all. */
+  /** Probe 1 failed: no rewriting happens at all (the controller honours it). */
   readOnly: boolean
-  /** Probe 2 failed: hiding is off. */
-  hidingDisabled: boolean
   /** Probe 3 failed: "hidden but active stays visible" is off. */
   activeRuleDisabled: boolean
-  /** Probe 4 failed: the settings tab keeps the default gear. */
-  settingsIconDisabled: boolean
   /** DSH version as measured, or an empty string. */
   version: string
-  /** ISO timestamp of the last run. */
-  checkedAt: string
 }
 
 export interface SelfCheckController {

@@ -105,11 +105,8 @@ const DEFAULT_SELF_CHECK: SelfCheckState = {
   results: OK_PROBES,
   degraded: false,
   readOnly: false,
-  hidingDisabled: false,
   activeRuleDisabled: false,
-  settingsIconDisabled: false,
   version: '0.2.0-rc.2',
-  checkedAt: '2026-10-10T00:00:00.000Z',
 }
 
 function glyphStub(request: GlyphRequest): JSX.Element {
@@ -139,7 +136,6 @@ export function createHarness(options: HarnessOptions = {}): Harness {
   let status: StoreSnapshot['status'] = 'ready'
   let error: string | null = null
   let revision = 0
-  let saved = 0
   const listeners = new Set<() => void>()
   const updates: ProfileConfig[] = []
   const imports: ProfileConfig[] = []
@@ -162,7 +158,6 @@ export function createHarness(options: HarnessOptions = {}): Harness {
     health,
     error,
     revision,
-    saved,
   })
 
   let cached = snapshot()
@@ -274,7 +269,6 @@ export function createHarness(options: HarnessOptions = {}): Harness {
       },
       rerun: async () => {
         selfCheck.reruns += 1
-        selfState = { ...selfState, checkedAt: '2026-10-10T00:00:01.000Z' }
         for (const listener of selfListeners) listener()
       },
     },

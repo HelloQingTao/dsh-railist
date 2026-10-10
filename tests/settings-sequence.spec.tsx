@@ -163,7 +163,7 @@ describe('SequenceEditor', () => {
     const harness = renderPage(emptyProfileConfig())
 
     expect(harness.plan().reordering).toBe(false)
-    expect(screen.getByText(/writes no order at all/)).toBeTruthy()
+    expect(screen.getByText(/no order is written/)).toBeTruthy()
     // Every registered panel is a row from the first open: there is no
     // "configured yet?" pool to opt into.
     expect(document.querySelectorAll('[data-row-kind]')).toHaveLength(3)
@@ -178,18 +178,32 @@ describe('SequenceEditor', () => {
     const initial = profileWith(['plugins', 'schedules'])
     const harness = renderPage(initial)
 
-    const hide = within(rowOf('plugins')).getByRole('button', { name: 'Hide' })
-    expect(hide.getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(hide)
+    // The button is a command whose name is the action ("Hide" / "Show"), so the
+    // label flips with the state instead of an aria-pressed toggle.
+    fireEvent.click(within(rowOf('plugins')).getByRole('button', { name: 'Hide' }))
     expect(harness.updates[0]).toEqual(setPanelHidden(initial, 'plugins', true))
 
     // The store accepts it: the same button now offers the way back.
     const hidden = setPanelHidden(initial, 'plugins', true)
     harness.setProfile(hidden)
-    const show = within(rowOf('plugins')).getByRole('button', { name: 'Show' })
-    expect(show.getAttribute('aria-pressed')).toBe('true')
-    fireEvent.click(show)
+    fireEvent.click(within(rowOf('plugins')).getByRole('button', { name: 'Show' }))
     expect(harness.updates[1]).toEqual(setPanelHidden(hidden, 'plugins', false))
+  })
+
+  it('hides a row WITHOUT materializing the sequence', () => {
+    // The redesign's central property: hiding is one row's override, not a
+    // structural edit. Started from an empty profile on purpose — with an
+    // already-materialized sequence, `apply` and `applyStructural` would produce
+    // the same update and the property would go untested.
+    const harness = renderPage(emptyProfileConfig())
+    fireEvent.click(within(rowOf('plugins')).getByRole('button', { name: 'Hide' }))
+    expect(harness.updates[0]).toEqual({
+      sequence: [],
+      entries: { plugins: { hidden: true } },
+      locked: [],
+    })
+    // The rail order is still the contributors' own: nothing was taken over.
+    expect(harness.plan().reordering).toBe(false)
   })
 
   it('hides a group trigger through the same button', () => {

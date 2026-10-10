@@ -8,7 +8,7 @@ This plugin lets the **user** take over: which Panel entries appear on the rail,
 
 > Status: **implemented** (milestones 2–5 complete, milestone 6 partially complete). This document is the behavior spec confirmed by both sides; implementation trade-offs are recorded in [docs/adr/0001](docs/adr/0001-registry-rewrite-plus-minimal-dom.md), technical details in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and the configuration format in [docs/config.schema.json](docs/config.schema.json). Term definitions are in [GLOSSARY.md](GLOSSARY.md).
 >
-> Three refinements to the original design (all discovered during implementation and backfilled into this document): the rail id of a Group is `dsh-panellist:<groupId>`; unconfigured Panel entries are ordered and appended only when the Sequence is non-empty; and the `/panellist/api/reveal` endpoint was added to implement "Open config file".
+> Three refinements to the original design (all discovered during implementation and backfilled into this document): the rail id of a Group is `dsh-panellist:<groupId>`; unconfigured Panel entries are always listed on the rail, but an `order` is written only once the Sequence is non-empty (i.e. after your first structural change); and the `/panellist/api/reveal` endpoint was added to implement "Open config file".
 
 ---
 
@@ -99,7 +99,7 @@ Three sources, and you can switch back to the original icon at any time:
 
 - A newly installed plugin registers a Panel entry you have not touched yet → it is **listed in the sequence straight away** (after the configured entries, arranged by its own order); there is nothing to opt into first.
 - The contributor of a Panel entry is uninstalled while the config still holds it → the config is **kept**, the management panel marks it "missing", and offers a "Clean up orphans" button.
-- Until you change something, this plugin writes **no `order` at all**: the rail keeps the contributors' own order. The first change (a drag, a rename, a hide) turns the current order into an explicit sequence, and you own it from then on.
+- Until you make a STRUCTURAL change (a drag, creating or dissolving a group), this plugin writes **no order at all**: the rail keeps the order its contributors chose. A rename, a re-icon or a hide only overrides that one entry and leaves the order alone — which is what "we do not touch what you did not ask us to touch" means in practice.
 
 ### 2.9 Locked entries
 
@@ -341,7 +341,7 @@ dsh-panellist/
 3. ✅ **Minimal closed loop** — registry rewrite (order/name/icon/hidden flag) → hiding → settings tab → persistence;
 4. ✅ **Groups** — Group trigger rows, popup menus, drag-and-drop editing, the Group overview fallback page;
 5. ✅ **Hardening** — the four self-checks and read-only degradation, SVG sanitization, import/export, Orphan cleanup, bilingual;
-6. ⏳ **Verification and release** — tests are complete (20 specs / 277 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
+6. ⏳ **Verification and release** — tests are complete (20 specs / 278 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
 
 On-device verification must happen with DSH fully closed (see the link install and rollback in §6), because it modifies the profile's `node_modules`.
 

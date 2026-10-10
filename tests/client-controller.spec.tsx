@@ -38,7 +38,6 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): PanellistStor
   const listeners = new Set<() => void>()
   let profile = initial
   let revision = 0
-  let saved = 0
   let snapshot: StoreSnapshot = {
     status: 'ready',
     profileId: 'desktop',
@@ -47,11 +46,10 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): PanellistStor
     health: HEALTH,
     error: null,
     revision,
-    saved,
   }
   const publish = (): void => {
     revision += 1
-    snapshot = { ...snapshot, profile, revision, saved, document: { schemaVersion: 1, profiles: { desktop: profile } } }
+    snapshot = { ...snapshot, profile, revision, document: { schemaVersion: 1, profiles: { desktop: profile } } }
     for (const listener of listeners) listener()
   }
   const store: PanellistStore & { profile: ProfileConfig; writes: number } = {
@@ -67,7 +65,6 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): PanellistStor
       profile = mutator({ ...profile })
       store.profile = profile
       store.writes += 1
-      saved += 1
       publish()
       return true
     },
@@ -92,6 +89,8 @@ interface Harness {
   styles: ReturnType<typeof createStyleRegistry>
   selected: string[]
   active: { id: string }
+  /** Each panel's own glyph component, as registered. */
+  originals: Map<string, unknown>
   settle(): Promise<void>
   dispose(): void
 }
@@ -99,9 +98,17 @@ interface Harness {
 function harness(options: { profile?: ProfileConfig; activePanelId?: string } = {}): Harness {
   const ledger = new FakeLedger()
   for (const slot of [RAIL, MAIN, SETTINGS]) ledger.declare(slot)
-  ledger.register({ name: RAIL, id: 'plugins', order: 0, label: 'Plugins' }, () => null)
-  ledger.register({ name: RAIL, id: 'schedules', order: 10, label: () => 'Schedules' }, () => null)
-  ledger.register({ name: RAIL, id: 'skills', order: 20, label: 'Skills' }, () => null)
+  // One named glyph per panel, so a spec can tell "the wrapper replaced this
+  // component" (identity differs from the captured original) apart from "these
+  // two panels have different glyphs" (which is true no matter what we do).
+  const originals = new Map<string, unknown>([
+    ['plugins', (): null => null],
+    ['schedules', (): null => null],
+    ['skills', (): null => null],
+  ])
+  ledger.register({ name: RAIL, id: 'plugins', order: 0, label: 'Plugins' }, originals.get('plugins'))
+  ledger.register({ name: RAIL, id: 'schedules', order: 10, label: () => 'Schedules' }, originals.get('schedules'))
+  ledger.register({ name: RAIL, id: 'skills', order: 20, label: 'Skills' }, originals.get('skills'))
   for (const id of ['plugins', 'schedules', 'skills']) ledger.register({ name: MAIN, key: id }, () => null)
 
   const selected: string[] = []
@@ -144,6 +151,7 @@ function harness(options: { profile?: ProfileConfig; activePanelId?: string } = 
     styles,
     selected,
     active,
+    originals,
     settle: () => new Promise<void>(resolve => { setTimeout(resolve, 0) }),
     dispose: () => { controller.dispose(); store.dispose() },
   }
@@ -185,8 +193,12 @@ describe('controller: wiring', () => {
     expect(entry(h.ledger, 'schedules').options.order).toBe(30)
     expect(typeof entry(h.ledger, 'schedules').options.label).toBe('function')
     expect((entry(h.ledger, 'schedules').options.label as () => string)()).toBe('Jobs')
-    // Only the configured panel got a wrapper.
-    expect(entry(h.ledger, 'plugins').component).not.toBe(entry(h.ledger, 'skills').component)
+    // Only the rows that need a marker or an icon got a wrapper. The harness
+    // registers every entry with its own arrow function, so comparing two of
+    // those to each other would pass with the wrapper feature deleted — the
+    // comparison has to be against the SAME entry's captured original.
+    expect(entry(h.ledger, 'schedules').component).not.toBe(h.originals.get('schedules'))
+    expect(entry(h.ledger, 'skills').component).toBe(h.originals.get('skills'))
   })
 
   it('registers the settings section under the plugin id', () => {
@@ -303,7 +315,8 @@ describe('controller: teardown', () => {
     expect(entry(h.ledger, 'skills').component).toBe(originalComponent)
     expect(h.ledger.entries(RAIL).some(candidate => candidate.options.id === 'dsh-panellist:group:w')).toBe(false)
     expect(h.ledger.entries(SETTINGS).some(candidate => candidate.options.id === 'dsh-panellist')).toBe(false)
-    expect(h.styles !== undefined).toBe(true)
+    // The injected stylesheet is gone, not merely detached: the id it adopts by
+    // is the one the next mount would look for.
     expect(document.getElementById('dsh-panellist-styles')).toBeNull()
   })
 })

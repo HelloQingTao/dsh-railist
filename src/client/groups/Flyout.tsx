@@ -24,7 +24,7 @@ import type { PlanGroup } from '../../shared/model.ts'
 import type { GroupUnitRuntime } from './index.ts'
 
 /** Attribute on the portal target appended to `document.body`. */
-export const PORTAL_CONTAINER_ATTRIBUTE = 'data-dsh-panellist-portal'
+const PORTAL_CONTAINER_ATTRIBUTE = 'data-dsh-panellist-portal'
 
 /** Gap between the anchor row and the card. */
 const ANCHOR_GAP = 8
@@ -46,7 +46,7 @@ function clampLow(limit: number): number {
  * Adopted by attribute (not a module flag) so a re-evaluated bundle under HMR
  * cannot end up with two containers — the same lesson `styles.ts` records.
  */
-export function ensurePortalContainer(): HTMLDivElement {
+function ensurePortalContainer(): HTMLDivElement {
   const existing = document.querySelector<HTMLDivElement>(`[${PORTAL_CONTAINER_ATTRIBUTE}]`)
   if (existing !== null) return existing
   const container = document.createElement('div')

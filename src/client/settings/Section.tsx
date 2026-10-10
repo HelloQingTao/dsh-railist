@@ -147,7 +147,7 @@ export function Section({ deps, close }: SectionProps): ReactNode {
       {lockedPanels.length === 0
         ? null
         : (
-          <details className="dsh-panellist-settings-block" data-block="lockedPanels">
+          <details className="dsh-panellist-settings-block">
             <summary className="dsh-panellist-settings-blockTitle">{t('settings.appearance.locked')}</summary>
             <p className="dsh-panellist-settings-hint">{t('settings.appearance.lockedHint')}</p>
             <ul className="dsh-panellist-settings-plainList">

@@ -13,9 +13,11 @@
  * | 4 | settingsNav  | the settings nav row is findable by our own label      | keep the native gear     |
  */
 import type { ClientContext } from '../ctx.ts'
+import { createElement, type ReactNode } from 'react'
 import { RAIL_ID_PREFIX } from '../../shared/config.ts'
 import type { ProbeResult, SelfCheckController, SelfCheckState } from '../contracts.ts'
 import { RAIL_SLOT } from '../registry/rail.tsx'
+import { PANEL_ROW_SELECTOR } from './css.ts'
 
 const PROBE_REGISTRY_ID = `${RAIL_ID_PREFIX}probe`
 const PROBE_ACTIVE_ID = `${RAIL_ID_PREFIX}probe-active`
@@ -23,8 +25,12 @@ const PROBE_ACTIVE_ID = `${RAIL_ID_PREFIX}probe-active`
 /** How many times the rail probe re-measures while the DOM catches up. */
 const RAIL_PROBE_ATTEMPTS = 3
 
-/** Selector the hide rule depends on (ARCHITECTURE §4.4). */
-const ROW_SELECTOR = 'nav[class*="_panelList"] > button[class*="_panelRow"]'
+/**
+ * The selector the hide rule uses — imported, never restated: a probe that
+ * measures a different shape than the rule matches is worse than no probe
+ * (`rail/css.ts` owns the string, ARCHITECTURE §4.4).
+ */
+const ROW_SELECTOR = PANEL_ROW_SELECTOR
 
 /** The settings navigation buttons the marker pass matches against. */
 const SETTINGS_NAV_SELECTOR = '[role="dialog"] nav button'
@@ -69,14 +75,27 @@ function measuredVersion(): string {
   return typeof version === 'string' ? version : ''
 }
 
+/**
+ * Register one throwaway rail row.
+ *
+ * Same seam as the rail adapter's (`registry/rail.tsx`): the arguments are typed
+ * against a local shape instead of being cast, and the call goes through `ctx`
+ * so the service method keeps its receiver.
+ */
+function registerProbeRow(
+  ctx: ClientContext,
+  id: string,
+  order: number,
+  glyph: (props: Record<string, unknown>) => ReactNode,
+): () => void {
+  return ctx.slots.register({ name: RAIL_SLOT, id, order } as never, glyph as never)
+}
+
 /** Probe 1: can we write to a stored entry at all? */
 function probeRegistry(ctx: ClientContext): ProbeResult {
   let dispose: (() => void) | undefined
   try {
-    dispose = ctx.slots.register(
-      { name: RAIL_SLOT, id: PROBE_REGISTRY_ID, order: 424242 } as never,
-      (() => null) as never,
-    )
+    dispose = registerProbeRow(ctx, PROBE_REGISTRY_ID, 424242, () => null)
   } catch (error) {
     return { id: 'registry', ok: false, detail: `probe registration refused: ${reasonOf(error)}` }
   }
@@ -158,18 +177,16 @@ function describeMismatch(rows: number, entries: number): string {
 /** Probe 3: does the shell still hand our glyph an `active` prop? */
 async function probeActive(ctx: ClientContext): Promise<ProbeResult> {
   let seen: { hasActive: boolean; active: unknown; size: unknown } | null = null
-  const ProbeGlyph = (props: Record<string, unknown>): null => {
+  const ProbeGlyph = (props: Record<string, unknown>): ReactNode => {
     seen = { hasActive: 'active' in props, active: props['active'], size: props['size'] }
-    // Suppressed marker: our own stylesheet hides the throwaway row while the
-    // probe measures it, so the user never sees an extra rail row.
-    return null
+    // The throwaway row hides itself with the same suppressed marker a group
+    // member uses, so HIDE_CSS takes it off the rail while the probe waits its
+    // two frames — the user never sees an extra row.
+    return createElement('span', { 'data-dsh-panellist-suppressed': '' })
   }
   let dispose: (() => void) | undefined
   try {
-    dispose = ctx.slots.register(
-      { name: RAIL_SLOT, id: PROBE_ACTIVE_ID, order: 424243 } as never,
-      ProbeGlyph as never,
-    )
+    dispose = registerProbeRow(ctx, PROBE_ACTIVE_ID, 424243, ProbeGlyph)
   } catch (error) {
     return { id: 'active', ok: false, detail: `probe registration refused: ${reasonOf(error)}` }
   }
@@ -211,11 +228,8 @@ function stateOf(results: readonly ProbeResult[], version: string): SelfCheckSta
     results: [...results],
     degraded: results.some(result => !result.ok),
     readOnly: failed('registry'),
-    hidingDisabled: failed('rail'),
     activeRuleDisabled: failed('active'),
-    settingsIconDisabled: failed('settingsNav'),
     version,
-    checkedAt: new Date().toISOString(),
   }
 }
 
@@ -231,11 +245,8 @@ export function createSelfCheck(ctx: ClientContext, options: SelfCheckOptions): 
     results: [],
     degraded: false,
     readOnly: false,
-    hidingDisabled: false,
     activeRuleDisabled: false,
-    settingsIconDisabled: false,
     version: measuredVersion(),
-    checkedAt: '',
   }
 
   const publish = (results: readonly ProbeResult[]): void => {

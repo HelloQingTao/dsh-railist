@@ -105,16 +105,18 @@ Locked panels and panels the user has not configured are left exactly as registe
 ### 4.2 The wrapper
 
 ```tsx
-function railGlyph(Original: ComponentType<{ size: number; active: boolean }>, id: string, want: Want) {
+function railGlyph(Original: ComponentType<{ size: number; active: boolean }>, id: string, plan: Plan) {
   return function RailGlyph({ size, active }: { size: number; active: boolean }) {
-    const hidden = want.hidden && !active          // a hidden panel that is active still shows its row
+    const panel = plan.panels.get(id)
+    const suppressed = panel?.suppressed === true                       // shown inside a group instead
+    const hidden = !suppressed && panel?.hidden === true && !active     // active keeps its row
     return (
       <>
         <span
-          data-dsh-panellist-entry={id}
-          {...(hidden ? { 'data-dsh-panellist-hidden': '' } : {})}
+          {...(suppressed ? { 'data-dsh-panellist-suppressed': '' }
+            : hidden ? { 'data-dsh-panellist-hidden': '' } : {})}
         />
-        {hidden ? null : <Original size={size} active={active} />}
+        {suppressed || hidden ? null : <Original size={size} active={active} />}
       </>
     )
   }
@@ -123,7 +125,7 @@ function railGlyph(Original: ComponentType<{ size: number; active: boolean }>, i
 
 Notes:
 - The `active` prop is supplied by the shell (`renderSlot("sidebar.panellist", { size, active }, { only: id })`), which is what makes the "hidden but active" rule declarative.
-- The marker is a zero-size `<span>`: it gives the CSS layer a per-row identity without owning any layout.
+- The zero-size `<span>` carries EXACTLY the two state hooks the hide rule matches on (`:has([data-dsh-panellist-hidden])` / `:has([data-dsh-panellist-suppressed])`), and nothing else — a per-row identity attribute with no reader would be a hook waiting to rot. The row is matched as a whole, so the marker owns no layout.
 - The original component is rendered in the same React position, so any state it keeps survives.
 
 ### 4.3 Order and label

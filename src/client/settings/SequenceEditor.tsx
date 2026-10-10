@@ -26,7 +26,6 @@ import {
   removeFromGroup,
   setGroupHidden,
   setPanelHidden,
-  type LiveRow,
 } from '../../shared/edit.ts'
 import type { Plan, RegisteredPanel } from '../../shared/model.ts'
 import type { GlyphComponent, GlyphRequest } from '../contracts.ts'
@@ -96,20 +95,11 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
   /**
    * The whole rail, listed from the start: the sequence is not a separate
    * "configured" subset any more, so there is nothing for the user to opt into
-   * before they can touch a panel.
+   * before they can touch a panel. Locked rows are absent by design (they have
+   * their own list below), which is why `rows` alone is what everything here —
+   * including "use the current rail order" — reads.
    */
   const rows = plan.rows
-
-  /** The live rail order: what "use the current rail order" snapshots. */
-  const railRows = (): LiveRow[] => {
-    if (plan.rows.length > 0) return plan.rows.map(row => ({ kind: row.kind, id: row.id }))
-    // Nothing is registered-but-unsorted yet, so the rail order IS the
-    // registration order: sort by the declared order only — a stable sort keeps
-    // ledger order on ties, exactly like the shell.
-    return [...registered]
-      .sort((left, right) => left.order - right.order)
-      .map(panel => ({ kind: 'panel' as const, id: panel.id }))
-  }
 
   const beginDrag = (event: DragEvent<HTMLElement>, payload: DragPayload, key: string): void => {
     dragRef.current = payload
@@ -337,8 +327,9 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
               type="button"
               className="dsh-panellist-settings-action"
               data-action="toggleHidden"
-              data-hidden={hidden ? 'true' : 'false'}
-              aria-pressed={hidden}
+              // A command button, not a toggle: the accessible name IS the
+              // action, so `aria-pressed` would contradict the label the moment
+              // the row flips.
               aria-label={hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}
               title={t('settings.appearance.hiddenHint')}
               onClick={() => toggleHidden(row.kind, row.id, !hidden)}
@@ -422,8 +413,12 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                 type="button"
                 className="dsh-panellist-settings-action"
                 data-action="materialize"
-                disabled={registered.length === 0}
-                onClick={() => apply(profile => materializeSequence(profile, railRows()))}
+                // Nothing to snapshot when every registered row is locked.
+                disabled={rows.length === 0}
+                onClick={() => apply(profile => materializeSequence(
+                  profile,
+                  rows.map(row => ({ kind: row.kind, id: row.id })),
+                ))}
               >{t('settings.sequence.materialize')}</button>
             </span>
           </div>
@@ -431,7 +426,11 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
         : null}
 
       {rows.length === 0
-        ? <p className="dsh-panellist-settings-hint">{t('settings.sequence.empty')}</p>
+        ? (
+          <p className="dsh-panellist-settings-hint">
+            {registered.length === 0 ? t('settings.sequence.empty') : t('settings.sequence.allLocked')}
+          </p>
+        )
         : (
           <div
             className="dsh-panellist-settings-dropZone"

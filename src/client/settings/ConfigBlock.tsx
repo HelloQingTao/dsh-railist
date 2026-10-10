@@ -125,7 +125,7 @@ export function OrphansBlock(props: OrphansBlockProps): ReactNode {
   const { plan, t, registeredIds, apply } = props
   const count = plan.orphans.length
   return (
-    <section className="dsh-panellist-settings-block" data-block="orphans">
+    <section className="dsh-panellist-settings-block">
       <h3 className="dsh-panellist-settings-blockTitle">{t('settings.orphans.title')}</h3>
       <p className="dsh-panellist-settings-hint">
         {count === 0 ? t('settings.orphans.none') : t('settings.orphans.body', { count })}
@@ -174,7 +174,7 @@ export function IoBlock(props: ConfigBlockProps): ReactNode {
   }
 
   return (
-    <section className="dsh-panellist-settings-block" data-block="io">
+    <section className="dsh-panellist-settings-block">
       <h3 className="dsh-panellist-settings-blockTitle">{t('settings.io.title')}</h3>
 
       {snapshot.status === 'loading' ? <p className="dsh-panellist-settings-hint">{t('common.loading')}</p> : null}
@@ -268,7 +268,7 @@ export function CompatibilityBlock(props: ConfigBlockProps): ReactNode {
   }
 
   return (
-    <section className="dsh-panellist-settings-block" data-block="compatibility">
+    <section className="dsh-panellist-settings-block">
       <h3 className="dsh-panellist-settings-blockTitle">{t('settings.selfcheck.title')}</h3>
 
       {selfCheck.degraded
@@ -290,7 +290,7 @@ export function CompatibilityBlock(props: ConfigBlockProps): ReactNode {
       {plan.warnings.length === 0
         ? null
         : (
-          <ul className="dsh-panellist-settings-warnings" data-block="warnings">
+          <ul className="dsh-panellist-settings-warnings">
             {plan.warnings.map((warning, index) => (
               <li key={`${warning.code}:${index}`} data-warning={warning.code}>
                 {t(`warning.${warning.code}`, warningParams(warning))}

@@ -7,11 +7,15 @@
  * Rules (README §2):
  * - The sequence is a partition of panels: each panel appears exactly once,
  *   either as a bare row or inside exactly one group. One nesting level only.
- * - A panel the user never configured is *unmanaged*: no name/icon/hide write.
- * - A locked panel is never touched at all, not even reordered.
- * - Reordering (writing `order` at all) happens only when the sequence has at
- *   least one live row, so a fresh install is a strict no-op on the rail.
- * - Unmanaged panels land after the configured block, keeping their own
+ * - `rows` is the WHOLE unlocked rail, so the settings page can list and edit
+ *   every entry from the first open; there is no "configured subset" to opt into.
+ * - What is gated is the WRITE: while the sequence holds no live row, every
+ *   `PlanPanel.order` is `null` ("leave the native order alone") and a panel the
+ *   user never configured gets no name/icon/hide write either — so a fresh
+ *   install is a strict no-op on a rail other plugins also touch.
+ * - `reordering` says which of those two modes the plan is in.
+ * - Locked panels are excluded from `rows` and never touched at all (§2.9).
+ * - Unconfigured panels land after the configured block, keeping their own
  *   relative order (README §2.8).
  * - A group member's own rail row is suppressed; a member that is currently
  *   active highlights the group trigger instead (README §2.6).
@@ -64,8 +68,6 @@ export interface PlanPanel {
   suppressed: boolean
   /** Locked panels are left exactly as registered (README §2.9). */
   locked: boolean
-  /** Whether this plugin writes anything for this panel beyond `order`. */
-  managed: boolean
 }
 
 /** One group row. */
@@ -92,14 +94,18 @@ export interface PlanGroup {
   liveMembers: readonly PlanMember[]
 }
 
-/** One rail row, in render order. */
+/**
+ * One rail row, as the settings page lists it.
+ *
+ * Display order IS array order. The order this row would be written at lives on
+ * `PlanPanel.order` (panels) or `PlanGroup.order` (groups) — the one field the
+ * rewrite pass actually reads — so it is not duplicated here.
+ */
 export interface PlanRow {
   railId: string
   kind: 'panel' | 'group'
   /** Panel id (`kind: 'panel'`) or group id (`kind: 'group'`). */
   id: string
-  /** Rail order to write, or `null` for "leave the native order alone". */
-  order: number | null
   label: string
 }
 
@@ -119,27 +125,25 @@ export interface Plan {
   /**
    * Every configured group, keyed by group id — including a *dormant* group
    * (one whose members all lost their registration): it stays in `config` so the
-   * reinstall case is lossless, carries `order: null`, and is listed in
-   * {@link Plan.dormantGroups} so a consumer never registers a row for it.
+   * reinstall case is lossless and carries `order: null`. A consumer registers a
+   * row only for a group with at least one live member.
    */
   groups: ReadonlyMap<string, PlanGroup>
   /**
-   * EVERY rail row, in the order the rail shows them: the configured block
-   * first, then the registered-but-unconfigured panels in their own order.
+   * Every UNLOCKED rail row, in the order the rail shows them: the configured
+   * block first, then the registered-but-unconfigured panels in their own order.
    *
    * This is the whole rail on purpose. The settings page edits this list
    * directly — there is no separate "not configured yet" pool — so a row's
-   * absence here would mean an entry the user cannot reach.
+   * absence here would mean an entry the user cannot reach. Locked panels are
+   * the one exception: they are never written to, so they are excluded and shown
+   * in their own list (§2.9).
    */
   rows: readonly PlanRow[]
   /** Configured ids with no registration (README §2.8: preserved, marked missing). */
   orphans: readonly string[]
   /** Group members with no registration. */
   missingMembers: readonly string[]
-  /** Registered panels in no sequence and with no override — the untouched ones. */
-  unmanaged: readonly string[]
-  /** Config groups that cannot render a row (all members missing). */
-  dormantGroups: readonly string[]
   warnings: readonly PlanWarning[]
   /** Whether order writes are in play at all. */
   reordering: boolean
@@ -185,7 +189,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
   const assigned = new Map<string, { order: number | null; groupId: string | null }>()
   const orphans: string[] = []
   const missing: string[] = []
-  const dormantGroups: string[] = []
   const groupItems: GroupItemPlan[] = []
   const slots: Slot[] = []
   let nextKey = 0
@@ -264,7 +267,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
       continue
     }
     if (liveMembers.length === 0) {
-      dormantGroups.push(item.id)
       groupItems.push({ item, members, liveMembers, order: null })
       continue
     }
@@ -292,8 +294,10 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
    *
    * With nothing configured this plugin writes no `order` at all — the rail
    * keeps its native order and every row below is listed exactly where the
-   * contributors put it. The first edit (a drag, a rename, a hide) turns the
-   * sequence into an explicit order and this switches on.
+   * contributors put it. A STRUCTURAL change (a drag, creating or dissolving a
+   * group) turns the sequence into an explicit order and this switches on; a
+   * rename or a hide only writes that one row's override and leaves the order
+   * alone.
    */
   const reordering = slots.length > 0
 
@@ -302,8 +306,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
     if (reordering) assigned.set(panel.id, { order: nextKey, groupId: null })
     slots.push({ key: nextKey, kind: 'panel', id: panel.id, railId: panel.id })
   }
-
-  const unmanaged = tail.filter(panel => isUntouched(profile, panel.id)).map(panel => panel.id)
 
   // Panels.
   const panels = new Map<string, PlanPanel>()
@@ -318,7 +320,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
         hidden: false,
         suppressed: false,
         locked: true,
-        managed: false,
       })
       continue
     }
@@ -333,7 +334,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
       hidden: override?.hidden === true,
       suppressed: placement?.groupId != null,
       locked: false,
-      managed: placement !== undefined || !isUntouched(profile, panel.id),
     })
   }
 
@@ -368,7 +368,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
       id: slot.id,
       // No order is written until something is configured: the contributors'
       // own order stands.
-      order: reordering ? slot.key * ORDER_STEP : null,
       label: slot.kind === 'group'
         ? groups.get(slot.id)?.label ?? slot.id
         : panels.get(slot.id)?.label ?? slot.id,
@@ -380,8 +379,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
     rows,
     orphans,
     missingMembers: missing,
-    unmanaged,
-    dormantGroups,
     warnings,
     reordering,
   }
@@ -392,15 +389,4 @@ interface GroupItemPlan {
   members: PlanMember[]
   liveMembers: PlanMember[]
   order: number | null
-}
-
-/** Whether the user expressed no opinion at all about this panel. */
-function isUntouched(profile: ProfileConfig, id: string): boolean {
-  if (Object.prototype.hasOwnProperty.call(profile.entries, id)) {
-    const override = profile.entries[id]
-    if (override !== undefined && (override.label !== undefined || override.icon !== undefined || override.hidden === true)) {
-      return false
-    }
-  }
-  return !profile.locked.includes(id)
 }

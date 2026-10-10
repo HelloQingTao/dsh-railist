@@ -59,7 +59,6 @@ interface LayoutLike {
   selectPanel?(panelId: unknown): void
 }
 
-/** Read an optional cordis service without letting a missing one throw. */
 /** Everything another unit may ask of the rail. */
 export interface RailAdapter {
   /** Native rail facts, in the contributors' own order. */
@@ -80,8 +79,6 @@ export interface RailAdapter {
   applyOverrides(): void
   /** Register one row of ours plus its page. */
   registerRow(registration: RailRowRegistration, page: () => ReactNode): () => void
-  /** How many rail row buttons the DOM currently has (self-check probe 2). */
-  railRowCount(): number
   /** Restore every entry we touched, drop every capture and pending nudge. */
   dispose(): void
 }
@@ -128,6 +125,26 @@ export function createRailAdapter(
   let nudged = false
   let disposed = false
 
+  /**
+   * The one structural seam to the shell's slot registry.
+   *
+   * `ctx.slots.register` is generic over the whole `SlotMap`, which a caller
+   * holding slot names as strings cannot satisfy. Casting the ARGUMENTS with
+   * `as never` would silence every mistake in them (a `key` where a `list` wants
+   * an `id`, a component whose props drifted). These two wrappers are typed
+   * against LOCAL shapes instead, so the check moves to the call sites — and
+   * they call through `slots` rather than extracting the method, which would
+   * lose its receiver (`register` is a cordis service method).
+   */
+  const registerList = (options: {
+    name: string
+    id: string
+    order: number
+    label?: () => string
+  }, component: unknown): (() => void) => slots.register(options as never, component as never)
+  const registerKeyed = (options: { name: string; key: string }, component: unknown): (() => void) =>
+    slots.register(options as never, component as never)
+
   const entriesFor = (): readonly StoredEntry[] => {
     try {
       return slots.entriesOfSlot(RAIL_SLOT)
@@ -159,10 +176,7 @@ export function createRailAdapter(
       nudged = false
       if (disposed) return
       try {
-        const dispose = slots.register(
-          { name: RAIL_SLOT, id: NUDGE_ID, order: -1 } as never,
-          (() => null) as never,
-        )
+        const dispose = registerList({ name: RAIL_SLOT, id: NUDGE_ID, order: -1 }, () => null)
         dispose()
       } catch {
         // The slot is not declared on this shell (or the ledger refused the
@@ -178,7 +192,9 @@ export function createRailAdapter(
       const icon = panel?.icon ?? null
       const suppressed = panel?.suppressed === true
       const hidden = !suppressed && panel?.hidden === true && props['active'] !== true
-      const marker: Record<string, string> = { 'data-dsh-panellist-entry': id }
+      // The marker span carries the two state hooks HIDE_CSS matches on, and
+      // nothing else: an extra identity attribute would be a hook with no reader.
+      const marker: Record<string, string> = {}
       if (suppressed) marker['data-dsh-panellist-suppressed'] = ''
       else if (hidden) marker['data-dsh-panellist-hidden'] = ''
       const size = typeof props['size'] === 'number' ? props['size'] : 0
@@ -299,11 +315,6 @@ export function createRailAdapter(
     return changed
   }
 
-  const railRows = (): number => {
-    if (typeof document === 'undefined') return 0
-    return document.querySelectorAll('nav[class*="_panelList"] > button[class*="_panelRow"]').length
-  }
-
   const adapter: RailAdapter = {
     panels: () => entriesFor()
       .filter(entry => typeof entry.options.id === 'string' && !isOwnRailId(entry.options.id as string))
@@ -365,22 +376,22 @@ export function createRailAdapter(
     registerRow: (registration, page) => {
       const disposers: Array<() => void> = []
       try {
-        disposers.push(slots.inject(RAIL_SLOT, () => slots.register(
+        disposers.push(slots.inject(RAIL_SLOT, () => registerList(
           {
             name: RAIL_SLOT,
             id: registration.railId,
             order: registration.order,
             label: registration.label,
-          } as never,
-          registration.glyph as never,
+          },
+          registration.glyph,
         )))
       } catch {
         // Registration refused: the group row simply does not exist.
       }
       try {
-        disposers.push(slots.inject(MAIN_SLOT, () => slots.register(
-          { name: MAIN_SLOT, key: registration.railId } as never,
-          page as never,
+        disposers.push(slots.inject(MAIN_SLOT, () => registerKeyed(
+          { name: MAIN_SLOT, key: registration.railId },
+          page,
         )))
       } catch {
         // Without a page the row is still usable: `selectPanel` is guarded by
@@ -410,7 +421,6 @@ export function createRailAdapter(
         disposed = true
       }
     },
-    railRowCount: railRows,
   }
 
   return adapter

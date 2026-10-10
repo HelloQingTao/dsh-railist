@@ -52,7 +52,7 @@ function asLabel(value: unknown): string | undefined {
 }
 
 /** Validate one icon reference; `null` means "not understood, drop it". */
-export function asIconRef(value: unknown): IconRef | null {
+function asIconRef(value: unknown): IconRef | null {
   if (!isRecord(value)) return null
   if (value['kind'] === 'original') return { kind: 'original' }
   if (value['kind'] === 'builtin') {
@@ -71,7 +71,7 @@ export function asIconRef(value: unknown): IconRef | null {
 }
 
 /** Validate one per-panel override; unknown keys are dropped. */
-export function asEntryOverride(value: unknown): EntryOverride | null {
+function asEntryOverride(value: unknown): EntryOverride | null {
   if (!isRecord(value)) return null
   const override: EntryOverride = {}
   const label = asLabel(value['label'])
@@ -90,7 +90,7 @@ export function asEntryOverride(value: unknown): EntryOverride | null {
  * Normalise one profile section. Always returns a usable section; `repaired`
  * reports whether anything was dropped or clamped.
  */
-export function normalizeProfileConfig(value: unknown): { profile: ProfileConfig; repaired: boolean } {
+function normalizeProfileConfig(value: unknown): { profile: ProfileConfig; repaired: boolean } {
   const profile: ProfileConfig = { sequence: [], entries: {}, locked: [] }
   let repaired = false
   if (!isRecord(value)) return { profile, repaired: value !== undefined }

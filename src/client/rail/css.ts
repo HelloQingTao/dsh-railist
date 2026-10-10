@@ -16,25 +16,27 @@
 export const SETTINGS_NAV_ATTR = 'data-dsh-panellist-settings-nav'
 
 /**
+ * The selector for one rail row, in the ONE place.
+ *
+ * Both users of it matter equally: the hide rule below needs exactly this shape
+ * (a direct child of the panel list), and the self-check has to measure the same
+ * thing the rule matches. Two copies drifted apart the moment the shell re-rolled
+ * its class hash, so there is one string, and `rail/probe.ts` imports it.
+ */
+export const PANEL_ROW_SELECTOR = 'nav[class*="_panelList"] > button[class*="_panelRow"]'
+
+/**
  * Row hiding. `hidden` = "hide unless this panel is selected"; `suppressed` =
  * "always hide, it is shown inside a group instead". Both markers are rendered
  * by the glyph wrapper in `registry/rail.ts`.
+ *
+ * The group-active highlight is NOT here: it belongs to the group unit, whose
+ * rule also carries the row's theme token (`groups/groups.css.ts`).
  */
 export const HIDE_CSS = `
-nav[class*="_panelList"] > button[class*="_panelRow"]:has([data-dsh-panellist-hidden]),
-nav[class*="_panelList"] > button[class*="_panelRow"]:has([data-dsh-panellist-suppressed]) {
+${PANEL_ROW_SELECTOR}:has([data-dsh-panellist-hidden]),
+${PANEL_ROW_SELECTOR}:has([data-dsh-panellist-suppressed]) {
   display: none;
-}
-`
-
-/**
- * Group trigger highlight: the shell only marks a row active when its own id is
- * the selected panel, and a group row is never selected, so the highlight comes
- * from the marker our trigger glyph stamps while a member is active.
- */
-export const GROUP_ACTIVE_CSS = `
-button[class*="_panelRow"]:has([data-dsh-panellist-group-active]) {
-  background: color-mix(in srgb, currentColor 14%, transparent);
 }
 `
 

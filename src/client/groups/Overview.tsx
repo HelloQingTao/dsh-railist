@@ -32,11 +32,7 @@ export function GroupOverview(props: { runtime: GroupUnitRuntime; groupId: strin
       <p>{translate.t('rail.group.overviewIntro')}</p>
       <ul>
         {group.members.map(member => (
-          <li
-            key={member.id}
-            data-dsh-panellist-overview-member={member.id}
-            {...(member.missing ? { 'data-dsh-panellist-overview-missing': '' } : {})}
-          >
+          <li key={member.id}>
             {member.missing
               ? `${member.label} (${translate.t('rail.group.missing')})`
               : member.label}

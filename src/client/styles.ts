@@ -21,7 +21,6 @@ export interface StyleRegistry {
   dispose(): void
 }
 
-const STYLE_ID = 'dsh-panellist'
 const ELEMENT_ID = 'dsh-panellist-styles'
 
 /** Create the registry. Safe to call before `document` exists (tests, SSR probe). */
@@ -33,7 +32,6 @@ export function createStyleRegistry(): StyleRegistry {
     if (existing instanceof HTMLStyleElement) return existing
     const element = document.createElement('style')
     element.id = ELEMENT_ID
-    element.dataset['pluginCss'] = STYLE_ID
     document.head.appendChild(element)
     return element
   }

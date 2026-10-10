@@ -123,19 +123,19 @@ describe('AppearanceEditor (panel row)', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Locked' }))
     // Locking is a sequence edit (it takes the panel out of any group), so the
-    // page materialises the live rail order first — including the unconfigured
-    // panel it shows under "not configured".
-    const materialized = materializeSequence(afterHidden, [
-      { kind: 'panel', id: 'plugins' },
-      { kind: 'panel', id: 'schedules' },
-      { kind: 'panel', id: 'skills' },
-    ])
+    // page materialises the live rail order first — derived from the plan the
+    // page is actually showing, not from a hand-copied list.
+    const materialized = materializeSequence(
+      afterHidden,
+      harness.plan().rows.map(row => ({ kind: row.kind, id: row.id })),
+    )
     expect(harness.updates[1]).toEqual(setPanelLocked(materialized, 'plugins', true))
     expect(harness.updates[1]?.locked).toEqual(['plugins'])
     expect(harness.updates[1]?.sequence.map(item => item.id)).toEqual(['schedules', 'skills'])
     // Locked panels are not rail rows, so the page keeps a list to unlock them.
     expect(document.querySelector('[data-locked-id="plugins"]')).not.toBeNull()
   })
+
   it('previews the rail icon itself while nothing is overridden', () => {
     renderPage(profileWith(['plugins']))
     selectRow('plugins')

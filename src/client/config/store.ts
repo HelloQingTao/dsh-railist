@@ -47,8 +47,6 @@ export interface StoreSnapshot {
   error: string | null
   /** Increments on every accepted local change (rail re-projection trigger). */
   revision: number
-  /** Increments on every successful write (drives the transient "Saved"). */
-  saved: number
 }
 
 /** The store surface consumed by the rail, the settings page and the tests. */
@@ -82,7 +80,6 @@ function emptySnapshot(): StoreSnapshot {
     health: null,
     error: null,
     revision: 0,
-    saved: 0,
   }
 }
 
@@ -161,7 +158,6 @@ export function createPanellistStore(options: { profileId?: string; fetch?: Fetc
         document: parsed.document,
         health: parsed.health,
         error: null,
-        saved: snapshot.saved + 1,
       })
       return true
     } catch (error) {
@@ -227,7 +223,6 @@ export function createPanellistStore(options: { profileId?: string; fetch?: Fetc
           return false
         }
         accept(await response.json() as ConfigResponse)
-        publish({ saved: snapshot.saved + 1 })
         return true
       } catch (error) {
         publish({ error: reasonOf(error) })

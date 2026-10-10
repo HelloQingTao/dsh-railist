@@ -105,7 +105,7 @@ describe('createPanellistStore', () => {
     const ok = await store.update(profile => ({ ...profile, locked: ['a'] }))
     expect(ok).toBe(true)
     expect(store.getSnapshot().profile.locked).toEqual(['a'])
-    expect(store.getSnapshot().saved).toBe(1)
+    expect(store.getSnapshot().error).toBeNull()
     const put = calls.find(call => call.method === 'PUT')
     expect(JSON.parse(put?.body ?? '{}')).toEqual({ profile: { sequence: [], entries: {}, locked: ['a'] } })
     // One notification for the optimistic apply, one for the confirmed write.
@@ -122,7 +122,6 @@ describe('createPanellistStore', () => {
     expect(ok).toBe(false)
     expect(store.getSnapshot().profile).toEqual(before)
     expect(store.getSnapshot().error).toContain('nope')
-    expect(store.getSnapshot().saved).toBe(0)
     store.dispose()
   })
 
