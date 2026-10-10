@@ -82,6 +82,13 @@ export function createTriggerGlyph(runtime: GroupUnitRuntime, groupId: string): 
     const activePanelId = deps.rail.activePanelId()
     const active = group !== undefined && group.members.some(member => member.id === activePanelId)
     const fallbackPanelId = group?.iconFallbackPanelId ?? null
+    /**
+     * A hidden trigger leaves the rail exactly like a hidden panel does: the
+     * marker below is what `HIDE_CSS` matches, and being active keeps the row
+     * visible (README §2.3). Without this the editor showed the group as hidden
+     * while the rail kept rendering it.
+     */
+    const hidden = group?.hidden === true && !active
 
     const close = (reason: FlyoutCloseReason): void => {
       setOpen(false)
@@ -99,8 +106,9 @@ export function createTriggerGlyph(runtime: GroupUnitRuntime, groupId: string): 
           ref={markerRef}
           data-dsh-panellist-group={groupId}
           {...(active ? { 'data-dsh-panellist-group-active': '' } : {})}
+          {...(hidden ? { 'data-dsh-panellist-hidden': '' } : {})}
         />
-        {group === undefined
+        {group === undefined || hidden
           ? null
           : deps.glyph({
               icon: group.icon,

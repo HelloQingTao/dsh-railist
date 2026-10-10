@@ -281,6 +281,33 @@ describe('groups unit — trigger glyph', () => {
     expect(marker()).toBeNull()
   })
 
+  it('hides the trigger row with the same marker a hidden panel uses', () => {
+    // On-device regression: the editor showed the group as hidden while the rail
+    // kept rendering it, because the trigger glyph never stamped the marker
+    // `HIDE_CSS` matches.
+    const harness = createHarness(PANELS, profile([ALPHA, GROUP]))
+    const registration = harness.registered.get(RAIL_ID)
+    if (registration === undefined) throw new Error('group row was not registered')
+    const view = render(<ShellRow glyph={registration.glyph} />)
+    const hiddenMarker = (): Element | null => view.container.querySelector('[data-dsh-panellist-hidden]')
+
+    expect(hiddenMarker()).toBeNull()
+    expect(view.container.querySelector('[data-testid="effective-glyph"]')).not.toBeNull()
+
+    act(() => {
+      harness.setPlan(buildPlan(PANELS, profile([ALPHA, { ...GROUP, hidden: true }])))
+    })
+    expect(hiddenMarker()).not.toBeNull()
+    // A hidden row paints nothing: the shell removes it, so the glyph is skipped.
+    expect(view.container.querySelector('[data-testid="effective-glyph"]')).toBeNull()
+
+    // README §2.3: a hidden row that is active comes back — for a group that
+    // means "any member is the active panel".
+    act(() => { harness.setActive('gamma') })
+    expect(hiddenMarker()).toBeNull()
+    expect(view.container.querySelector('[data-testid="effective-glyph"]')).not.toBeNull()
+  })
+
   it('dispose() disposes every row, closes the menu and removes the portal container', () => {
     const harness = createHarness(PANELS, profile([ALPHA, GROUP]))
     const registration = harness.registered.get(RAIL_ID)
