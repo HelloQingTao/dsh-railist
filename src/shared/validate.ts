@@ -2,7 +2,7 @@
  * Lenient structural normalisation of the configuration document.
  *
  * The host half owns the *authoritative* check (ajv against
- * `schema/config.schema.json`, mirroring that file exactly — see
+ * `docs/schema/config.schema.json`, mirroring that file exactly — see
  * `plugin/store.ts`). This module exists for the browser half and for tests:
  * it never throws, drops what it cannot understand, and reports whether it
  * repaired anything, so a hand-edited file degrades to "the parts I could read"

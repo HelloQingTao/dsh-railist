@@ -6,9 +6,15 @@ DSH（DeepSeek Harness）客户端「面板列表」的管理插件。
 
 本插件让**用户**接管这件事：哪些页签出现在轨道上、以什么顺序出现、叫什么名字、用什么图标，以及把若干页签收进一个分组。所有配置都在「设置」里的一项新页签内完成，改动即时生效。
 
-> 状态：**已实现**。这套 README（中英各一份）就是完整的规范——不再有单独的设计文档：行为见 §2–§3，配置与接口见 §4，兼容契约见 §5，安装见 §6，实现方式见 §7。配置的权威形状是 [`schema/config.schema.json`](schema/config.schema.json)。
+> 状态：**已实现**。这套 README（中英各一份）就是完整的规范——不再有单独的设计文档：行为见 §2–§3，配置与接口见 §4，兼容契约见 §5，安装见 §6，实现方式见 §7。配置的权威形状是 [`docs/schema/config.schema.json`](docs/schema/config.schema.json)。
 >
 > 与最初设计的三处细化（都是实现期间发现的，已回填本文）：分组的轨道 id 是 `dsh-panellist:<groupId>`；未配置页签始终列在整条轨道里，但只有序列非空（即你做过结构性改动）时才写 `order`；`/panellist/api/reveal` 这个端点是为了实现「打开配置文件」而新增的。
+
+## 截图
+
+| 设置 → 面板列表 | 轨道上的分组菜单 |
+| :-: | :-: |
+| ![设置 → 面板列表](docs/images/settings-panel-list.png) | ![轨道上的分组菜单](docs/images/rail-group-menu.png) |
 
 ---
 
@@ -212,7 +218,7 @@ DSH 的面板列表是**只读投影**：外壳枚举 `sidebar.panellist` 槽位
 }
 ```
 
-权威定义见 [`schema/config.schema.json`](schema/config.schema.json)（JSON Schema 2020-12；宿主在每次写入前、每次读取后都用 ajv 校验整份文档，`tests/shared-schema.spec.ts` 会把上面这个例子原样跑一遍）。`sequence` 是**部分**权威：列出的项按此顺序，未列出的项由程序追加到末尾。
+权威定义见 [`docs/schema/config.schema.json`](docs/schema/config.schema.json)（JSON Schema 2020-12；宿主在每次写入前、每次读取后都用 ajv 校验整份文档，`tests/shared-schema.spec.ts` 会把上面这个例子原样跑一遍）。`sequence` 是**部分**权威：列出的项按此顺序，未列出的项由程序追加到末尾。
 
 ### 4.3 本插件占用的接口
 
@@ -363,7 +369,9 @@ dsh-panellist/
 │     ├─ groups/              # 组头行、捕获阶段点击拦截、菜单、分组页
 │     ├─ settings/            # 设置页签：序列编辑、外观覆盖、配置、自检
 │     └─ icons/               # 24 个内置图形 + 设置导航图形 + SVG 白名单净化
-├─ schema/config.schema.json  # 配置的权威形状（宿主运行时读取）
+├─ docs/                      # 文档资产
+│  ├─ images/                 # README 截图
+│  └─ schema/config.schema.json  # 配置的权威形状（宿主运行时读取）
 ├─ tests/                     # 21 个 spec（模型、宿主半、改写、挂载守卫、探针、分组、设置、图标、文案一致性、打包契约）
 ├─ cordis.patch.yml           # 自动挂载层
 ├─ README.md                  # 英文
@@ -414,7 +422,7 @@ dsh-panellist/
 4. ✅ **分组**——组头行、分组菜单、拖拽编辑、分组页；
 5. ✅ **加固**——四项自检与只读降级、SVG 净化、导入导出、孤儿清理、中英双语；
 6. ✅ **真机迭代**——插件已在真实 desktop profile 里跑过若干轮反馈：设置页从第一次打开就列出整条轨道、隐藏与分组行为正确、图标集按外壳自己的美术重绘、分组内成员隐藏落地、自检的启动顺序竞态被修掉；
-7. ⏳ **发布**——`pnpm check` 全绿（21 个 spec / 295 条用例，见 §6）。**待办：截图，以及决定是否发布 npm**（schema 的 `$id` 仍是占位组织名）。
+7. ⏳ **发布**——`pnpm check` 全绿（21 个 spec / 295 条用例，见 §6）。**待办：决定是否发布 npm**（schema 的 `$id` 仍是占位组织名）。
 
 ### 不启动应用也能做的静态校验
 

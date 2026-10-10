@@ -6,9 +6,15 @@ The Panellist is the column on the left of the session UI: the global entries co
 
 This plugin lets the **user** take over: which Panel entries appear on the rail, in what order they appear, what they are called, what icon they use, and which entries are folded into a Group. All configuration is done in a new tab in Settings, and changes take effect immediately.
 
-> Status: **implemented**. This README pair is the whole specification — there is no separate design document: behaviour is §2–§3, the configuration and the interfaces are §4, the compatibility contract is §5, how to install it is §6, and how it is built is §7. The normative configuration shape is [`schema/config.schema.json`](schema/config.schema.json).
+> Status: **implemented**. This README pair is the whole specification — there is no separate design document: behaviour is §2–§3, the configuration and the interfaces are §4, the compatibility contract is §5, how to install it is §6, and how it is built is §7. The normative configuration shape is [`docs/schema/config.schema.json`](docs/schema/config.schema.json).
 >
 > Three refinements to the original design (all discovered during implementation and backfilled into this document): the rail id of a Group is `dsh-panellist:<groupId>`; unconfigured Panel entries are always listed on the rail, but an `order` is written only once the Sequence is non-empty (i.e. after your first structural change); and the `/panellist/api/reveal` endpoint was added to implement "Open config file".
+
+## Screenshots
+
+| Settings → Panel list | A Group menu on the rail |
+| :-: | :-: |
+| ![Settings → Panel list](docs/images/settings-panel-list.png) | ![A Group menu on the rail](docs/images/rail-group-menu.png) |
 
 ---
 
@@ -212,7 +218,7 @@ The result of the four startup probes (§5) with a **"Re-run self-check"** butto
 }
 ```
 
-The authoritative definition is [`schema/config.schema.json`](schema/config.schema.json) (JSON Schema 2020-12; the host validates the whole document with ajv before every write and after every read, and `tests/shared-schema.spec.ts` runs this very example through it). `sequence` is a **partial** authority: the items it lists follow this order, and items it does not list are appended to the end by the program.
+The authoritative definition is [`docs/schema/config.schema.json`](docs/schema/config.schema.json) (JSON Schema 2020-12; the host validates the whole document with ajv before every write and after every read, and `tests/shared-schema.spec.ts` runs this very example through it). `sequence` is a **partial** authority: the items it lists follow this order, and items it does not list are appended to the end by the program.
 
 ### 4.3 Interfaces this plugin occupies
 
@@ -363,7 +369,9 @@ dsh-panellist/
 │     ├─ groups/              # Group trigger rows, capture-phase click interception, menu, group page
 │     ├─ settings/            # settings tab: sequence editing, appearance overrides, config, self-checks
 │     └─ icons/               # 24 built-in glyphs + the settings-nav glyph + SVG allow-list sanitization
-├─ schema/config.schema.json  # normative config shape (read by the host at runtime)
+├─ docs/                      # documentation assets
+│  ├─ images/                 # README screenshots
+│  └─ schema/config.schema.json  # normative config shape (read by the host at runtime)
 ├─ tests/                     # 21 specs (model, host half, rewriting, mount guard, probe, groups, settings, icons, copy consistency, packaging contract)
 ├─ cordis.patch.yml           # auto-mount layer
 ├─ README.md                  # English (this file)
@@ -414,7 +422,7 @@ The `settings.section` contract has no icon field and the shell picks the nav gl
 4. ✅ **Groups** — Group trigger rows, the menu, drag-and-drop editing, the Group page;
 5. ✅ **Hardening** — the four self-checks and read-only degradation, SVG sanitization, import/export, orphan cleanup, bilingual copy;
 6. ✅ **On-device iteration** — the plugin has been running in a real desktop profile through several feedback rounds: the settings page lists the whole rail, hidden rows and Groups behave, the icon set was redrawn against the shell's own artworks, member hiding landed, and the self-check's boot-order race was fixed;
-7. ⏳ **Release** — `pnpm check` is green (21 specs / 295 cases, §6). **TODO: screenshots, and deciding whether to publish to npm** (the schema's `$id` still carries a placeholder organisation).
+7. ⏳ **Release** — `pnpm check` is green (21 specs / 295 cases, §6). **TODO: deciding whether to publish to npm** (the schema's `$id` still carries a placeholder organisation).
 
 ### Static checks that need no application start
 

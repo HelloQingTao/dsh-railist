@@ -5,7 +5,7 @@
  * therefore must stay free of side effects and of any value import from
  * outside `src/shared/`.
  *
- * The normative shape is `schema/config.schema.json`; this file is its typed
+ * The normative shape is `docs/schema/config.schema.json`; this file is its typed
  * mirror. The host half validates with the schema (ajv); the browser half
  * normalises leniently through `./validate.ts`.
  */

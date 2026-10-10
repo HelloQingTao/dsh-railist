@@ -21,7 +21,8 @@
     "lib/client.js",
     "lib/types",
     "cordis.patch.yml",
-    "schema/config.schema.json",
+    "docs/schema/config.schema.json",
+    "docs/images",
     "README.md",
     "README.zh-CN.md",
     "LICENSE"
