@@ -107,6 +107,38 @@ describe('buildPlan: takeover scope', () => {
     expect(plan.unmanaged).toEqual(['first'])
   })
 
+  it('marks which rows the user configured and lists the rest as the appendix', () => {
+    // `rows` is the RAIL order; `configured` is what the editor's sequence list
+    // filters on, and `appendix` is the pool a per-item take-over draws from.
+    const plan = buildPlan(PANELS, shape(['d']))
+    expect(plan.rows.map(row => [row.id, row.configured])).toEqual([
+      ['d', true],
+      ['a', false],
+      ['b', false],
+      ['c', false],
+      ['e', false],
+    ])
+    expect(plan.appendix).toEqual(['a', 'b', 'c', 'e'])
+    expect(plan.unmanaged).toEqual(['a', 'b', 'c', 'e'])
+  })
+
+  it('separates "not in the sequence" from "never configured"', () => {
+    // A hand-edited config can give a panel an override without putting it in
+    // the sequence: it is managed, so it is NOT unmanaged, but it is still not
+    // in the sequence and must stay reachable from the editor's pool.
+    const plan = buildPlan(PANELS, profile({ entries: { c: { hidden: true } } }))
+    expect(plan.reordering).toBe(false)
+    expect(plan.appendix).toEqual(['a', 'b', 'c', 'd', 'e'])
+    expect(plan.unmanaged).toEqual(['a', 'b', 'd', 'e'])
+  })
+
+  it('has no appendix rows that are in the sequence', () => {
+    const plan = buildPlan(PANELS, shape(['c', { group: 'group:g1', members: ['a'] }, 'e']))
+    const inSequence = plan.rows.filter(row => row.configured).map(row => row.id)
+    expect(inSequence).toEqual(['c', 'group:g1', 'e'])
+    expect(plan.appendix).toEqual(['b', 'd'])
+  })
+
   it('an empty sequence is a strict no-op on the rail', () => {
     const plan = buildPlan(PANELS, profile())
     expect(plan.reordering).toBe(false)

@@ -93,13 +93,23 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
   const { plan, registered, t, glyph, nativeGlyph, selected, onSelect, apply, applyStructural } = props
   const dragRef = useRef<DragPayload | null>(null)
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
-  const rows = plan.rows
+  /**
+   * The rows the user actually configured.
+   *
+   * `plan.rows` is the RAIL order, which also holds every registered but
+   * unconfigured row that the model appends after the configured block. Using
+   * it as the sequence list made a single take-over look like taking over
+   * everything at once (found on a real DSH window).
+   */
+  const rows = plan.rows.filter(row => row.configured)
 
-  /** The live rail order, explicit. */
+  /** The whole live rail order: what "use the current rail order" snapshots. */
   const railRows = (): LiveRow[] => {
-    if (rows.length > 0) return rows.map(row => ({ kind: row.kind, id: row.id }))
+    if (plan.rows.length > 0) return plan.rows.map(row => ({ kind: row.kind, id: row.id }))
+    // Nothing is configured yet, so the rail order IS the registration order:
+    // sort by the declared order only — a stable sort keeps ledger order on ties.
     return [...registered]
-      .sort((left, right) => (left.order - right.order) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
+      .sort((left, right) => left.order - right.order)
       .map(panel => ({ kind: 'panel' as const, id: panel.id }))
   }
 
@@ -205,6 +215,20 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
       return
     }
     applyStructural(profile => moveRowTo(profile, payload.id, rows.length))
+  }
+
+  /**
+   * A row dropped onto the "not in the sequence" list leaves the sequence: a
+   * panel is released back to its contributor, a group is dissolved into the
+   * bare rows it held.
+   */
+  const dropOnUnmanaged = (event: DragEvent<HTMLUListElement>): void => {
+    event.preventDefault()
+    const payload = payloadOf(event)
+    endDrag()
+    if (payload === null) return
+    if (payload.kind === 'group') applyStructural(profile => dissolveGroup(profile, payload.id))
+    else apply(profile => releasePanel(profile, payload.id))
   }
 
   const dropOnMember = (event: DragEvent<HTMLLIElement>, groupId: string, index: number, members: readonly string[]): void => {
@@ -398,7 +422,11 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
     )
   }
 
-  const unmanaged = plan.unmanaged
+  /**
+   * Everything registered that is NOT in the sequence — the pool a per-item
+   * take-over draws from, and where a released panel lands again.
+   */
+  const unmanaged = plan.appendix
 
   return (
     <section className="dsh-panellist-settings-block">
@@ -440,13 +468,22 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
           <details className="dsh-panellist-settings-unmanaged" data-section="unmanaged">
             <summary>{t('settings.sequence.unmanagedSection', { count: unmanaged.length })}</summary>
             <p className="dsh-panellist-settings-hint">{t('settings.sequence.unmanagedHint')}</p>
-            <ul className="dsh-panellist-settings-plainList">
+            <ul
+              className="dsh-panellist-settings-plainList"
+              // Dropping a row here takes it out of the sequence: the gesture
+              // and the "Release to original" button do the same thing.
+              onDragOver={allowDrop}
+              onDrop={dropOnUnmanaged}
+            >
               {unmanaged.map(id => {
                 const panel = plan.panels.get(id)
                 return (
                   <li key={id} data-unmanaged-id={id}>
                     <span className="dsh-panellist-settings-plainListGlyph">{glyph({ icon: panel?.icon ?? null, native: nativeGlyph(id), size: 16 })}</span>
                     <span className="dsh-panellist-settings-plainListLabel">{panel?.label ?? id}</span>
+                    {panel?.hidden === true
+                      ? <span className="dsh-panellist-settings-badge" data-badge="hidden">{t('settings.appearance.hidden')}</span>
+                      : null}
                     {/* Per-item takeover. `apply`, not `applyStructural`: materializing
                         first would take over every other panel as a side effect. */}
                     <button

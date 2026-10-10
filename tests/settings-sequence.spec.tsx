@@ -128,6 +128,25 @@ describe('SequenceEditor', () => {
     expect(harness.updates[0]?.sequence).toEqual([{ type: 'entry', id: 'schedules' }])
   })
 
+  it('shows ONLY the configured row after taking over one panel', () => {
+    // Regression from a real DSH window: the sequence list was rendering
+    // `plan.rows`, which is the RAIL order and therefore already contains every
+    // registered-but-unconfigured row the model appends after the configured
+    // block. Adopting one panel made all six look adopted.
+    const harness = renderPage(emptyProfileConfig())
+    fireEvent.click(document.querySelector('[data-unmanaged-id="schedules"] [data-action="adopt"]') as HTMLElement)
+    const produced = harness.updates[0] as ProfileConfig
+    expect(produced.sequence).toEqual([{ type: 'entry', id: 'schedules' }])
+
+    // The store accepts the edit; the page re-plans from the new profile.
+    harness.setProfile(produced)
+    expect(document.querySelectorAll('[data-row-kind]')).toHaveLength(1)
+    expect(document.querySelector('[data-row-id="schedules"]')).not.toBeNull()
+    // ...and the other two are still waiting, untouched.
+    expect([...document.querySelectorAll('[data-unmanaged-id]')].map(node => node.getAttribute('data-unmanaged-id')))
+      .toEqual(['plugins', 'skills'])
+  })
+
   it('releases one panel back to its contributor', () => {
     const initial = profileWith(['plugins', 'schedules', 'skills'])
     const harness = renderPage(initial)

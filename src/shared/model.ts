@@ -100,6 +100,15 @@ export interface PlanRow {
   id: string
   order: number
   label: string
+  /**
+   * Whether this row is in the user's sequence, as opposed to being appended
+   * because it is registered but unconfigured.
+   *
+   * `rows` is the RAIL order (both kinds, in render order) — the editor's
+   * sequence list must filter on this flag, or taking over one panel would look
+   * like taking over every panel at once.
+   */
+  configured: boolean
 }
 
 /** A structured, translatable diagnostic for the settings page. */
@@ -128,6 +137,12 @@ export interface Plan {
   orphans: readonly string[]
   /** Group members with no registration. */
   missingMembers: readonly string[]
+  /**
+   * Registered, unlocked panels that are NOT in the sequence, in rail order.
+   * This is the editor's "not in the sequence" list — the pools a per-item
+   * take-over draws from and a per-item release returns to.
+   */
+  appendix: readonly string[]
   /** Registered panels in no sequence and with no override. */
   unmanaged: readonly string[]
   /** Config groups that cannot render a row (all members missing). */
@@ -142,6 +157,8 @@ interface Slot {
   kind: 'panel' | 'group'
   id: string
   railId: string
+  /** From the user's sequence (`true`) or appended as unconfigured (`false`). */
+  configured: boolean
 }
 
 function effectiveLabel(native: string | undefined, override: EntryOverride | undefined): string {
@@ -201,7 +218,7 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
       }
       nextOrder += 1
       assigned.set(item.id, { order: nextOrder, groupId: null })
-      slots.push({ order: nextOrder, kind: 'panel', id: item.id, railId: item.id })
+      slots.push({ order: nextOrder, kind: 'panel', id: item.id, railId: item.id, configured: true })
       continue
     }
     if (!isGroupItem(item)) continue
@@ -261,7 +278,7 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
     }
     if (members.length === 1) warnings.push({ code: 'single-member-group', groupId: item.id })
     nextOrder += 1
-    slots.push({ order: nextOrder, kind: 'group', id: item.id, railId: groupRailId(item.id) })
+    slots.push({ order: nextOrder, kind: 'group', id: item.id, railId: groupRailId(item.id), configured: true })
     groupItems.push({ item, members, liveMembers, order: nextOrder })
   }
 
@@ -281,13 +298,16 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
   for (const panel of unmanagedSorted) {
     if (isUntouched(profile, panel.id)) unmanaged.push(panel.id)
   }
+  // Every unlocked panel the sequence did not place — the pool a per-item
+  // take-over draws from and a per-item release returns to.
+  const appendix = unmanagedSorted.map(panel => panel.id)
 
   const reordering = slots.length > 0
   if (reordering) {
     for (const panel of unmanagedSorted) {
       nextOrder += 1
       assigned.set(panel.id, { order: nextOrder, groupId: null })
-      slots.push({ order: nextOrder, kind: 'panel', id: panel.id, railId: panel.id })
+      slots.push({ order: nextOrder, kind: 'panel', id: panel.id, railId: panel.id, configured: false })
     }
   }
 
@@ -356,6 +376,7 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
       label: slot.kind === 'group'
         ? groups.get(slot.id)?.label ?? slot.id
         : panels.get(slot.id)?.label ?? slot.id,
+      configured: slot.configured,
     }))
 
   return {
@@ -364,6 +385,7 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
     rows,
     orphans,
     missingMembers: missing,
+    appendix,
     unmanaged,
     dormantGroups,
     warnings,
