@@ -155,19 +155,24 @@ describe('SequenceEditor', () => {
     expect(next?.sequence[1]).toEqual({ type: 'entry', id: 'plugins' })
   })
 
-  it('lists the whole rail from the start, with the gate explained', () => {
+  it('lists the whole rail from the start, with no gate to open first', () => {
     const harness = renderPage(emptyProfileConfig())
 
+    // Nothing is configured yet, so the plan is in "the contributors' order
+    // stands" mode and writes no `order` at all…
     expect(harness.plan().reordering).toBe(false)
-    expect(screen.getByText(/no order is written/)).toBeTruthy()
-    // Every registered panel is a row from the first open: there is no
-    // "configured yet?" pool to opt into.
+    // …and the list is nevertheless complete from the first open: there is no
+    // banner to read and no "use the current order as a starting point" step in
+    // front of the rows the user came to edit.
     expect(document.querySelectorAll('[data-row-kind]')).toHaveLength(3)
     expect(document.querySelector('[data-row-id="schedules"]')).not.toBeNull()
+    expect(document.querySelector('[data-action="materialize"]')).toBeNull()
+    expect(screen.queryByText(/no order is written/)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use the current rail order as a starting point' }))
-
-    expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['plugins', 'schedules', 'skills'])
+    // The first structural edit turns the live order into an explicit sequence
+    // on its way in, so the gate stays invisible in both directions.
+    fireEvent.click(within(rowOf('plugins')).getByRole('button', { name: 'Move down' }))
+    expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
   })
 
   it('hides and shows a row straight from the list', () => {

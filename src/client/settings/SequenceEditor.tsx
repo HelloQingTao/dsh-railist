@@ -11,6 +11,11 @@
  * *partial* configured order becomes explicit (the live rail order the user is
  * looking at) before the edit lands. The pure functions in `shared/edit.ts`
  * own all sequence surgery — nothing here mutates a profile.
+ *
+ * There is deliberately no gate to open first: `plan.rows` IS the rail, so the
+ * list is complete from the first open and the write gate behind it (the plan
+ * writes no `order` while the sequence holds no live row, README §2.10) stays
+ * invisible — the first drag or grouping materializes the order on its way in.
  */
 import { useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { mintGroupId, type ProfileConfig } from '../../shared/config.ts'
@@ -18,7 +23,6 @@ import {
   addToGroup,
   createGroup,
   dissolveGroup,
-  materializeSequence,
   moveMember,
   moveMemberTo,
   moveRow,
@@ -39,7 +43,7 @@ export interface SequenceSelection {
 
 export interface SequenceEditorProps {
   plan: Plan
-  /** Live rail registrations, needed to materialize a fresh, empty sequence. */
+  /** Live rail registrations: a new group id is minted against them. */
   registered: readonly RegisteredPanel[]
   t: Translator['t']
   glyph: (request: GlyphRequest) => ReactNode
@@ -400,26 +404,6 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
     <section className="dsh-panellist-settings-block">
       <h3 className="dsh-panellist-settings-blockTitle">{t('settings.sequence.title')}</h3>
       <p className="dsh-panellist-settings-hint">{t('settings.sequence.hint')}</p>
-
-      {!plan.reordering
-        ? (
-          <div className="dsh-panellist-settings-banner" data-state="gated">
-            <p className="dsh-panellist-settings-hint">{t('settings.sequence.gatedHint')}</p>
-            <span className="dsh-panellist-settings-actionRow">
-              <button
-                type="button"
-                className="dsh-panellist-settings-action"
-                data-action="materialize"
-                disabled={rows.length === 0}
-                onClick={() => apply(profile => materializeSequence(
-                  profile,
-                  rows.map(row => ({ kind: row.kind, id: row.id })),
-                ))}
-              >{t('settings.sequence.materialize')}</button>
-            </span>
-          </div>
-        )
-        : null}
 
       {rows.length === 0
         ? (
