@@ -399,8 +399,12 @@ export const SETTINGS_CSS = `
   align-items: center;
 }
 
-/* Only the label may be truncated: it is the one part that can be long. */
-.dsh-panellist-settings-plainListLabel {
+/*
+ * Only the label may be truncated, and it owns the slack so a per-item action
+ * lands at the end of the row instead of hugging the name.
+ */
+.dsh-panellist-settings-plainList li > .dsh-panellist-settings-plainListLabel {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

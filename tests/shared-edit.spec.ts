@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { emptyProfileConfig, type ProfileConfig, type SequenceItem } from '../src/shared/config.ts'
 import {
   addToGroup,
+  adoptPanel,
   cleanOrphans,
   createGroup,
   dissolveGroup,
@@ -13,6 +14,7 @@ import {
   moveMember,
   moveRow,
   moveRowTo,
+  releasePanel,
   removeFromGroup,
   setGroupLabel,
   setPanelHidden,
@@ -196,6 +198,48 @@ describe('groups', () => {
     const created = createGroup(solo, 'group:g2', ['a'])
     expect(ids(created)).toEqual(['group:g2', 'group:g1'])
     expect(panelIds(created)).toEqual(['a', 'b'])
+  })
+})
+
+describe('adopt / release', () => {
+  it('takes over one panel without touching any other', () => {
+    const partial = profile([{ type: 'entry', id: 'a' }])
+    const adopted = adoptPanel(partial, 'd')
+    expect(ids(adopted)).toEqual(['a', 'd'])
+    // Idempotent: adopting twice is not two rows.
+    expect(ids(adoptPanel(adopted, 'd'))).toEqual(['a', 'd'])
+  })
+
+  it('adopts into a partial sequence, never materializing the rest', () => {
+    // The whole point of the per-item action: the panels the user did NOT ask
+    // for must stay untouched (and therefore stay unmanaged).
+    const adopted = adoptPanel(profile(), 'c')
+    expect(ids(adopted)).toEqual(['c'])
+  })
+
+  it('releases a panel out of the sequence, its overrides and its lock', () => {
+    const configured = profile(
+      [{ type: 'entry', id: 'a' }, { type: 'entry', id: 'b' }],
+      { entries: { b: { label: 'Bee', hidden: true } }, locked: [] },
+    )
+    const released = releasePanel(configured, 'b')
+    expect(ids(released)).toEqual(['a'])
+    expect(released.entries['b']).toBeUndefined()
+    expect(released.entries['a']).toBeUndefined()
+  })
+
+  it('releases a group member and dissolves a group it empties', () => {
+    const grouped = profile([{ type: 'group', id: 'group:g1', members: ['a', 'b'] }, { type: 'entry', id: 'c' }])
+    expect(ids(releasePanel(grouped, 'a'))).toEqual(['group:g1', 'c'])
+    expect(ids(releasePanel(grouped, 'b'))).toEqual(['group:g1', 'c'])
+    const single = profile([{ type: 'group', id: 'group:g1', members: ['a'] }, { type: 'entry', id: 'c' }])
+    expect(ids(releasePanel(single, 'a'))).toEqual(['c'])
+  })
+
+  it('round-trips: adopt then release leaves the profile as it was', () => {
+    const before = profile([{ type: 'entry', id: 'a' }])
+    const after = releasePanel(adoptPanel(before, 'd'), 'd')
+    expect(after.sequence).toEqual(before.sequence)
   })
 })
 

@@ -16,6 +16,7 @@ import { useRef, useState, type DragEvent, type ReactNode } from 'react'
 import { mintGroupId, type ProfileConfig } from '../../shared/config.ts'
 import {
   addToGroup,
+  adoptPanel,
   createGroup,
   dissolveGroup,
   materializeSequence,
@@ -23,6 +24,7 @@ import {
   moveMemberTo,
   moveRow,
   moveRowTo,
+  releasePanel,
   removeFromGroup,
   type LiveRow,
 } from '../../shared/edit.ts'
@@ -158,6 +160,15 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
 
   const ungroup = (groupId: string): void => {
     applyStructural(profile => dissolveGroup(profile, groupId))
+  }
+
+  /**
+   * Hand one panel back to its contributor. Deliberately NOT materializing:
+   * adopting every other row as a side effect of releasing one would be the
+   * opposite of what the button says.
+   */
+  const release = (id: string): void => {
+    apply(profile => releasePanel(profile, id))
   }
 
   const dropOnRow = (event: DragEvent<HTMLLIElement>, index: number): void => {
@@ -303,13 +314,24 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                 >{t('settings.sequence.ungroup')}</button>
               )
               : (
-                <button
-                  type="button"
-                  className="dsh-panellist-settings-action"
-                  data-action="groupWithNext"
-                  disabled={locked || !canGroupWithNext}
-                  onClick={() => groupWithNext(index)}
-                >{t('settings.sequence.groupWithNext')}</button>
+                <>
+                  <button
+                    type="button"
+                    className="dsh-panellist-settings-action"
+                    data-action="groupWithNext"
+                    disabled={locked || !canGroupWithNext}
+                    onClick={() => groupWithNext(index)}
+                  >{t('settings.sequence.groupWithNext')}</button>
+                  <button
+                    type="button"
+                    className="dsh-panellist-settings-action"
+                    data-action="release"
+                    disabled={locked}
+                    aria-label={t('settings.sequence.release')}
+                    title={t('settings.sequence.releaseHint')}
+                    onClick={() => release(row.id)}
+                  >{t('settings.sequence.release')}</button>
+                </>
               )}
           </span>
         </div>
@@ -425,6 +447,16 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                   <li key={id} data-unmanaged-id={id}>
                     <span className="dsh-panellist-settings-plainListGlyph">{glyph({ icon: panel?.icon ?? null, native: nativeGlyph(id), size: 16 })}</span>
                     <span className="dsh-panellist-settings-plainListLabel">{panel?.label ?? id}</span>
+                    {/* Per-item takeover. `apply`, not `applyStructural`: materializing
+                        first would take over every other panel as a side effect. */}
+                    <button
+                      type="button"
+                      className="dsh-panellist-settings-action"
+                      data-action="adopt"
+                      aria-label={`${t('settings.sequence.adopt')}: ${panel?.label ?? id}`}
+                      title={t('settings.sequence.adoptHint')}
+                      onClick={() => apply(edit => adoptPanel(edit, id))}
+                    >{t('settings.sequence.adopt')}</button>
                   </li>
                 )
               })}

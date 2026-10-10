@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createHarness } from './helpers/settings-harness.tsx'
 import { Section } from '../src/client/settings/Section.tsx'
 import { emptyProfileConfig, type ProfileConfig } from '../src/shared/config.ts'
-import { materializeSequence, moveRow, type LiveRow } from '../src/shared/edit.ts'
+import { materializeSequence, adoptPanel, moveRow, releasePanel, type LiveRow } from '../src/shared/edit.ts'
 
 function profileWith(ids: readonly string[]): ProfileConfig {
   return { sequence: ids.map(id => ({ type: 'entry' as const, id })), entries: {}, locked: [] }
@@ -116,6 +116,29 @@ describe('SequenceEditor', () => {
     expect(first?.querySelector('.dsh-panellist-settings-plainListLabel')?.textContent).toBe('Plugins')
   })
 
+  it('takes over ONE unconfigured panel without materializing the rest', () => {
+    // The per-item counterpart of "use the current order as a starting point":
+    // adopting one panel must leave every other panel unmanaged.
+    const harness = renderPage(emptyProfileConfig())
+    const item = document.querySelector('[data-unmanaged-id="schedules"]')
+    const button = item?.querySelector('[data-action="adopt"]')
+    expect(button).not.toBeNull()
+    fireEvent.click(button as HTMLElement)
+    expect(harness.updates[0]).toEqual(adoptPanel(emptyProfileConfig(), 'schedules'))
+    expect(harness.updates[0]?.sequence).toEqual([{ type: 'entry', id: 'schedules' }])
+  })
+
+  it('releases one panel back to its contributor', () => {
+    const initial = profileWith(['plugins', 'schedules', 'skills'])
+    const harness = renderPage(initial)
+    fireEvent.click(within(rowOf('schedules')).getByRole('button', { name: 'Release to original' }))
+    expect(harness.updates[0]).toEqual(releasePanel(initial, 'schedules'))
+    expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['plugins', 'skills'])
+    // Releasing is not a materialization either: the rows the user kept stay
+    // exactly as configured.
+    expect(harness.updates[0]?.entries).toEqual({})
+  })
+
   it('dissolves a group back into bare rows', () => {
     const profile: ProfileConfig = {
       sequence: [{ type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] }, { type: 'entry', id: 'skills' }],
@@ -184,7 +207,9 @@ describe('SequenceEditor', () => {
     expect(harness.plan().reordering).toBe(false)
     expect(screen.getByText(/Nothing is configured yet/)).toBeTruthy()
     expect(screen.getByText('Not configured (3)')).toBeTruthy()
-    expect(screen.getByText('These panels are never reordered, renamed, re-iconed or hidden. Moving one takes it over.')).toBeTruthy()
+    // The hint now says what the user can DO here, not just what we do not do;
+    // it is asserted loosely so copy edits do not break the behaviour spec.
+    expect(screen.getByText(/this plugin only takes over what you configure/)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Use the current rail order as a starting point' }))
 
