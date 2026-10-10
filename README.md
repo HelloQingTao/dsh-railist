@@ -84,7 +84,7 @@ Three sources, and you can switch back to the original icon at any time:
 ### 2.6 Groups and Group triggers
 
 - A Group trigger has its **own** icon and name; by default they are pre-filled from the icon and name of the "first item in the Group" (a common name is "More"), and the user can change them.
-- The Group trigger's **whole row is clickable**, and clicking it expands the Group menu; a whole-row click is always used to expand the menu and never navigates to a page.
+- The Group trigger's **whole row is clickable**, and clicking it expands the Group menu; a whole-row click is always used to expand the menu and never navigates to a page. The menu lists the Group's members and nothing else: an "Overview" link to the Group's own page used to sit in its title row and was removed on user feedback. That page still exists as the Group's `main` fallback (so selecting the Group id programmatically cannot error) but has no entry point of its own.
 - When any item in the Group is active, the **Group trigger is highlighted**, so the user can tell which Group the current page is in without expanding the menu.
 - When a Group is created, it is inserted at **the original position of its topmost member** — that is, the Group "grows" where its members already were. The model guarantees this (`createGroup` anchors on the *identity* of the row above the topmost member), so it holds for any gesture.
 

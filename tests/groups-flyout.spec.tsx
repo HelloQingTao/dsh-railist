@@ -239,15 +239,20 @@ describe('groups flyout — interaction', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it('links to the group overview page from the header', () => {
+  it('keeps the header to the group title, with no second destination in it', () => {
+    // The menu's job is the members. An "Overview" link to the group's own page
+    // used to sit in this header; it was removed on user feedback, and the page
+    // itself stays registered as the group's `main` fallback (groups-unit spec).
     const harness = createHarness([ALPHA, GROUP])
     openMenu(harness, { left: 8, top: 100, width: 36, height: 36 })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Overview' }))
-
-    // The group's own rail id is its `main` key: selecting it shows the overview.
-    expect(harness.selectCalls).toEqual([RAIL_ID])
-    expect(screen.queryByRole('menu')).toBeNull()
+    const header = document.querySelector('[data-dsh-panellist-flyout-header]')
+    expect(header?.textContent).toBe('Group: More')
+    expect(header?.querySelector('button')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Overview' })).toBeNull()
+    // Nothing in the header navigates: `selectCalls` stays empty until a member
+    // is clicked.
+    expect(harness.selectCalls).toEqual([])
   })
 
   it('marks the member that owns the active panel', () => {

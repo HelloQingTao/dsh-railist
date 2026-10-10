@@ -168,7 +168,7 @@ Because the row is a native row, box geometry, hover background, `aria-current` 
 
 **Whole-row click.** The row is a single `button`, so we must not nest another interactive element inside it. `GroupGlyph` therefore installs a capture-phase `click` and `keydown` listener on its ancestor button (`ref.current.closest('button')`), calls `preventDefault()` + `stopPropagation()`, and opens the flyout. Running in the capture phase on the row itself means our handler wins before React's delegated handler at the root. `aria-haspopup="menu"` is set on the row while mounted and removed on dispose.
 
-**The `main` page is insurance.** Click interception means `selectPanel(groupId)` should never run; if it does (a programmatic path, a shortcut), the shell would throw without a `main` entry. We therefore register a group overview page under the same key: a simple list of the group's members. It is also reachable deliberately from the flyout's header.
+**The `main` page is insurance.** Click interception means `selectPanel(groupId)` should never run; if it does (a programmatic path, a shortcut), the shell would throw without a `main` entry. We therefore register a group overview page under the same key: a simple list of the group's members. It has no UI entry point of its own — an "Overview" link in the flyout's header was removed on user feedback, because the menu's job is the members and a second destination in its title row only made the common case harder to read.
 
 **The flyout** is a body-portal overlay (the ecosystem's `AnchoredPopover` pattern), positioned from the row's `getBoundingClientRect()`:
 

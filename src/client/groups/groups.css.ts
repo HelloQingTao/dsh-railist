@@ -68,8 +68,6 @@ nav[class*="_panelList"] button[class*="_panelRow"]:has([data-dsh-panellist-grou
 [data-dsh-panellist-flyout-header] {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   padding: 4px 6px 6px;
   color: var(--dsw-alias-label-tertiary, inherit);
   font-size: 12px;
@@ -80,24 +78,6 @@ nav[class*="_panelList"] button[class*="_panelRow"]:has([data-dsh-panellist-grou
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-[data-dsh-panellist-flyout-overview] {
-  flex: none;
-  padding: 2px 6px;
-  border: 1px solid transparent;
-  border-radius: var(--dsw-radius-sm, 6px);
-  background: 0 0;
-  color: var(--dsw-alias-label-secondary, inherit);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-[data-dsh-panellist-flyout-overview]:is(:hover, :focus-visible) {
-  border-color: var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.25));
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-primary, inherit);
 }
 
 [data-dsh-panellist-flyout-menu] {

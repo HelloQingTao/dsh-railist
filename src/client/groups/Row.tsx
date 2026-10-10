@@ -123,7 +123,6 @@ export function createTriggerGlyph(runtime: GroupUnitRuntime, groupId: string): 
               group={group}
               anchor={buttonRef.current}
               onSelect={select}
-              onOverview={() => { select(group.railId) }}
               onClose={close}
             />
           )

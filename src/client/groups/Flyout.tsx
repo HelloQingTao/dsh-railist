@@ -71,7 +71,6 @@ export interface FlyoutProps {
   /** The row button the flyout is anchored to. */
   anchor: HTMLElement
   onSelect(panelId: string): void
-  onOverview(): void
   onClose(reason: FlyoutCloseReason): void
 }
 
@@ -87,7 +86,7 @@ function stopRowLeak(event: { stopPropagation(): void }): void {
 
 /** One menu row: the member's effective glyph and name, or a disabled "missing" row. */
 export function Flyout(props: FlyoutProps): ReactElement {
-  const { runtime, group, anchor, onSelect, onOverview, onClose } = props
+  const { runtime, group, anchor, onSelect, onClose } = props
   const { deps } = runtime
   const translate = deps.translate
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -250,17 +249,13 @@ export function Flyout(props: FlyoutProps): ReactElement {
         visibility: position === null ? 'hidden' : 'visible',
       }}
     >
+      {/* Title only: the menu's job is the members, so an "Overview" link to the
+          group's own page sat in the header as a second, unrelated destination
+          (that page remains registered as the group's `main` fallback). */}
       <div data-dsh-panellist-flyout-header="">
         <span data-dsh-panellist-flyout-title="">
           {translate.t('rail.group.menuTitle', { name: group.label })}
         </span>
-        <button
-          type="button"
-          data-dsh-panellist-flyout-overview=""
-          onClick={() => { onOverview() }}
-        >
-          {translate.t('rail.group.overview')}
-        </button>
       </div>
       <div
         ref={menuRef}
