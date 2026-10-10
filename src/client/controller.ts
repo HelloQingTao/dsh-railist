@@ -22,6 +22,7 @@ import type { GlyphRequest, SanitizeResult, SelfCheckController, SelfCheckState 
 import type { PanellistStore, StoreSnapshot } from './config/store.ts'
 import { createGroupUnit } from './groups/index.ts'
 import type { Translator } from './i18n/index.ts'
+import { settingsNavDataUri } from './icons/builtin.tsx'
 import { createRailAdapter } from './registry/rail.tsx'
 import { createSettingsUnit } from './settings/index.tsx'
 import { createSelfCheck } from './rail/probe.ts'
@@ -37,7 +38,6 @@ export interface ControllerDeps {
   glyph: (request: GlyphRequest) => ReactNode
   builtinNames: readonly BuiltinIconName[]
   sanitizeSvg: (source: string) => SanitizeResult
-  glyphDataUri: (name: BuiltinIconName) => string
 }
 
 /** The wired plugin, as the entry point and the tests see it. */
@@ -92,7 +92,7 @@ export function createController(deps: ControllerDeps): PanellistController {
   let cascade = 0
 
   styles.register('rail', HIDE_CSS)
-  styles.register('settings-nav', settingsNavCss(deps.glyphDataUri('list')))
+  styles.register('settings-nav', settingsNavCss(settingsNavDataUri()))
 
   // --- plan -----------------------------------------------------------------
   const rail = createRailAdapter(ctx, () => plan(), deps.glyph)

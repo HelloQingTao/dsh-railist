@@ -59,7 +59,6 @@ export function apply(ctx: ClientContext): () => void {
     glyph: Glyph,
     builtinNames: BUILTIN_ICON_NAMES,
     sanitizeSvg,
-    glyphDataUri,
   })
   styles.refresh()
   controller.refresh()

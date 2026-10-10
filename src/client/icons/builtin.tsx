@@ -7,27 +7,32 @@
  * renderers consume that one description:
  *
  * - {@link BUILTIN_GLYPHS} draws React elements (what the rail renders);
- * - {@link glyphDataUri} writes the same markup as a `data:` URI (what the
- *   settings navigation masks with).
+ * - {@link glyphDataUri} writes the same markup as a `data:` URI.
  *
  * Keeping one source of truth means the picker preview, the rail glyph and the
- * mask can never drift apart.
+ * mask can never drift apart. The settings navigation row's own mask glyph is a
+ * SEPARATE artwork ({@link settingsNavDataUri}) because that column is drawn at
+ * a heavier weight than the rail.
  *
- * House style — the shell's own, taken from
- * `@deepseek-ai/dsh-client-ui-primitives` (its 94 product icons), so a glyph we
- * ship sits next to a shipped one without looking foreign:
+ * House style — the rail's own, taken from the three panel icons every user has
+ * next to these (`插件` = `IconPluginPinwheelOutlineRegular`,
+ * `自动化任务` = `IconClockOutlineRegular`, `记忆系统` = dsh-mnemon's
+ * `MemoryIcon`), so a glyph we ship sits beside a shipped one without looking
+ * foreign:
  *
  * - `viewBox="0 0 16 16"`, `width`/`height` = the requested edge;
  * - `fill="none"`, `stroke="currentColor"`; colour rides the row, never a hex;
- * - stroke **1.3** — the `Icon*OutlineMedium` weight the rail rows and the
- *   settings navigation already use (`dsh-client-ui-settings-general` renders
- *   its nav glyphs at `size: 16` with exactly this weight);
- * - geometry on the 16 grid at half-step coordinates, one unit of clearance
- *   from the edge (1.5…14.5) for an outer contour, concave curves for sparkles,
- *   `fill="currentColor"` only for dots;
- * - round caps and joins, no ids, no external references, no `<title>`/text
- *   (the row's accessible name comes from the shell's `aria-label`, so glyphs
- *   are `aria-hidden`).
+ * - stroke **1.0** — the `Icon*OutlineRegular` weight those three all use. A
+ *   1.3 stroke (the `Medium` weight the settings navigation uses) read 30%
+ *   heavier than every icon beside it in the rail, which is exactly what an
+ *   on-device review called out;
+ * - geometry on the 16 grid at half-step coordinates, an outer contour that
+ *   stays inside roughly 2…14 (a 6-unit radius plus the stroke — the shipped
+ *   clock measures 13 units of ink), and generous interior whitespace;
+ * - **round caps and joins**, as dsh-mnemon's `MemoryIcon` draws its brain;
+ * - concave cubic curves for sparkles, `fill="currentColor"` only for dots,
+ *   no ids, no external references, no `<title>`/text (the row's accessible name
+ *   comes from the shell's `aria-label`, so glyphs are `aria-hidden`).
  */
 
 import type { ReactElement, ReactNode } from 'react'
@@ -39,8 +44,13 @@ export const FALLBACK_GLYPH: BuiltinIconName = 'box'
 
 /** The shell's icon canvas. */
 const VIEW_BOX = '0 0 16 16'
-/** `Icon*OutlineMedium`'s weight, and the edge every mask is drawn at. */
-const STROKE_WIDTH = 1.3
+/**
+ * `Icon*OutlineRegular`'s weight — the one every rail row beside these uses
+ * (`IconPluginPinwheelOutlineRegular`, `IconClockOutlineRegular`,
+ * dsh-mnemon's `MemoryIcon`). The settings navigation draws its own glyphs at
+ * `Icon*OutlineMedium` (1.3), but that column is not what these sit in.
+ */
+const STROKE_WIDTH = 1
 const RENDER_SIZE = 16
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
 const DEFAULT_SIZE = 16
@@ -80,22 +90,35 @@ function round(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-/** One cog tooth: a stroke from the ring outwards, at `degrees` on the 16×16 grid. */
-function gearTooth(degrees: number): GlyphShape {
-  const angle = (degrees * Math.PI) / 180
-  const inner = 4.2
-  const outer = 5.8
-  const x1 = round(8 + inner * Math.cos(angle))
-  const y1 = round(8 + inner * Math.sin(angle))
-  const x2 = round(8 + outer * Math.cos(angle))
-  const y2 = round(8 + outer * Math.sin(angle))
-  return { tag: 'path', d: `M${x1} ${y1}L${x2} ${y2}` }
+/**
+ * A cog as ONE closed contour: `teeth` trapezoids on a rim, joined by valley
+ * chords.
+ *
+ * Teeth drawn as separate strokes off a circle read as a sun, not a gear — and
+ * a gear is the one glyph here whose shipped counterpart everyone has seen
+ * (`IconSettingsOutline`), so it has to look like one at 16px.
+ * @param teeth - number of teeth.
+ * @param outer - tip radius.
+ * @param inner - valley radius.
+ */
+function cogPath(teeth: number, outer: number, inner: number): string {
+  const step = (Math.PI * 2) / teeth
+  const point = (angle: number, radius: number): string =>
+    `${round(8 + radius * Math.cos(angle))} ${round(8 + radius * Math.sin(angle))}`
+  const parts: string[] = []
+  for (let index = 0; index < teeth; index += 1) {
+    // Start at twelve o'clock so the tips land symmetrically.
+    const centre = index * step - Math.PI / 2
+    const contour = [
+      point(centre - 0.4 * step, inner),
+      point(centre - 0.1 * step, outer),
+      point(centre + 0.1 * step, outer),
+      point(centre + 0.4 * step, inner),
+    ]
+    parts.push(`${index === 0 ? 'M' : 'L'}${contour[0]}`, `L${contour[1]}`, `L${contour[2]}`, `L${contour[3]}`)
+  }
+  return `${parts.join('')}Z`
 }
-
-const GEAR_TEETH: readonly GlyphShape[] = Array.from(
-  { length: 8 },
-  (_unused, index): GlyphShape => gearTooth(index * 45),
-)
 
 /**
  * A four-point sparkle: the shell draws these as cubic curves whose control
@@ -127,33 +150,46 @@ function sparkle(cx: number, cy: number, arm: number): GlyphShape {
 /** Geometry of every glyph, on the shared 16×16 grid. */
 const GLYPH_SHAPES: Record<BuiltinIconName, readonly GlyphShape[]> = {
   grid: [
-    { tag: 'rect', x: 1.5, y: 1.5, width: 5.7, height: 5.7, rx: 1 },
-    { tag: 'rect', x: 8.8, y: 1.5, width: 5.7, height: 5.7, rx: 1 },
-    { tag: 'rect', x: 1.5, y: 8.8, width: 5.7, height: 5.7, rx: 1 },
-    { tag: 'rect', x: 8.8, y: 8.8, width: 5.7, height: 5.7, rx: 1 },
+    // Two-unit gutter between the cells, so the four of them read as a layout
+    // rather than as a filled block.
+    { tag: 'rect', x: 2.4, y: 2.4, width: 4.6, height: 4.6, rx: 1 },
+    { tag: 'rect', x: 9, y: 2.4, width: 4.6, height: 4.6, rx: 1 },
+    { tag: 'rect', x: 2.4, y: 9, width: 4.6, height: 4.6, rx: 1 },
+    { tag: 'rect', x: 9, y: 9, width: 4.6, height: 4.6, rx: 1 },
   ],
   puzzle: [
+    // The plugin pinwheel the shell itself draws (`IconPluginPinwheelOutline`):
+    // four curved petals on the 16 grid. This is the shape `插件` renders in the
+    // rail, so a panel given this glyph looks like a shipped one — the earlier
+    // jigsaw silhouette read as "a box with a tab" at 16px.
     {
-      // A jigsaw piece in one contour: a knob on the top edge and a matching
-      // dent in the right edge, with the other two sides left straight — the
-      // only reading that survives at 16px (four knobs turn into a blob).
-      // Flags follow from the bell's dome below: left→right with sweep 1 bulges
-      // up, so the top knob uses sweep 1; rotated a quarter turn, top→bottom with
-      // sweep 1 bulges LEFT, which is the inward dent the right edge needs.
       tag: 'path',
-      d: 'M2.5 1.5H6.2A1.8 1.8 0 0 1 9.8 1.5H13.5A1 1 0 0 1 14.5 2.5V6.1'
-        + 'A1.6 1.6 0 0 1 14.5 9.3V13.5A1 1 0 0 1 13.5 14.5H2.5A1 1 0 0 1 1.5 13.5V2.5A1 1 0 0 1 2.5 1.5Z',
+      d: 'M7.84 5.06C11.66 4.94 14.8 6.15 14.85 7.76C14.89 8.97 13.18 10.07 10.72 10.59',
+    },
+    {
+      tag: 'path',
+      d: 'M5.13 8.08C5 4.26 6.21 1.13 7.83 1.07C9.04 1.03 10.14 2.74 10.66 5.2',
+    },
+    {
+      tag: 'path',
+      d: 'M8.02 10.68C4.21 10.8 1.07 9.59 1.02 7.98C0.98 6.77 2.69 5.67 5.15 5.15',
+    },
+    {
+      tag: 'path',
+      d: 'M10.75 7.9C10.87 11.71 9.66 14.85 8.05 14.9C6.83 14.94 5.74 13.23 5.22 10.77',
     },
   ],
   sparkles: [sparkle(6, 5.75, 4.25), sparkle(11.6, 11.2, 2.6)],
   clock: [
-    { tag: 'circle', cx: 8, cy: 8, r: 6.5 },
-    { tag: 'path', d: 'M8 4.5V8l2.6 1.6' },
+    // Geometry taken from the shipped `IconClockOutlineArtwork` — the icon
+    // `自动化任务` renders — so the two read as the same drawing at 16px.
+    { tag: 'circle', cx: 8, cy: 8, r: 6 },
+    { tag: 'path', d: 'M8 4.31V8.46L11 10.08' },
   ],
   memory: [
     { tag: 'rect', x: 3.5, y: 3.5, width: 9, height: 9, rx: 1 },
-    { tag: 'rect', x: 6.5, y: 6.5, width: 3, height: 3, rx: 0.6 },
-    { tag: 'path', d: 'M5.5 1.5v2M10.5 1.5v2M5.5 12.5v2M10.5 12.5v2M1.5 5.5h2M1.5 10.5h2M12.5 5.5h2M12.5 10.5h2' },
+    { tag: 'rect', x: 6.4, y: 6.4, width: 3.2, height: 3.2, rx: 0.6 },
+    { tag: 'path', d: 'M5.6 2v1.5M10.4 2v1.5M5.6 12.5v1.5M10.4 12.5v1.5M2 5.6h1.5M2 10.4h1.5M12.5 5.6h1.5M12.5 10.4h1.5' },
   ],
   terminal: [
     { tag: 'rect', x: 1.5, y: 2.5, width: 13, height: 11, rx: 1 },
@@ -166,7 +202,7 @@ const GLYPH_SHAPES: Record<BuiltinIconName, readonly GlyphShape[]> = {
   star: [
     {
       tag: 'path',
-      d: 'M8 1.9L9.53 6.1 13.99 6.25 10.47 9 11.7 13.3 8 10.8 4.3 13.3 5.53 9 2.01 6.25 6.47 6.1Z',
+      d: 'M8 2.45L9.38 6.25 13.42 6.39 10.23 8.88 11.35 12.76 8 10.5 4.65 12.76 5.77 8.88 2.58 6.39 6.62 6.25Z',
     },
   ],
   folder: [
@@ -185,19 +221,18 @@ const GLYPH_SHAPES: Record<BuiltinIconName, readonly GlyphShape[]> = {
     { tag: 'path', d: 'M6.2 4.5L2.5 8l3.7 3.5M9.8 4.5L13.5 8l-3.7 3.5M9.1 3l-2.2 10' },
   ],
   gear: [
-    ...GEAR_TEETH,
-    { tag: 'circle', cx: 8, cy: 8, r: 4.2 },
-    { tag: 'circle', cx: 8, cy: 8, r: 2 },
+    { tag: 'path', d: cogPath(8, 5.9, 4.5) },
+    { tag: 'circle', cx: 8, cy: 8, r: 2.1 },
   ],
   chart: [{ tag: 'path', d: 'M2.5 13.5h11M5 13.5V9M8 13.5V5.5M11 13.5V10.5' }],
   list: [
-    // The shell's own list rhythm (`IconFlatListOutline`): the dots are round
-    // capped zero-length strokes, i.e. a 1.3px dot, on the same three baselines
-    // as the rules. This one also paints the settings navigation row's mask.
+    // The shell's own list rhythm (`IconFlatListOutline`): dots of a 1.3px
+    // stroke's width on the same three baselines as the rules, and rules long
+    // enough to reach the same right edge the shipped round caps give them.
     { tag: 'circle', cx: 2.6, cy: 3.5, r: 0.65, filled: true },
     { tag: 'circle', cx: 2.6, cy: 8, r: 0.65, filled: true },
     { tag: 'circle', cx: 2.6, cy: 12.5, r: 0.65, filled: true },
-    { tag: 'path', d: 'M6 3.5h7.5M6 8h7.5M6 12.5h7.5' },
+    { tag: 'path', d: 'M5.5 3.5h8.6M5.5 8h8.6M5.5 12.5h8.6' },
   ],
   bell: [
     { tag: 'path', d: 'M4.5 12.5V8.5a3.5 3.5 0 0 1 7 0v4z' },
@@ -206,13 +241,13 @@ const GLYPH_SHAPES: Record<BuiltinIconName, readonly GlyphShape[]> = {
   ],
   bolt: [{ tag: 'path', d: 'M8.9 1.6L4 8.9h3.4L7.1 14.4 12.5 7.1H9.1z' }],
   shield: [
-    { tag: 'path', d: 'M8 1.7l6.2 2.3v4.5c0 3.2-2.6 5.6-6.2 6.8-3.6-1.2-6.2-3.6-6.2-6.8V4z' },
-    { tag: 'path', d: 'M5.9 7.9l1.5 1.5 2.8-3' },
+    { tag: 'path', d: 'M8 2.2l5.7 2.1v4.1c0 2.9-2.4 5.2-5.7 6.2-3.3-1-5.7-3.3-5.7-6.2V4.3z' },
+    { tag: 'path', d: 'M6 8.1l1.4 1.4 2.6-2.8' },
   ],
   globe: [
-    { tag: 'circle', cx: 8, cy: 8, r: 6.5 },
-    { tag: 'ellipse', cx: 8, cy: 8, rx: 2.9, ry: 6.5 },
-    { tag: 'path', d: 'M1.6 8h12.8' },
+    { tag: 'circle', cx: 8, cy: 8, r: 6 },
+    { tag: 'ellipse', cx: 8, cy: 8, rx: 2.7, ry: 6 },
+    { tag: 'path', d: 'M2 8h12' },
   ],
   database: [
     { tag: 'ellipse', cx: 8, cy: 4.6, rx: 5.5, ry: 2.1 },
@@ -238,11 +273,13 @@ const GLYPH_SHAPES: Record<BuiltinIconName, readonly GlyphShape[]> = {
     { tag: 'path', d: 'M2 11.4l6 3.2 6-3.2' },
   ],
   compass: [
-    { tag: 'circle', cx: 8, cy: 8, r: 6.5 },
-    { tag: 'path', d: 'M10.6 5.4l-1.7 3.5-3.5 1.7 1.7-3.5z' },
+    { tag: 'circle', cx: 8, cy: 8, r: 6 },
+    { tag: 'path', d: 'M10.4 5.6l-1.6 3.2-3.2 1.6 1.6-3.2z' },
   ],
   more: [
-    // Dots at the shell's own ellipsis spacing and radius (`IconEllipsisOutline`).
+    // The shell's own ellipsis geometry (`IconEllipsisOutlineArtwork`): three
+    // filled r=1 dots on the 3/8/13 rhythm. A bigger radius read as three fat
+    // blobs instead of a quiet "more".
     { tag: 'circle', cx: 3, cy: 8, r: 1, filled: true },
     { tag: 'circle', cx: 8, cy: 8, r: 1, filled: true },
     { tag: 'circle', cx: 13, cy: 8, r: 1, filled: true },
@@ -318,8 +355,13 @@ function glyphElement(name: BuiltinIconName, size: number): ReactElement {
 
 /** One glyph as standalone markup, painted in `paint`. */
 function glyphMarkup(name: BuiltinIconName, paint: string): string {
-  const shapes = GLYPH_SHAPES[name].map(shape => shapeMarkup(shape, paint)).join('')
-  return `<svg xmlns="${SVG_NAMESPACE}" width="${RENDER_SIZE}" height="${RENDER_SIZE}" viewBox="${VIEW_BOX}" fill="none" stroke="${paint}" stroke-width="${STROKE_WIDTH}" stroke-linecap="round" stroke-linejoin="round">${shapes}</svg>`
+  return shapesMarkup(GLYPH_SHAPES[name], paint, STROKE_WIDTH)
+}
+
+/** A shape list as standalone markup at one stroke weight. */
+function shapesMarkup(shapes: readonly GlyphShape[], paint: string, strokeWidth: number): string {
+  const body = shapes.map(shape => shapeMarkup(shape, paint)).join('')
+  return `<svg xmlns="${SVG_NAMESPACE}" width="${RENDER_SIZE}" height="${RENDER_SIZE}" viewBox="${VIEW_BOX}" fill="none" stroke="${paint}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`
 }
 
 function renderer(name: BuiltinIconName): BuiltinGlyphRenderer {
@@ -405,4 +447,34 @@ export function BuiltinGlyph({ name, size }: { name: BuiltinIconName; size: numb
  */
 export function glyphDataUri(name: BuiltinIconName): string {
   return `data:image/svg+xml,${encodeURIComponent(glyphMarkup(name, 'black'))}`
+}
+
+/**
+ * The settings navigation glyph — a **panel list**: three rows, each a small
+ * rounded panel beside its label rule.
+ *
+ * It is deliberately NOT one of the 24 built-ins: that set is drawn at the
+ * rail's `Icon*OutlineRegular` weight (1px, beside `插件`/`自动化任务`/
+ * `记忆系统`), while the settings navigation column is drawn at the shell's
+ * `Icon*OutlineMedium` weight — `dsh-client-ui-settings-general` renders every
+ * nav glyph as `Icon*OutlineMedium` at `size: 16`. A 1px glyph in that column
+ * read visibly thinner than the ten icons beside it, so this one gets its own
+ * artwork and its own weight.
+ */
+const SETTINGS_NAV_SHAPES: readonly GlyphShape[] = [
+  { tag: 'rect', x: 2.1, y: 2.2, width: 2.6, height: 2.6, rx: 0.6 },
+  { tag: 'rect', x: 2.1, y: 6.7, width: 2.6, height: 2.6, rx: 0.6 },
+  { tag: 'rect', x: 2.1, y: 11.2, width: 2.6, height: 2.6, rx: 0.6 },
+  { tag: 'path', d: 'M6.2 3.5h7.6M6.2 8h7.6M6.2 12.5h7.6' },
+]
+
+/** The settings navigation glyph's weight — `Icon*OutlineMedium`. */
+export const SETTINGS_NAV_STROKE = 1.3
+
+/**
+ * The settings navigation glyph as a `data:image/svg+xml,` URI stroked in
+ * `black` (CSS `mask-image` only reads alpha).
+ */
+export function settingsNavDataUri(): string {
+  return `data:image/svg+xml,${encodeURIComponent(shapesMarkup(SETTINGS_NAV_SHAPES, 'black', SETTINGS_NAV_STROKE))}`
 }

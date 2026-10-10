@@ -4,11 +4,10 @@
  *
  * The catalogue is walked rather than spot-checked: every frozen name must have
  * a glyph, every glyph must be a theme-coloured, self-contained outline on the
- * shell's own 16×16 canvas at its Medium (1.3px) weight — the spec
- * `@deepseek-ai/dsh-client-ui-primitives` draws its product icons to, so ours
- * sit next to a shipped one without looking foreign — and it must be
- * recognisable at rail size and can never nest an interactive element inside
- * the shell's row `<button>`.
+ * shell's own 16×16 canvas at the **Regular (1px)** weight every rail row beside
+ * these uses (`IconPluginPinwheelOutlineRegular`, `IconClockOutlineRegular`,
+ * dsh-mnemon's `MemoryIcon`), and it must be recognisable at rail size and can
+ * never nest an interactive element inside the shell's row `<button>`.
  */
 
 import { describe, expect, it } from 'vitest'
@@ -20,6 +19,7 @@ import {
   assertBuiltinGlyphCatalogue,
   BUILTIN_GLYPHS,
   FALLBACK_GLYPH,
+  settingsNavDataUri,
 } from '../src/client/icons/builtin.tsx'
 import { BuiltinGlyph, glyphDataUri, Glyph } from '../src/client/icons/index.tsx'
 
@@ -64,7 +64,9 @@ describe('built-in catalogue', () => {
       expect(svg?.getAttribute('stroke'), name).toBe('currentColor')
       // The shell's own icon weight (`Icon*OutlineMedium`), which is what the
       // rail rows and the settings navigation are drawn at.
-      expect(svg?.getAttribute('stroke-width'), name).toBe('1.3')
+      expect(svg?.getAttribute('stroke-width'), name).toBe('1')
+      // Round caps and joins, as dsh-mnemon's `MemoryIcon` (one of the three
+      // rail icons these sit beside) draws its brain.
       expect(svg?.getAttribute('stroke-linecap'), name).toBe('round')
       expect(svg?.getAttribute('stroke-linejoin'), name).toBe('round')
       expect(svg?.getAttribute('aria-hidden'), name).toBe('true')
@@ -132,13 +134,40 @@ describe('glyphDataUri', () => {
       // shell's settings navigation draws its icons in.
       expect(markup, name).toContain('width="16"')
       expect(markup, name).toContain('height="16"')
-      expect(markup, name).toContain('stroke-width="1.3"')
+      expect(markup, name).toContain('stroke-width="1"')
       expect(markup, name).toContain('stroke="black"')
       expect(markup, name).toMatch(/<(path|rect|circle|ellipse)\b/)
       expect(markup, name).not.toMatch(/currentColor/)
       uris.add(uri)
     }
     expect(uris.size).toBe(NAMES.length)
+  })
+})
+
+describe('settingsNavDataUri', () => {
+  it('draws a dedicated glyph at the settings navigation weight', () => {
+    // The settings navigation column is drawn at `Icon*OutlineMedium` (1.3),
+    // not at the rail's `Icon*OutlineRegular` (1) — a 1px glyph there read
+    // visibly thinner than the ten official icons beside it.
+    const uri = settingsNavDataUri()
+    expect(uri.startsWith(DATA_PREFIX)).toBe(true)
+    const markup = decodeURIComponent(uri.slice(DATA_PREFIX.length))
+    expect(markup).toContain('stroke-width="1.3"')
+    expect(markup).toContain('viewBox="0 0 16 16"')
+    expect(markup).toContain('stroke="black"')
+    expect(markup).toContain('<rect')
+    expect(markup).toContain('<path')
+    expect(markup).not.toMatch(/currentColor/)
+    // Not one of the 24 built-ins: the two sets have different weights and are
+    // used in different columns.
+    expect(markup).not.toContain('data-panellist-glyph')
+  })
+
+  it('is distinct from every built-in glyph', () => {
+    const nav = settingsNavDataUri()
+    for (const name of NAMES) {
+      expect(glyphDataUri(name), name).not.toBe(nav)
+    }
   })
 })
 

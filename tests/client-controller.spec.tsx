@@ -142,7 +142,6 @@ function harness(options: { profile?: ProfileConfig; activePanelId?: string } = 
     glyph: Glyph,
     builtinNames: BUILTIN_ICON_NAMES,
     sanitizeSvg,
-    glyphDataUri,
   })
   return {
     controller,
