@@ -435,3 +435,38 @@ Checked by reading the code and, where noted, by executing the real model module
 - CSS cascade on the real build: #12 is decided by selector specificity alone, which is
   engine-independent, but the token values (`--dsw-alias-interactive-bg-hover`) can only be seen on a
   real window.
+
+---
+
+## Lead resolution (appended after the audit was closed)
+
+Measured on the fixed tree, by the Lead: `pnpm exec tsc -p tsconfig.json --noEmit` exit 0; `pnpm exec vitest run`
+20 files / **278 tests** passed; `pnpm check` (typecheck + tests + declaration emit + both bundles) green.
+
+| # | finding | resolution |
+| --- | --- | --- |
+| 1 | README §2.8 / `model.ts` / `gatedHint` claimed rename+hide materialize the sequence | **Fixed** in all four places: the docs and the banner now say a *structural* change (drag, group/ungroup) takes over the order, and that rename/re-icon/hide only override that row. The banner no longer claims nothing has been configured. |
+| 2 | Dead `Plan.unmanaged` / `Plan.dormantGroups` | **Removed**, with their accumulators and the now-unused `isUntouched` helper. The specs assert the same properties through what the rewrite pass reads (a `rowOrders()` helper over `PlanPanel.order` / `PlanGroup.order`, plus `PlanGroup.liveMembers`). |
+| 3 | Dead `StoreSnapshot.saved` whose doc named the deleted `common.applied` | **Removed** from the snapshot, `emptySnapshot()`, both publishes, both fakes and the two spec assertions. |
+| 4 | Dead, mis-documented `PlanPanel.managed` | **Removed** (the field made the old fresh-install bug invisible by inviting readers to trust it as the write gate). |
+| 5 | `PlanRow.order` as a second source of truth | **Removed**; `PlanRow` is now purely the display projection, and the model specs read the real order sources. |
+| 6 | `Plan.rows` documented as "EVERY row" while locked rows are excluded | **Fixed**: the doc says every *unlocked* row; the editor distinguishes "nothing registered" from "everything is locked" (new `settings.sequence.allLocked` copy) and disables the materialize button when there is no unlocked row to snapshot. |
+| 7 | Dead `railRowCount` + the row selector in three copies | **Fixed**: `PANEL_ROW_SELECTOR` lives in `rail/css.ts`, the hide rule is built from it, and `rail/probe.ts` imports it; the adapter method is gone. |
+| 8 | `railRows()`'s unreachable/wrong fallback branch | **Removed** with the indirection: "use the current rail order" reads `plan.rows`, which by contract is the same list and can never contain a locked panel. |
+| 9 | Unread `SelfCheckState.hidingDisabled` / `settingsIconDisabled` / `checkedAt` | **Removed**; the per-probe `results` (which carry the detail and the impact copy the page renders) are the single source. |
+| 10 | `data-*` hooks with no reader | **Fixed**: `data-dsh-panellist-entry`, `data-hidden`, `data-block` (5 sites), `-overview-member`, `-overview-missing` and `data-plugin-css` were deleted. `-flyout-missing` was **kept** — `groups.css.ts` styles it, which a sweep over TS alone cannot see. ARCHITECTURE §4.2 now documents the two markers that actually drive the CSS. |
+| 11 | Probe 3's throwaway row did not hide itself | **Fixed in the code, not the doc**: `ProbeGlyph` returns the suppressed marker span (via `createElement`, so `probe.ts` stays a `.ts` module), which is what `HIDE_CSS` matches. |
+| 12 | Group-active CSS defined twice, one rule unreachable | **Fixed**: the rail chunk's copy and its registration are gone; the group unit's nav-scoped rule (with the real theme token) is the single definition. |
+| 13 | Tautological assertions in `client-controller.spec.tsx` | **Fixed**: the harness registers one *named* glyph per panel and exposes them, so the wrapper assertions compare against the same entry's captured original; the `styles !== undefined` line is gone. |
+| 14 | "Hide/Show never materializes" unpinned | **Pinned**: a case starts from an empty profile, clicks Hide and asserts `{ sequence: [], entries: { plugins: { hidden: true } }, locked: [] }` — with an already-materialized profile the two code paths are indistinguishable. |
+| 15 | Stale comment + hand-copied row list in `settings-appearance.spec.tsx` | **Fixed**: the comment describes the current model and the expectation is derived from `harness.plan().rows`. |
+| 16 | README headers described the deleted append model | **Fixed** in both languages: unconfigured entries are always listed; only the `order` write is gated. |
+| 17 | Exports used only inside their own module | **Partly fixed**: the implementation details (`asIconRef`, `asEntryOverride`, `normalizeProfileConfig`, `ensurePortalContainer`, `PORTAL_CONTAINER_ATTRIBUTE`) lost the keyword. Props interfaces and the type surface of the two halves stay exported on purpose — they are the seam, and declaration emit needs a nameable type for an exported value (`BuiltinGlyphRenderer` is that case). |
+| 18 | `as never` at the registration boundary | **Fixed**: the rail adapter and the probes register through small wrappers typed against local option shapes, so a wrong key or a drifted component is a compile error at the caller. They call *through* `slots` — extracting the method loses its receiver, which the first attempt did and the suite caught. |
+| 19 | `edit.ts` missing its trailing newline | **Fixed**. |
+| 20 | Orphaned duplicate doc comment in `rail.tsx` | **Deleted**. |
+| 21 | GLOSSARY "Sequence" named two things | **Fixed**: the entry now states that `ProfileConfig.sequence` is partial while the visible order is `Plan.rows`. |
+
+Not actioned, deliberately: props interfaces and API types keeping their `export` (see #17), and
+`BUILTIN_GLYPHS_ARE_EXHAUSTIVE` — a documented compile-time witness whose value is meaningless and whose
+type is the assertion.
