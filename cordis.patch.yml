@@ -1,0 +1,9 @@
+# dsh-panellist bundle for DeepSeek Harness.
+# Inserted into the profile's composition when this bundle is installed
+# (`dsh plugin --profile desktop add link:/path/to/dsh-panellist`). The row
+# resolves the package by name through the profile's node_modules; the node
+# half stores the configuration and serves the loopback route, the dshClient
+# half rewrites the rail registrations and owns the Settings tab.
+- insert:
+    - id: panellist
+      name: dsh-panellist
