@@ -363,7 +363,7 @@ Final measured state, by the Lead, after every fix above:
 | command | result |
 | --- | --- |
 | `pnpm exec tsc -p tsconfig.json --noEmit` | exit 0, no diagnostics |
-| `pnpm exec vitest run` | 20 files, 274 tests, all passing |
+| `pnpm exec vitest run` | 20 files, 281 tests, all passing |
 | `pnpm build` | `lib/index.js` 34.93 kB, `lib/client.js` 96.12 kB, no purity-gate violation |
 
 Standing reminder for the release: the four probe facts in README §5 can only be confirmed against a
