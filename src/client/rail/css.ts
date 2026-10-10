@@ -10,6 +10,10 @@
  * `dsh-better-sidebar/src/client/layout.css:58-75`): the shell has no icon field
  * in the `settings.section` contract, so the marker pass stamps our own row and
  * a pseudo-element paints a masked, `currentColor` glyph over the fallback gear.
+ * The mask is the built-in `list` glyph at the glyph set's own 16px edge and
+ * 1.3px weight — the weight and size the shell's nav icons use
+ * (`dsh-client-ui-settings-general` renders `Icon*OutlineMedium` at `size: 16`),
+ * so ours sits in that column like a shipped one.
  */
 
 /** Marker attribute for the settings navigation row (see {@link createSettingsNavMarker}). */

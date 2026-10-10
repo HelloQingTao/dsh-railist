@@ -1,6 +1,7 @@
 /**
- * The built-in glyph set: 24 hand-written 24×24 outline glyphs, plus the
- * catalogue the settings picker walks and the CSS-mask data URIs.
+ * The built-in glyph set: 24 hand-written outline glyphs on the shell's own
+ * icon canvas, plus the catalogue the settings picker walks and the CSS-mask
+ * data URIs.
  *
  * Every glyph is described once, as geometry, in {@link GLYPH_SHAPES}. Two
  * renderers consume that one description:
@@ -12,10 +13,21 @@
  * Keeping one source of truth means the picker preview, the rail glyph and the
  * mask can never drift apart.
  *
- * House style, applied by both renderers: `viewBox="0 0 24 24"`, `fill="none"`,
- * `stroke="currentColor"` at 1.6px with round caps and joins, no ids, no
- * external references, and no `<title>`/text (the row's accessible name comes
- * from the shell's `aria-label`, so glyphs are `aria-hidden`).
+ * House style — the shell's own, taken from
+ * `@deepseek-ai/dsh-client-ui-primitives` (its 94 product icons), so a glyph we
+ * ship sits next to a shipped one without looking foreign:
+ *
+ * - `viewBox="0 0 16 16"`, `width`/`height` = the requested edge;
+ * - `fill="none"`, `stroke="currentColor"`; colour rides the row, never a hex;
+ * - stroke **1.3** — the `Icon*OutlineMedium` weight the rail rows and the
+ *   settings navigation already use (`dsh-client-ui-settings-general` renders
+ *   its nav glyphs at `size: 16` with exactly this weight);
+ * - geometry on the 16 grid at half-step coordinates, one unit of clearance
+ *   from the edge (1.5…14.5) for an outer contour, concave curves for sparkles,
+ *   `fill="currentColor"` only for dots;
+ * - round caps and joins, no ids, no external references, no `<title>`/text
+ *   (the row's accessible name comes from the shell's `aria-label`, so glyphs
+ *   are `aria-hidden`).
  */
 
 import type { ReactElement, ReactNode } from 'react'
@@ -25,8 +37,11 @@ import type { BuiltinIconName } from '../../shared/config.ts'
 /** The glyph a row falls back to when neither an override nor a native glyph exists. */
 export const FALLBACK_GLYPH: BuiltinIconName = 'box'
 
-const VIEW_BOX = '0 0 24 24'
-const STROKE_WIDTH = 1.6
+/** The shell's icon canvas. */
+const VIEW_BOX = '0 0 16 16'
+/** `Icon*OutlineMedium`'s weight, and the edge every mask is drawn at. */
+const STROKE_WIDTH = 1.3
+const RENDER_SIZE = 16
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg'
 const DEFAULT_SIZE = 16
 
@@ -65,15 +80,15 @@ function round(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-/** One cog tooth: a stroke from the ring outwards, at `degrees` on the 24×24 grid. */
+/** One cog tooth: a stroke from the ring outwards, at `degrees` on the 16×16 grid. */
 function gearTooth(degrees: number): GlyphShape {
   const angle = (degrees * Math.PI) / 180
-  const inner = 6.3
-  const outer = 8.7
-  const x1 = round(12 + inner * Math.cos(angle))
-  const y1 = round(12 + inner * Math.sin(angle))
-  const x2 = round(12 + outer * Math.cos(angle))
-  const y2 = round(12 + outer * Math.sin(angle))
+  const inner = 4.2
+  const outer = 5.8
+  const x1 = round(8 + inner * Math.cos(angle))
+  const y1 = round(8 + inner * Math.sin(angle))
+  const x2 = round(8 + outer * Math.cos(angle))
+  const y2 = round(8 + outer * Math.sin(angle))
   return { tag: 'path', d: `M${x1} ${y1}L${x2} ${y2}` }
 }
 
@@ -82,113 +97,155 @@ const GEAR_TEETH: readonly GlyphShape[] = Array.from(
   (_unused, index): GlyphShape => gearTooth(index * 45),
 )
 
-/** Geometry of every glyph, on the shared 24×24 grid. */
+/**
+ * A four-point sparkle: the shell draws these as cubic curves whose control
+ * points sit one third of an arm from the centre, which is what makes the
+ * sides concave instead of a straight diamond.
+ * @param cx - centre x.
+ * @param cy - centre y.
+ * @param arm - distance from the centre to a tip.
+ */
+function sparkle(cx: number, cy: number, arm: number): GlyphShape {
+  const bend = round(arm / 3)
+  const tipX = round(cx + arm)
+  const tipY = round(cy + arm)
+  const lowX = round(cx - arm)
+  const lowY = round(cy - arm)
+  const up = round(cy - bend)
+  const down = round(cy + bend)
+  const left = round(cx - bend)
+  const right = round(cx + bend)
+  return {
+    tag: 'path',
+    d: `M${cx} ${lowY}C${cx} ${up} ${right} ${cy} ${tipX} ${cy}`
+      + `C${right} ${cy} ${cx} ${down} ${cx} ${tipY}`
+      + `C${cx} ${down} ${left} ${cy} ${lowX} ${cy}`
+      + `C${left} ${cy} ${cx} ${up} ${cx} ${lowY}Z`,
+  }
+}
+
+/** Geometry of every glyph, on the shared 16×16 grid. */
 const GLYPH_SHAPES: Record<BuiltinIconName, readonly GlyphShape[]> = {
   grid: [
-    { tag: 'rect', x: 3.5, y: 3.5, width: 7, height: 7, rx: 1.6 },
-    { tag: 'rect', x: 13.5, y: 3.5, width: 7, height: 7, rx: 1.6 },
-    { tag: 'rect', x: 3.5, y: 13.5, width: 7, height: 7, rx: 1.6 },
-    { tag: 'rect', x: 13.5, y: 13.5, width: 7, height: 7, rx: 1.6 },
+    { tag: 'rect', x: 1.5, y: 1.5, width: 5.7, height: 5.7, rx: 1 },
+    { tag: 'rect', x: 8.8, y: 1.5, width: 5.7, height: 5.7, rx: 1 },
+    { tag: 'rect', x: 1.5, y: 8.8, width: 5.7, height: 5.7, rx: 1 },
+    { tag: 'rect', x: 8.8, y: 8.8, width: 5.7, height: 5.7, rx: 1 },
   ],
   puzzle: [
-    { tag: 'path', d: 'M5 5h4.8a2.2 2.2 0 0 1 4.4 0H19v4.8a2.2 2.2 0 0 1 0 4.4V19H5z' },
+    {
+      // A jigsaw piece in one contour: a knob on the top edge and a matching
+      // dent in the right edge, with the other two sides left straight — the
+      // only reading that survives at 16px (four knobs turn into a blob).
+      // Flags follow from the bell's dome below: left→right with sweep 1 bulges
+      // up, so the top knob uses sweep 1; rotated a quarter turn, top→bottom with
+      // sweep 1 bulges LEFT, which is the inward dent the right edge needs.
+      tag: 'path',
+      d: 'M2.5 1.5H6.2A1.8 1.8 0 0 1 9.8 1.5H13.5A1 1 0 0 1 14.5 2.5V6.1'
+        + 'A1.6 1.6 0 0 1 14.5 9.3V13.5A1 1 0 0 1 13.5 14.5H2.5A1 1 0 0 1 1.5 13.5V2.5A1 1 0 0 1 2.5 1.5Z',
+    },
   ],
-  sparkles: [
-    { tag: 'path', d: 'M10.5 3.5l1.8 4.7 4.7 1.8-4.7 1.8-1.8 4.7-1.8-4.7-4.7-1.8 4.7-1.8z' },
-    { tag: 'path', d: 'M18 13.2l1.05 2.75 2.75 1.05-2.75 1.05-1.05 2.75-1.05-2.75-2.75-1.05 2.75-1.05z' },
-  ],
+  sparkles: [sparkle(6, 5.75, 4.25), sparkle(11.6, 11.2, 2.6)],
   clock: [
-    { tag: 'circle', cx: 12, cy: 12, r: 8.6 },
-    { tag: 'path', d: 'M12 7.2V12l3.2 2' },
+    { tag: 'circle', cx: 8, cy: 8, r: 6.5 },
+    { tag: 'path', d: 'M8 4.5V8l2.6 1.6' },
   ],
   memory: [
-    { tag: 'rect', x: 6, y: 6, width: 12, height: 12, rx: 2.2 },
-    { tag: 'rect', x: 9.5, y: 9.5, width: 5, height: 5, rx: 1.2 },
-    { tag: 'path', d: 'M9.2 3v3M14.8 3v3M9.2 18v3M14.8 18v3M3 9.2h3M3 14.8h3M18 9.2h3M18 14.8h3' },
+    { tag: 'rect', x: 3.5, y: 3.5, width: 9, height: 9, rx: 1 },
+    { tag: 'rect', x: 6.5, y: 6.5, width: 3, height: 3, rx: 0.6 },
+    { tag: 'path', d: 'M5.5 1.5v2M10.5 1.5v2M5.5 12.5v2M10.5 12.5v2M1.5 5.5h2M1.5 10.5h2M12.5 5.5h2M12.5 10.5h2' },
   ],
   terminal: [
-    { tag: 'rect', x: 3, y: 4.5, width: 18, height: 15, rx: 2.4 },
-    { tag: 'path', d: 'M7.5 9.7l2.6 2.6-2.6 2.6' },
-    { tag: 'path', d: 'M12.8 15.1h3.8' },
+    { tag: 'rect', x: 1.5, y: 2.5, width: 13, height: 11, rx: 1 },
+    { tag: 'path', d: 'M5 6.5l2.2 2.2-2.2 2.2' },
+    { tag: 'path', d: 'M9.5 11h3' },
   ],
   plug: [
-    { tag: 'path', d: 'M9 8.2V3.2M15 8.2V3.2M6.6 8.2h10.8v3.1a5.4 5.4 0 0 1-10.8 0zM12 16.7v3.6' },
+    { tag: 'path', d: 'M5.5 1.5v4M10.5 1.5v4M3.5 5.5h9v2.4a4.5 4.5 0 0 1-9 0zM8 12.4v2.1' },
   ],
   star: [
-    { tag: 'path', d: 'M12 3.4l2.7 5.5 6 .9-4.3 4.2 1 6-5.4-2.9-5.4 2.9 1-6L3.3 9.8l6-.9z' },
+    {
+      tag: 'path',
+      d: 'M8 1.9L9.53 6.1 13.99 6.25 10.47 9 11.7 13.3 8 10.8 4.3 13.3 5.53 9 2.01 6.25 6.47 6.1Z',
+    },
   ],
   folder: [
     {
       tag: 'path',
-      d: 'M3.5 7.2a2.2 2.2 0 0 1 2.2-2.2h3.1l2.1 2.5h7.4a2.2 2.2 0 0 1 2.2 2.2v7.9a2.2 2.2 0 0 1-2.2 2.2H5.7a2.2 2.2 0 0 1-2.2-2.2z',
+      d: 'M1.5 12.5v-8.5a1 1 0 0 1 1-1h3.2l1.4 1.9h6.4a1 1 0 0 1 1 1v6.6a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z',
     },
   ],
   book: [
     {
       tag: 'path',
-      d: 'M12 6.4C10.4 5 8.4 4.4 5 4.4v13.2c3.4 0 5.4.6 7 2 1.6-1.4 3.6-2 7-2V4.4c-3.4 0-5.4.6-7 2zM12 6.4v13.2',
+      d: 'M8 4.2C6.9 3.3 5.6 2.8 3 2.8v9.4c2.6 0 3.9.5 5 1.4 1.1-.9 2.4-1.4 5-1.4V2.8c-2.6 0-3.9.5-5 1.4zM8 4.2v9.4',
     },
   ],
   code: [
-    { tag: 'path', d: 'M9.4 7.4L4.6 12l4.8 4.6M14.6 7.4L19.4 12l-4.8 4.6M12.9 5.2l-1.8 13.6' },
+    { tag: 'path', d: 'M6.2 4.5L2.5 8l3.7 3.5M9.8 4.5L13.5 8l-3.7 3.5M9.1 3l-2.2 10' },
   ],
   gear: [
     ...GEAR_TEETH,
-    { tag: 'circle', cx: 12, cy: 12, r: 6.3 },
-    { tag: 'circle', cx: 12, cy: 12, r: 3.1 },
+    { tag: 'circle', cx: 8, cy: 8, r: 4.2 },
+    { tag: 'circle', cx: 8, cy: 8, r: 2 },
   ],
-  chart: [{ tag: 'path', d: 'M4.6 20h14.8M8.2 20v-6.2M12 20V8.4M15.8 20v-9.6' }],
+  chart: [{ tag: 'path', d: 'M2.5 13.5h11M5 13.5V9M8 13.5V5.5M11 13.5V10.5' }],
   list: [
-    { tag: 'circle', cx: 4.6, cy: 7, r: 1.05, filled: true },
-    { tag: 'circle', cx: 4.6, cy: 12, r: 1.05, filled: true },
-    { tag: 'circle', cx: 4.6, cy: 17, r: 1.05, filled: true },
-    { tag: 'path', d: 'M8.6 7h11M8.6 12h11M8.6 17h11' },
+    // The shell's own list rhythm (`IconFlatListOutline`): the dots are round
+    // capped zero-length strokes, i.e. a 1.3px dot, on the same three baselines
+    // as the rules. This one also paints the settings navigation row's mask.
+    { tag: 'circle', cx: 2.6, cy: 3.5, r: 0.65, filled: true },
+    { tag: 'circle', cx: 2.6, cy: 8, r: 0.65, filled: true },
+    { tag: 'circle', cx: 2.6, cy: 12.5, r: 0.65, filled: true },
+    { tag: 'path', d: 'M6 3.5h7.5M6 8h7.5M6 12.5h7.5' },
   ],
   bell: [
-    { tag: 'path', d: 'M6.6 17.4V11a5.4 5.4 0 0 1 10.8 0v6.4z' },
-    { tag: 'path', d: 'M10.1 20.2a2.1 2.1 0 0 0 3.8 0' },
-    { tag: 'path', d: 'M12 5.6V3.2' },
+    { tag: 'path', d: 'M4.5 12.5V8.5a3.5 3.5 0 0 1 7 0v4z' },
+    { tag: 'path', d: 'M6.8 14.3a1.3 1.3 0 0 0 2.4 0' },
+    { tag: 'path', d: 'M8 5V3.4' },
   ],
-  bolt: [{ tag: 'path', d: 'M13.2 2.6L5 13.4h5.6L10.8 21.4 19 10.6h-5.6z' }],
+  bolt: [{ tag: 'path', d: 'M8.9 1.6L4 8.9h3.4L7.1 14.4 12.5 7.1H9.1z' }],
   shield: [
-    { tag: 'path', d: 'M12 3.1l7.6 2.7v6.1c0 4.5-3.1 7.7-7.6 9.4-4.5-1.7-7.6-4.9-7.6-9.4V5.8z' },
-    { tag: 'path', d: 'M8.9 12.1l2.2 2.2 4.1-4.3' },
+    { tag: 'path', d: 'M8 1.7l6.2 2.3v4.5c0 3.2-2.6 5.6-6.2 6.8-3.6-1.2-6.2-3.6-6.2-6.8V4z' },
+    { tag: 'path', d: 'M5.9 7.9l1.5 1.5 2.8-3' },
   ],
   globe: [
-    { tag: 'circle', cx: 12, cy: 12, r: 8.6 },
-    { tag: 'ellipse', cx: 12, cy: 12, rx: 3.9, ry: 8.6 },
-    { tag: 'path', d: 'M3.4 12h17.2' },
+    { tag: 'circle', cx: 8, cy: 8, r: 6.5 },
+    { tag: 'ellipse', cx: 8, cy: 8, rx: 2.9, ry: 6.5 },
+    { tag: 'path', d: 'M1.6 8h12.8' },
   ],
   database: [
-    { tag: 'ellipse', cx: 12, cy: 6.6, rx: 7.6, ry: 3.1 },
+    { tag: 'ellipse', cx: 8, cy: 4.6, rx: 5.5, ry: 2.1 },
     {
       tag: 'path',
-      d: 'M4.4 6.6v10.8c0 1.7 3.4 3.1 7.6 3.1 3.9 0 7.6-1.4 7.6-3.1V6.6M4.4 12c0 1.7 3.4 3.1 7.6 3.1 3.9 0 7.6-1.4 7.6-3.1',
+      d: 'M2.5 4.6v6.8c0 1.2 2.5 2.1 5.5 2.1 3 0 5.5-.9 5.5-2.1V4.6M2.5 8c0 1.2 2.5 2.1 5.5 2.1 3 0 5.5-.9 5.5-2.1',
     },
   ],
   box: [
-    { tag: 'path', d: 'M12 2.9l8.2 4.3v9.6L12 21.1l-8.2-4.3V7.2z' },
-    { tag: 'path', d: 'M3.8 7.2L12 11.6l8.2-4.4M12 11.6v9.5' },
+    { tag: 'path', d: 'M8 1.6l6 3.1v6.6L8 14.4l-6-3.1V4.7z' },
+    { tag: 'path', d: 'M2 4.7l6 3.1 6-3.1M8 7.8v6.6' },
   ],
   wrench: [
     {
       tag: 'path',
-      d: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
+      d: 'M9.8 4.2a0.67 0.67 0 0 0 0 0.93l1.07 1.07a0.67 0.67 0 0 0 0.93 0l2.51-2.51a4 4 0 0 1-5.29 5.29l-4.61 4.61'
+        + 'a1.41 1.41 0 0 1-2-2l4.61-4.61a4 4 0 0 1 5.29-5.29l-2.51 2.51z',
     },
   ],
   layers: [
-    { tag: 'path', d: 'M12 3.4l8.6 4.4-8.6 4.4L3.4 7.8z' },
-    { tag: 'path', d: 'M3.4 12.2L12 16.6l8.6-4.4' },
-    { tag: 'path', d: 'M3.4 16.4L12 20.8l8.6-4.4' },
+    { tag: 'path', d: 'M8 1.6l6 3.2-6 3.2-6-3.2z' },
+    { tag: 'path', d: 'M2 8.2l6 3.2 6-3.2' },
+    { tag: 'path', d: 'M2 11.4l6 3.2 6-3.2' },
   ],
   compass: [
-    { tag: 'circle', cx: 12, cy: 12, r: 8.6 },
-    { tag: 'path', d: 'M15.6 8.4l-2.2 5-5 2.2 2.2-5z' },
+    { tag: 'circle', cx: 8, cy: 8, r: 6.5 },
+    { tag: 'path', d: 'M10.6 5.4l-1.7 3.5-3.5 1.7 1.7-3.5z' },
   ],
   more: [
-    { tag: 'circle', cx: 5.4, cy: 12, r: 1.35, filled: true },
-    { tag: 'circle', cx: 12, cy: 12, r: 1.35, filled: true },
-    { tag: 'circle', cx: 18.6, cy: 12, r: 1.35, filled: true },
+    // Dots at the shell's own ellipsis spacing and radius (`IconEllipsisOutline`).
+    { tag: 'circle', cx: 3, cy: 8, r: 1, filled: true },
+    { tag: 'circle', cx: 8, cy: 8, r: 1, filled: true },
+    { tag: 'circle', cx: 13, cy: 8, r: 1, filled: true },
   ],
 }
 
@@ -262,7 +319,7 @@ function glyphElement(name: BuiltinIconName, size: number): ReactElement {
 /** One glyph as standalone markup, painted in `paint`. */
 function glyphMarkup(name: BuiltinIconName, paint: string): string {
   const shapes = GLYPH_SHAPES[name].map(shape => shapeMarkup(shape, paint)).join('')
-  return `<svg xmlns="${SVG_NAMESPACE}" viewBox="${VIEW_BOX}" fill="none" stroke="${paint}" stroke-width="${STROKE_WIDTH}" stroke-linecap="round" stroke-linejoin="round">${shapes}</svg>`
+  return `<svg xmlns="${SVG_NAMESPACE}" width="${RENDER_SIZE}" height="${RENDER_SIZE}" viewBox="${VIEW_BOX}" fill="none" stroke="${paint}" stroke-width="${STROKE_WIDTH}" stroke-linecap="round" stroke-linejoin="round">${shapes}</svg>`
 }
 
 function renderer(name: BuiltinIconName): BuiltinGlyphRenderer {

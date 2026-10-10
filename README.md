@@ -75,7 +75,7 @@ The six examples you gave are interpreted under this model as follows (`G{…}` 
 Three sources, and you can switch back to the original icon at any time:
 
 1. **Keep the original icon** (default);
-2. **Built-in icon set** — a small set of inline vector icons shipped with this plugin (zero dependencies, about 24 generic glyphs), usable offline;
+2. **Built-in icon set** — a small set of inline vector icons shipped with this plugin (zero dependencies, 24 generic glyphs), usable offline. They are drawn to **DSH's own icon spec** — the canvas, weight and construction `@deepseek-ai/dsh-client-ui-primitives` draws its product icons to: `viewBox="0 0 16 16"`, `fill="none"`, `stroke="currentColor"` at the **Medium 1.3px** weight (`Icon*OutlineMedium`, the weight the rail rows and the settings navigation already use), geometry on the 16 grid at half-step coordinates with one unit of clearance from the edge, round caps and joins, `aria-hidden` and no ids or external references. The settings tab's own icon is one of these glyphs (`list`), painted as a masked `currentColor` shape where the shell would otherwise draw its fallback gear;
 3. **User-uploaded icon** — paste SVG source;
    - Allowlist sanitization: removes `script`, `foreignObject`, event attributes, and external references (cases where `href`/`xlink:href` point outside);
    - A single SVG is capped at **64 KB**;
