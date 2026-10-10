@@ -155,6 +155,25 @@ describe('SequenceEditor', () => {
     expect(next?.sequence[1]).toEqual({ type: 'entry', id: 'plugins' })
   })
 
+  it('opens a member’s own editor from the member list of its group', () => {
+    // A member is a panel like any other: its name in the list is the way into
+    // its own name / icon editor. Without that affordance the entries folded
+    // into a group could not be edited at all — they have no top-level row.
+    const harness = renderPage({
+      sequence: [{ type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] }],
+      entries: {},
+    })
+
+    const select = rowOf('group:g1').querySelector('[data-member-id="schedules"] [data-action="select"]')
+    if (select === null) throw new Error('the member row has no select affordance')
+    fireEvent.click(select)
+
+    expect(document.querySelector('[data-editor="panel"][data-editor-id="schedules"]')).not.toBeNull()
+    expect(rowOf('group:g1').querySelector('[data-member-id="schedules"]')?.getAttribute('data-selected')).toBe('true')
+    // Selecting is navigation, not a configuration write.
+    expect(harness.updates).toEqual([])
+  })
+
   it('lists the whole rail from the start, with no gate to open first', () => {
     const harness = renderPage(emptyProfileConfig())
 

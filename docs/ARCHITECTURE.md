@@ -189,6 +189,8 @@ The page itself: sequence editor, per-item overrides (name and icon), group edit
 
 **The sequence editor lists the whole rail, always.** `plan.rows` is every row the rail shows — the configured block first, then the rest in the contributors' own order — and a row's `order` is `null` until something is configured, which is what makes a fresh install write nothing at all (§4.3). Editing the list therefore needs no "adopt this one first" step: the first structural edit materializes the current order, and the per-item actions (move, group, ungroup, hide/show) work on any row from the first open. Hide/show is also available per row in the list, not only inside the appearance editor, because it is the action users reach for most often. The gate itself is invisible: an earlier revision showed a banner plus a "use the current rail order as a starting point" button while nothing was configured, and both were removed on user feedback — the list is the rail in either mode, so the banner only described an implementation detail and the button duplicated what the first drag already does.
 
+**A group member is selectable wherever it is listed.** A member has no top-level row, so the member list inside a group row (and the same list inside the group's appearance editor) is the only way to reach that panel's own name and icon: each member's name is the same select affordance a top-level row carries, and selecting it opens the member's own editor — where the `groupedHint` line says the row is shown inside a group. Before that, everything folded into a group was uneditable.
+
 ---
 
 ## 7. Self-check and degradation

@@ -129,7 +129,7 @@ Adds one item to the left side of the Settings dialog:
 Page content:
 
 1. **Sequence editor** — lists the whole rail (every Panel entry from the start, with nothing to adopt first). **Drag and drop** is the main channel (reordering, dragging into an existing Group, dragging a member back out); each row's "Group with next" button creates a Group and "Ungroup" dissolves one; **Move up/Move down** are the keyboard fallback; and every row carries a **"Hide"/"Show"** button that toggles that row's visibility in place (Group rows included). "Nothing is configured yet" is deliberately invisible: the list is the rail either way, and the first drag or grouping writes the order out on its way in — there is no banner and no "starting point" button to click first;
-2. **Appearance override for an item** — name, icon (keep the original icon / built-in icon set / paste SVG); visibility is the **"Hide"/"Show"** button on each sequence row (one entry point, not two);
+2. **Appearance override for an item** — name, icon (keep the original icon / built-in icon set / paste SVG), opened by clicking that row's name in the list — including a Group's members, which have no row of their own and are otherwise unreachable; visibility is the **"Hide"/"Show"** button on each sequence row (one entry point, not two);
 3. **Group editing** — Group trigger name, Group trigger icon, member order;
 4. **Config import / export** (JSON);
 5. **Open config file** — opens `$DSH_HOME/panellist.json` directly;

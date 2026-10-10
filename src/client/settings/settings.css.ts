@@ -259,6 +259,11 @@ export const SETTINGS_CSS = `
   background: var(--dsh-panellist-fill-strong);
 }
 
+.dsh-panellist-settings-member[data-selected='true'] {
+  background: var(--dsh-panellist-fill-strong);
+  box-shadow: inset 0 0 0 1px var(--dsh-panellist-accent);
+}
+
 .dsh-panellist-settings-memberName {
   flex: 1 1 auto;
   min-width: 0;

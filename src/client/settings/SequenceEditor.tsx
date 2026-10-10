@@ -345,6 +345,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                   key={member.id}
                   className="dsh-panellist-settings-member"
                   data-member-id={member.id}
+                  data-selected={selected !== null && selected.kind === 'panel' && selected.id === member.id ? 'true' : 'false'}
                   draggable
                   onDragStart={event => {
                     // Otherwise the enclosing group row's own dragstart overwrites
@@ -356,12 +357,23 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                   onDragOver={allowDrop}
                   onDrop={event => dropOnMember(event, row.id, memberIndex, memberIds)}
                 >
-                  <span className="dsh-panellist-settings-rowGlyph">{glyph({
-                    icon: member.icon,
-                    native: nativeGlyph(member.id),
-                    size: 16,
-                  })}</span>
-                  <span className="dsh-panellist-settings-memberName">{member.label}</span>
+                  {/* A member is a panel like any other row, so its name opens the
+                      same editor: without this the entries folded into a group
+                      could not be renamed, re-iconed or inspected at all. */}
+                  <button
+                    type="button"
+                    className="dsh-panellist-settings-rowSelect"
+                    data-action="select"
+                    aria-pressed={selected !== null && selected.kind === 'panel' && selected.id === member.id}
+                    onClick={() => onSelect({ kind: 'panel', id: member.id })}
+                  >
+                    <span className="dsh-panellist-settings-rowGlyph">{glyph({
+                      icon: member.icon,
+                      native: nativeGlyph(member.id),
+                      size: 16,
+                    })}</span>
+                    <span className="dsh-panellist-settings-memberName">{member.label}</span>
+                  </button>
                   {member.missing
                     ? <span className="dsh-panellist-settings-badge" data-badge="missing">{t('rail.group.missing')}</span>
                     : null}

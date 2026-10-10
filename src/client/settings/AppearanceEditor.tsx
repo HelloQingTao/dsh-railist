@@ -48,6 +48,8 @@ export interface AppearanceEditorProps {
   glyph: (request: GlyphRequest) => ReactNode
   /** The contributor's own glyph, so "keep original" previews the real icon. */
   nativeGlyph: (panelId: string) => GlyphComponent | null
+  /** Select another row: a group member's name opens the member's own editor. */
+  onSelect: (selection: SequenceSelection) => void
   builtinNames: readonly BuiltinIconName[]
   sanitizeSvg: (source: string) => SanitizeResult
   apply: (edit: (profile: ProfileConfig) => ProfileConfig) => void
@@ -185,7 +187,7 @@ function IconPicker(props: IconPickerProps): ReactNode {
 }
 
 export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
-  const { plan, profile, selection, t, glyph, nativeGlyph, builtinNames, sanitizeSvg, apply, applyStructural } = props
+  const { plan, profile, selection, t, glyph, nativeGlyph, onSelect, builtinNames, sanitizeSvg, apply, applyStructural } = props
 
   if (selection.kind === 'group') {
     const group = plan.groups.get(selection.id)
@@ -225,12 +227,21 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
           <ul className="dsh-panellist-settings-members">
             {group.members.map((member, index) => (
               <li key={member.id} className="dsh-panellist-settings-member" data-member-id={member.id}>
-                <span className="dsh-panellist-settings-rowGlyph">{glyph({
-                  icon: member.icon,
-                  native: nativeGlyph(member.id),
-                  size: 16,
-                })}</span>
-                <span className="dsh-panellist-settings-memberName">{member.label}</span>
+                {/* Selecting a member here is the same navigation the sequence
+                    list offers: the member's own name and icon open its editor. */}
+                <button
+                  type="button"
+                  className="dsh-panellist-settings-rowSelect"
+                  data-action="select"
+                  onClick={() => onSelect({ kind: 'panel', id: member.id })}
+                >
+                  <span className="dsh-panellist-settings-rowGlyph">{glyph({
+                    icon: member.icon,
+                    native: nativeGlyph(member.id),
+                    size: 16,
+                  })}</span>
+                  <span className="dsh-panellist-settings-memberName">{member.label}</span>
+                </button>
                 {member.missing
                   ? <span className="dsh-panellist-settings-badge" data-badge="missing">{t('rail.group.missing')}</span>
                   : null}

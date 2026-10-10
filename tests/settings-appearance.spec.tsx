@@ -216,4 +216,20 @@ describe('AppearanceEditor (group row)', () => {
     selectRow('group:g1')
     expect(screen.queryByRole('checkbox')).toBeNull()
   })
+
+  it('opens a member’s own editor from the member list', () => {
+    renderPage(GROUPED)
+    selectRow('group:g1')
+
+    const select = memberOf('schedules').querySelector('[data-action="select"]')
+    if (select === null) throw new Error('the member row has no select affordance')
+    fireEvent.click(select)
+
+    // The member's editor replaces the group's: same page slot, new subject.
+    const editor = document.querySelector('[data-editor="panel"][data-editor-id="schedules"]')
+    expect(editor).not.toBeNull()
+    expect(document.querySelector('[data-editor="group"]')).toBeNull()
+    // A group member is shown inside its group, and the editor says so.
+    expect(editor?.textContent).toContain('shown inside a group')
+  })
 })
