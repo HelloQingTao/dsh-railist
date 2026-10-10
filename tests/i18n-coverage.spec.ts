@@ -79,8 +79,6 @@ describe('i18n', () => {
       'warning.single-member-group',
       'warning.empty-group',
       'warning.group-id-collision',
-      'warning.locked-member',
-      'warning.locked-in-sequence',
       'warning.duplicate-in-sequence',
       'probe.registry',
       'probe.registry.impact',

@@ -1,10 +1,9 @@
 /**
  * `schemaVersion` migration, applied on every read before normalisation.
  *
- * Version 1 is the first shipped shape, so the step table is empty; the frame
- * exists so a v2 is a one-entry addition plus a normaliser branch. Each step
- * runs on the RAW parsed JSON (not on a normalised document), because the
- * older shape is by definition not the current shape.
+ * Each step runs on the RAW parsed JSON (not on a normalised document), because
+ * the older shape is by definition not the current shape, and a step must never
+ * throw on malformed input — the caller reports corruption instead.
  */
 import { SCHEMA_VERSION, type PanellistConfig } from './config.ts'
 import { normalizeConfigDocument } from './validate.ts'
@@ -19,8 +18,31 @@ export interface MigrationStep {
   apply(document: Record<string, unknown>): void
 }
 
-/** Ordered steps. Empty for v1 — the frame is the deliverable. */
-export const MIGRATION_STEPS: readonly MigrationStep[] = []
+/**
+ * v1 → v2: the `locked` panel list is gone.
+ *
+ * Locking was retired (a locked panel only ever meant "this plugin keeps its
+ * hands off", which nobody used and which made the model carry a second
+ * exclusion axis). Dropping the key is not enough on its own: the profile
+ * object rejects unknown properties, so a v1 file that still carried `locked`
+ * would be judged as corrupt and quarantined. The step removes it first.
+ */
+const dropLockedPanels: MigrationStep = {
+  from: 1,
+  summary: 'removed the retired `locked` panel list',
+  apply: (document) => {
+    const profiles = document['profiles']
+    if (typeof profiles !== 'object' || profiles === null || Array.isArray(profiles)) return
+    for (const section of Object.values(profiles as Record<string, unknown>)) {
+      if (typeof section === 'object' && section !== null && !Array.isArray(section)) {
+        delete (section as Record<string, unknown>)['locked']
+      }
+    }
+  },
+}
+
+/** Ordered steps, oldest first. */
+export const MIGRATION_STEPS: readonly MigrationStep[] = [dropLockedPanels]
 
 /** Outcome of a raw read. */
 export type MigrationResult =

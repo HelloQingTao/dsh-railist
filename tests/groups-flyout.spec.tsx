@@ -40,7 +40,7 @@ interface Harness {
 }
 
 function createHarness(sequence: SequenceItem[]): Harness {
-  const profile: ProfileConfig = { sequence, entries: {}, locked: [] }
+  const profile: ProfileConfig = { sequence, entries: {} }
   let plan: Plan = buildPlan(PANELS, profile)
   let activePanelId = ''
   const planListeners = new Set<() => void>()

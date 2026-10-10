@@ -8,8 +8,8 @@
   "required": ["schemaVersion", "profiles"],
   "properties": {
     "schemaVersion": {
-      "const": 1,
-      "description": "Bumped when the shape changes. Older documents are migrated on read; a failed parse is backed up and defaults are used."
+      "const": 2,
+      "description": "Bumped when the shape changes: this const is what `src/shared/config.ts` and the migration table in `src/shared/migrate.ts` are held to. Version 2 removed the retired `locked` panel list; older documents are migrated on read, and a document that cannot be read is backed up before defaults are used."
     },
     "profiles": {
       "type": "object",
@@ -51,13 +51,6 @@
           "description": "Per-panel display overrides, keyed by panel id. An id that is no longer registered is preserved and reported as an orphan.",
           "maxProperties": 200,
           "additionalProperties": { "$ref": "#/$defs/entryOverride" }
-        },
-        "locked": {
-          "type": "array",
-          "description": "Panel ids this plugin must not touch at all.",
-          "maxItems": 200,
-          "uniqueItems": true,
-          "items": { "$ref": "#/$defs/panelId" }
         },
         "meta": { "$ref": "#/$defs/meta" }
       }

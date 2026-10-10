@@ -11,10 +11,10 @@ import { createHarness } from './helpers/settings-harness.tsx'
 import { Section } from '../src/client/settings/Section.tsx'
 import { SETTINGS_CSS } from '../src/client/settings/settings.css.ts'
 import { cleanOrphans } from '../src/shared/edit.ts'
-import type { ProfileConfig } from '../src/shared/config.ts'
+import { SCHEMA_VERSION, type ProfileConfig } from '../src/shared/config.ts'
 
 function profileWith(ids: readonly string[]): ProfileConfig {
-  return { sequence: ids.map(id => ({ type: 'entry' as const, id })), entries: {}, locked: [] }
+  return { sequence: ids.map(id => ({ type: 'entry' as const, id })), entries: {} }
 }
 
 function renderPage(harness: ReturnType<typeof createHarness>): void {
@@ -33,7 +33,6 @@ describe('orphans block', () => {
     const profile: ProfileConfig = {
       sequence: [{ type: 'entry', id: 'ghost' }, { type: 'entry', id: 'plugins' }],
       entries: { ghost: { label: 'Ghost' } },
-      locked: [],
     }
     const harness = createHarness({ profile })
     renderPage(harness)
@@ -76,7 +75,7 @@ describe('configuration block', () => {
 
     await waitFor(() => { expect(written).toHaveLength(1) })
     const parsed = JSON.parse(String(written[0])) as { schemaVersion: number; profiles: Record<string, ProfileConfig> }
-    expect(parsed.schemaVersion).toBe(1)
+    expect(parsed.schemaVersion).toBe(SCHEMA_VERSION)
     expect(parsed.profiles['desktop']?.sequence).toEqual([{ type: 'entry', id: 'plugins' }])
     await waitFor(() => { expect(document.querySelector('[data-state="export"]')).not.toBeNull() })
   })
@@ -117,7 +116,7 @@ describe('configuration block', () => {
     expect(harness.imports).toHaveLength(0)
 
     fireEvent.change(box, {
-      target: { value: JSON.stringify({ schemaVersion: 1, profiles: { desktop: profileWith(['skills']) } }) },
+      target: { value: JSON.stringify({ schemaVersion: SCHEMA_VERSION, profiles: { desktop: profileWith(['skills']) } }) },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Import JSON' }))
 
@@ -197,7 +196,6 @@ describe('compatibility block', () => {
       profile: {
         sequence: [{ type: 'group', id: 'group:g1', members: ['plugins'] }],
         entries: {},
-        locked: [],
       },
     }))
 

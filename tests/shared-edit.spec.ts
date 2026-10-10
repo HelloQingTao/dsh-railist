@@ -17,7 +17,6 @@ import {
   setGroupLabel,
   setPanelHidden,
   setPanelLabel,
-  setPanelLocked,
 } from '../src/shared/edit.ts'
 
 function profile(sequence: SequenceItem[] = [], extra: Partial<ProfileConfig> = {}): ProfileConfig {
@@ -57,16 +56,6 @@ describe('overrides', () => {
     expect(hidden.entries['a']?.hidden).toBe(true)
     const shown = setPanelHidden(hidden, 'a', false)
     expect(shown.entries['a']).toBeUndefined()
-  })
-
-  it('locking removes the panel from a group and unlocking is reversible', () => {
-    const grouped = profile([{ type: 'group', id: 'group:g1', members: ['a', 'b'] }])
-    const locked = setPanelLocked(grouped, 'a', true)
-    expect(locked.locked).toEqual(['a'])
-    expect(panelIds(locked)).toEqual(['b'])
-    const unlocked = setPanelLocked(locked, 'a', false)
-    expect(unlocked.locked).toEqual([])
-    expect(ids(unlocked)).toEqual(['group:g1'])
   })
 })
 
@@ -207,12 +196,11 @@ describe('cleanOrphans', () => {
         { type: 'entry', id: 'ghost' },
         { type: 'group', id: 'group:g1', members: ['b', 'phantom'] },
       ],
-      { entries: { b: { label: 'Bee' }, phantom: { label: 'P' } }, locked: ['a', 'gone'] },
+      { entries: { b: { label: 'Bee' }, phantom: { label: 'P' } } },
     )
     const cleaned = cleanOrphans(dirty, ['a', 'b'])
     expect(ids(cleaned)).toEqual(['a', 'group:g1'])
     expect(panelIds(cleaned)).toEqual(['a', 'b'])
     expect(Object.keys(cleaned.entries)).toEqual(['b'])
-    expect(cleaned.locked).toEqual(['a'])
   })
 })

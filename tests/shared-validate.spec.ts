@@ -9,7 +9,7 @@ import { migrateConfigDocument } from '../src/shared/migrate.ts'
 import { normalizeConfigDocument } from '../src/shared/validate.ts'
 
 const VALID = {
-  schemaVersion: 1,
+  schemaVersion: SCHEMA_VERSION,
   profiles: {
     desktop: {
       sequence: [
@@ -30,15 +30,14 @@ describe('normalizeConfigDocument', () => {
     if (!result.ok) return
     expect(result.repaired).toBe(false)
     expect(result.config.profiles['desktop']?.sequence).toHaveLength(2)
-    expect(result.config.profiles['desktop']?.locked).toEqual(['ssh'])
   })
 
   it('rejects a non-object, a missing version and a future version', () => {
     expect(normalizeConfigDocument(null).ok).toBe(false)
     expect(normalizeConfigDocument([]).ok).toBe(false)
     expect(normalizeConfigDocument({ profiles: {} }).ok).toBe(false)
-    expect(normalizeConfigDocument({ schemaVersion: 2, profiles: {} }).ok).toBe(false)
-    expect(normalizeConfigDocument({ schemaVersion: 1, profiles: [] }).ok).toBe(false)
+    expect(normalizeConfigDocument({ schemaVersion: SCHEMA_VERSION + 1, profiles: {} }).ok).toBe(false)
+    expect(normalizeConfigDocument({ schemaVersion: SCHEMA_VERSION, profiles: [] }).ok).toBe(false)
   })
 
   it('falls back to an empty document when profiles is missing', () => {
@@ -50,7 +49,7 @@ describe('normalizeConfigDocument', () => {
 
   it('drops what it cannot understand and reports the repair', () => {
     const result = normalizeConfigDocument({
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
       profiles: {
         'bad id!': { sequence: [] },
         desktop: {
@@ -80,18 +79,17 @@ describe('normalizeConfigDocument', () => {
     // makes the whole override unreadable, so it disappears too.
     expect(section?.entries['real']).toBeUndefined()
     expect(section?.entries['other']).toEqual({ hidden: true })
-    expect(section?.locked).toEqual(['ssh'])
   })
 
   it('keeps a custom SVG inside the size window only', () => {
     const svg = '<svg viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg>'
     const ok = normalizeConfigDocument({
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
       profiles: { p: { entries: { a: { icon: { kind: 'custom', svg } } } } },
     })
     expect(ok.ok && ok.config.profiles['p']?.entries['a']?.icon).toEqual({ kind: 'custom', svg })
     const tooSmall = normalizeConfigDocument({
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
       profiles: { p: { entries: { a: { icon: { kind: 'custom', svg: '<svg/>' } } } } },
     })
     expect(tooSmall.ok && tooSmall.config.profiles['p']?.entries['a']).toBeUndefined()
@@ -115,6 +113,24 @@ describe('migrateConfigDocument', () => {
     expect(zero.ok).toBe(false)
     if (zero.ok) return
     expect(zero.errors[0]).toContain('no migration step')
+  })
+
+  it('retires the locked list a v1 document could carry', () => {
+    // The profile object rejects unknown properties, so removing `locked` from
+    // the schema without a migration step would judge every v1 file that had one
+    // as corrupt and quarantine it. The step runs on the RAW document.
+    const v1 = {
+      schemaVersion: 1,
+      profiles: { desktop: { sequence: [], entries: {}, locked: ['ssh'] } },
+    }
+    const result = migrateConfigDocument(v1)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.from).toBe(1)
+    expect(result.migrated).toBe(true)
+    expect(result.applied).toEqual([expect.stringContaining('locked')])
+    expect(result.config.schemaVersion).toBe(SCHEMA_VERSION)
+    expect(Object.keys(result.config.profiles['desktop'] ?? {})).toEqual(['sequence', 'entries'])
   })
 
   it('treats a missing version as current', () => {

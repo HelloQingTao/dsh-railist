@@ -26,7 +26,7 @@ const HEALTH: HealthReport = {
   ok: true,
   profileId: 'desktop',
   configPath: 'C:\\x\\.dsh\\panellist.json',
-  schemaVersion: 1,
+  schemaVersion: 2,
   storage: { writable: true, exists: true },
   corruption: { detected: false },
   migrations: [],
@@ -42,14 +42,14 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): PanellistStor
     status: 'ready',
     profileId: 'desktop',
     profile,
-    document: { schemaVersion: 1, profiles: { desktop: profile } } satisfies PanellistConfig,
+    document: { schemaVersion: 2, profiles: { desktop: profile } } satisfies PanellistConfig,
     health: HEALTH,
     error: null,
     revision,
   }
   const publish = (): void => {
     revision += 1
-    snapshot = { ...snapshot, profile, revision, document: { schemaVersion: 1, profiles: { desktop: profile } } }
+    snapshot = { ...snapshot, profile, revision, document: { schemaVersion: 2, profiles: { desktop: profile } } }
     for (const listener of listeners) listener()
   }
   const store: PanellistStore & { profile: ProfileConfig; writes: number } = {
@@ -181,7 +181,6 @@ describe('controller: wiring', () => {
       profile: {
         sequence: [{ type: 'entry', id: 'skills' }, { type: 'entry', id: 'plugins' }],
         entries: { schedules: { label: 'Jobs', hidden: true } },
-        locked: [],
       },
     })
     h.controller.refresh()
@@ -211,7 +210,7 @@ describe('controller: wiring', () => {
   })
 
   it('registers a group row plus its main page and keeps them in step with the plan', async () => {
-    const h = build({ profile: { sequence: [{ type: 'group', id: 'group:w', members: ['schedules', 'skills'] }], entries: {}, locked: [] } })
+    const h = build({ profile: { sequence: [{ type: 'group', id: 'group:w', members: ['schedules', 'skills'] }], entries: {} } })
     h.controller.refresh()
     await h.settle()
     expect(h.ledger.entries(RAIL).some(candidate => candidate.options.id === 'dsh-panellist:group:w')).toBe(true)
@@ -226,7 +225,7 @@ describe('controller: wiring', () => {
   })
 
   it('re-projects when a new panel registers', async () => {
-    const h = build({ profile: { sequence: [{ type: 'entry', id: 'skills' }], entries: {}, locked: [] } })
+    const h = build({ profile: { sequence: [{ type: 'entry', id: 'skills' }], entries: {} } })
     h.controller.refresh()
     await h.settle()
     h.ledger.register({ name: RAIL, id: 'memory', order: 5, label: 'Memory' }, () => null)
@@ -259,7 +258,7 @@ describe('controller: wiring', () => {
 
 describe('controller: degradation', () => {
   it('writes nothing at all once the registry probe has failed', async () => {
-    const h = build({ profile: { sequence: [{ type: 'entry', id: 'skills' }], entries: { plugins: { hidden: true } }, locked: [] } })
+    const h = build({ profile: { sequence: [{ type: 'entry', id: 'skills' }], entries: { plugins: { hidden: true } } } })
     // Make the ledger opaque so probe 1 fails, then run the self-check.
     const opaque = h.ledger as unknown as { entriesOfSlot(name: string): readonly unknown[] }
     const original = opaque.entriesOfSlot.bind(h.ledger)
@@ -279,7 +278,7 @@ describe('controller: degradation', () => {
 
   it('turns a hidden row into an always-hidden row when the active prop is unavailable', async () => {
     enableHasSelectorSupport()
-    const h = build({ profile: { entries: { plugins: { hidden: true } }, sequence: [], locked: [] } })
+    const h = build({ profile: { entries: { plugins: { hidden: true } }, sequence: [] } })
     h.controller.refresh()
     expect(h.controller.plan().panels.get('plugins')?.hidden).toBe(true)
     expect(h.controller.plan().panels.get('plugins')?.suppressed).toBe(false)
@@ -301,7 +300,6 @@ describe('controller: teardown', () => {
       profile: {
         sequence: [{ type: 'entry', id: 'skills' }, { type: 'group', id: 'group:w', members: ['plugins'] }],
         entries: { schedules: { label: 'Jobs' } },
-        locked: [],
       },
     })
     const originalLabel = entry(h.ledger, 'schedules').options.label

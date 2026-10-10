@@ -95,9 +95,8 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
   /**
    * The whole rail, listed from the start: the sequence is not a separate
    * "configured" subset any more, so there is nothing for the user to opt into
-   * before they can touch a panel. Locked rows are absent by design (they have
-   * their own list below), which is why `rows` alone is what everything here —
-   * including "use the current rail order" — reads.
+   * before they can touch a panel. `rows` IS the rail, which is why everything
+   * here — including "use the current rail order" — reads it and nothing else.
    */
   const rows = plan.rows
 
@@ -234,7 +233,6 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
     const group = isGroup ? plan.groups.get(row.id) : undefined
     const panel = isGroup ? undefined : plan.panels.get(row.id)
     const hidden = isGroup ? group?.hidden === true : panel?.hidden === true
-    const locked = panel?.locked === true
     const missing = plan.orphans.includes(row.id) || plan.missingMembers.includes(row.id)
     const icon = isGroup ? group?.icon ?? null : panel?.icon ?? null
     // A group borrows the first live member's glyph when it has no icon of its
@@ -248,7 +246,6 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
 
     const badges: ReactNode[] = []
     if (hidden) badges.push(badge('hidden', t('settings.appearance.hidden')))
-    if (locked) badges.push(badge('locked', t('settings.appearance.locked')))
     if (isGroup) badges.push(badge('group', t('settings.sequence.members', { count: members.length })))
     if (missing) badges.push(badge('missing', t('rail.group.missing')))
 
@@ -260,7 +257,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
         data-row-kind={row.kind}
         data-selected={isSelected ? 'true' : 'false'}
         data-dragging={draggingKey === row.railId ? 'true' : 'false'}
-        draggable={!locked}
+        draggable
         onDragStart={event => beginDrag(event, { kind: row.kind, id: row.id, fromGroupId: null }, row.railId)}
         onDragEnd={endDrag}
         onDragOver={allowDrop}
@@ -291,7 +288,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
               data-action="moveUp"
               aria-label={t('settings.sequence.moveUp')}
               title={t('settings.sequence.moveUp')}
-              disabled={locked || index === 0}
+              disabled={index === 0}
               onClick={() => move(row.id, -1)}
             >↑</button>
             <button
@@ -300,7 +297,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
               data-action="moveDown"
               aria-label={t('settings.sequence.moveDown')}
               title={t('settings.sequence.moveDown')}
-              disabled={locked || index === rows.length - 1}
+              disabled={index === rows.length - 1}
               onClick={() => move(row.id, 1)}
             >↓</button>
             {isGroup
@@ -317,7 +314,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                   type="button"
                   className="dsh-panellist-settings-action"
                   data-action="groupWithNext"
-                  disabled={locked || !canGroupWithNext}
+                  disabled={!canGroupWithNext}
                   onClick={() => groupWithNext(index)}
                 >{t('settings.sequence.groupWithNext')}</button>
               )}
@@ -413,7 +410,6 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                 type="button"
                 className="dsh-panellist-settings-action"
                 data-action="materialize"
-                // Nothing to snapshot when every registered row is locked.
                 disabled={rows.length === 0}
                 onClick={() => apply(profile => materializeSequence(
                   profile,
@@ -428,7 +424,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
       {rows.length === 0
         ? (
           <p className="dsh-panellist-settings-hint">
-            {registered.length === 0 ? t('settings.sequence.empty') : t('settings.sequence.allLocked')}
+            {t('settings.sequence.empty')}
           </p>
         )
         : (

@@ -11,7 +11,7 @@
  */
 import { useCallback, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { ProfileConfig } from '../../shared/config.ts'
-import { materializeSequence, setPanelLocked } from '../../shared/edit.ts'
+import { materializeSequence } from '../../shared/edit.ts'
 import type { SelfCheckState, SettingsUnitDeps } from '../contracts.ts'
 import type { I18nKey, Translator } from '../i18n/index.ts'
 import { AppearanceEditor } from './AppearanceEditor.tsx'
@@ -95,11 +95,6 @@ export function Section({ deps, close }: SectionProps): ReactNode {
     ? selected
     : null
 
-  // Locked panels are not rail rows (the model leaves them exactly as
-  // registered), so without this list a locked panel would have no way back:
-  // deselect its row, or reload the page, and it would be invisible forever.
-  const lockedPanels = [...plan.panels.values()].filter(panel => panel.locked)
-
   return (
     <section className="dsh-panellist-settings" aria-label={t('settings.title')}>
       <header className="dsh-panellist-settings-header">
@@ -142,30 +137,6 @@ export function Section({ deps, close }: SectionProps): ReactNode {
             apply={apply}
             applyStructural={applyStructural}
           />
-        )}
-
-      {lockedPanels.length === 0
-        ? null
-        : (
-          <details className="dsh-panellist-settings-block">
-            <summary className="dsh-panellist-settings-blockTitle">{t('settings.appearance.locked')}</summary>
-            <p className="dsh-panellist-settings-hint">{t('settings.appearance.lockedHint')}</p>
-            <ul className="dsh-panellist-settings-plainList">
-              {lockedPanels.map(panel => (
-                <li key={panel.id} className="dsh-panellist-settings-lockedRow" data-locked-id={panel.id}>
-                  <span className="dsh-panellist-settings-rowName">{panel.label}</span>
-                  <label className="dsh-panellist-settings-switchRow">
-                    <input
-                      type="checkbox"
-                      checked
-                      onChange={() => apply(edit => setPanelLocked(edit, panel.id, false))}
-                    />
-                    <span>{t('settings.appearance.locked')}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </details>
         )}
 
       <ConfigBlock

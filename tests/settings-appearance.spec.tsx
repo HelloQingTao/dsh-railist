@@ -7,11 +7,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createHarness } from './helpers/settings-harness.tsx'
 import { Section } from '../src/client/settings/Section.tsx'
 import { MAX_SVG_LENGTH, type ProfileConfig } from '../src/shared/config.ts'
-import { materializeSequence, setGroupIcon, setGroupLabel, setPanelHidden, setPanelIcon, setPanelLabel, setPanelLocked } from '../src/shared/edit.ts'
+import { setGroupIcon, setGroupLabel, setPanelIcon, setPanelLabel } from '../src/shared/edit.ts'
 import { createTranslator } from '../src/client/i18n/index.ts'
 
 function profileWith(ids: readonly string[]): ProfileConfig {
-  return { sequence: ids.map(id => ({ type: 'entry' as const, id })), entries: {}, locked: [] }
+  return { sequence: ids.map(id => ({ type: 'entry' as const, id })), entries: {} }
 }
 
 // vitest runs without globals, so testing-library cannot auto-register cleanup.
@@ -20,7 +20,6 @@ afterEach(cleanup)
 const GROUPED: ProfileConfig = {
   sequence: [{ type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] }, { type: 'entry', id: 'skills' }],
   entries: {},
-  locked: [],
 }
 
 function selectRow(id: string): void {
@@ -112,28 +111,13 @@ describe('AppearanceEditor (panel row)', () => {
     }))
   })
 
-  it('toggles hiding and locking through the pure edit functions', () => {
-    const initial = profileWith(['plugins', 'schedules'])
-    const harness = renderPage(initial)
+  it('leaves visibility to the sequence list instead of repeating it here', () => {
+    // The appearance editor used to carry its own Hidden (and Locked) checkbox.
+    // Visibility now has exactly one entry point — the per-row Hide/Show button —
+    // so this editor offers no checkbox for it at all.
+    renderPage(profileWith(['plugins']))
     selectRow('plugins')
-
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Hidden' }))
-    const afterHidden = setPanelHidden(initial, 'plugins', true)
-    expect(harness.updates[0]).toEqual(afterHidden)
-
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Locked' }))
-    // Locking is a sequence edit (it takes the panel out of any group), so the
-    // page materialises the live rail order first — derived from the plan the
-    // page is actually showing, not from a hand-copied list.
-    const materialized = materializeSequence(
-      afterHidden,
-      harness.plan().rows.map(row => ({ kind: row.kind, id: row.id })),
-    )
-    expect(harness.updates[1]).toEqual(setPanelLocked(materialized, 'plugins', true))
-    expect(harness.updates[1]?.locked).toEqual(['plugins'])
-    expect(harness.updates[1]?.sequence.map(item => item.id)).toEqual(['schedules', 'skills'])
-    // Locked panels are not rail rows, so the page keeps a list to unlock them.
-    expect(document.querySelector('[data-locked-id="plugins"]')).not.toBeNull()
+    expect(screen.queryByRole('checkbox')).toBeNull()
   })
 
   it('previews the rail icon itself while nothing is overridden', () => {
@@ -225,15 +209,11 @@ describe('AppearanceEditor (group row)', () => {
     expect(group.members).toEqual(['schedules'])
   })
 
-  it('hides the group trigger', () => {
-    const harness = renderPage(GROUPED)
+  it('leaves the group trigger visibility to the sequence list too', () => {
+    // Same rule as the panel branch: the per-row Hide/Show button is the single
+    // entry point for visibility, so neither editor renders a checkbox for it.
+    renderPage(GROUPED)
     selectRow('group:g1')
-
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Hidden' }))
-
-    const next = harness.updates[0]
-    const group = next?.sequence[0]
-    if (group?.type !== 'group') throw new Error('expected a group')
-    expect(group.hidden).toBe(true)
+    expect(screen.queryByRole('checkbox')).toBeNull()
   })
 })

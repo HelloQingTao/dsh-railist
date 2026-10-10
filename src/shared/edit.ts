@@ -54,13 +54,12 @@ function indexOfItem(items: readonly SequenceItem[], id: string): number {
   return items.findIndex(item => item.id === id)
 }
 
-/** A copy with `entries`/`locked` normalised so removals actually delete keys. */
+/** A copy with `entries` normalised so removals actually delete keys. */
 function base(profile: ProfileConfig): ProfileConfig {
   const next = cloneProfileConfig(profile)
   for (const [id, override] of Object.entries(next.entries)) {
     if (override.label === undefined && override.icon === undefined && override.hidden !== true) delete next.entries[id]
   }
-  next.locked = [...new Set(next.locked)]
   return next
 }
 
@@ -100,19 +99,6 @@ export function setPanelIcon(profile: ProfileConfig, panelId: string, icon: Icon
 /** Show/hide a panel row (README §2.3). */
 export function setPanelHidden(profile: ProfileConfig, panelId: string, hidden: boolean): ProfileConfig {
   return patchOverride(profile, panelId, { hidden })
-}
-
-/** Lock/unlock a panel. Locking also removes it from any group: a locked panel
- *  must be left exactly as registered, which a group row cannot honour. */
-export function setPanelLocked(profile: ProfileConfig, panelId: string, locked: boolean): ProfileConfig {
-  const next = base(profile)
-  if (locked) {
-    next.sequence = withoutPanel(next.sequence, panelId)
-    if (!next.locked.includes(panelId)) next.locked.push(panelId)
-  } else {
-    next.locked = next.locked.filter(id => id !== panelId)
-  }
-  return next
 }
 
 /** Rename a group trigger (empty clears the override → first member's name). */
@@ -338,6 +324,5 @@ export function cleanOrphans(profile: ProfileConfig, registeredIds: Iterable<str
   }
   next.sequence = kept
   for (const id of Object.keys(next.entries)) if (!live.has(id)) delete next.entries[id]
-  next.locked = next.locked.filter(id => live.has(id))
   return next
 }

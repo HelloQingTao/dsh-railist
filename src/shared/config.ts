@@ -11,7 +11,7 @@
  */
 
 /** Bumped whenever the stored shape changes; see `./migrate.ts`. */
-export const SCHEMA_VERSION = 1 as const
+export const SCHEMA_VERSION = 2 as const
 
 /**
  * Names in the icon set bundled with this plugin (see `client/icons/builtin`).
@@ -102,13 +102,11 @@ export interface ProfileConfig {
   /**
    * Partially authoritative: listed items appear in this order; every other
    * registered panel is appended after them in its own native order. An empty
-   * sequence means "no reordering at all" (see `./model.ts`).
+   * sequence means "no order is written at all" (see `./model.ts`).
    */
   sequence: SequenceItem[]
   /** Display overrides keyed by panel id. Keys with no registration are orphans. */
   entries: Record<string, EntryOverride>
-  /** Panel ids this plugin must not touch in any way. */
-  locked: string[]
   meta?: {
     updatedAt?: string
   }
@@ -164,7 +162,7 @@ export function isEntryItem(item: SequenceItem): item is EntryItem {
 
 /** An empty profile section. */
 export function emptyProfileConfig(): ProfileConfig {
-  return { sequence: [], entries: {}, locked: [] }
+  return { sequence: [], entries: {} }
 }
 
 /** An empty document holding no profile sections. */
@@ -184,7 +182,6 @@ export function cloneProfileConfig(profile: ProfileConfig): ProfileConfig {
         ...(override.icon === undefined ? {} : { icon: { ...override.icon } }),
       }]),
     ),
-    locked: [...profile.locked],
     ...(profile.meta === undefined ? {} : { meta: { ...profile.meta } }),
   }
 }

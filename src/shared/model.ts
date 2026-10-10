@@ -7,14 +7,13 @@
  * Rules (README §2):
  * - The sequence is a partition of panels: each panel appears exactly once,
  *   either as a bare row or inside exactly one group. One nesting level only.
- * - `rows` is the WHOLE unlocked rail, so the settings page can list and edit
+ * - `rows` is the WHOLE rail, so the settings page can list and edit
  *   every entry from the first open; there is no "configured subset" to opt into.
  * - What is gated is the WRITE: while the sequence holds no live row, every
  *   `PlanPanel.order` is `null` ("leave the native order alone") and a panel the
  *   user never configured gets no name/icon/hide write either — so a fresh
  *   install is a strict no-op on a rail other plugins also touch.
  * - `reordering` says which of those two modes the plan is in.
- * - Locked panels are excluded from `rows` and never touched at all (§2.9).
  * - Unconfigured panels land after the configured block, keeping their own
  *   relative order (README §2.8).
  * - A group member's own rail row is suppressed; a member that is currently
@@ -66,8 +65,6 @@ export interface PlanPanel {
   hidden: boolean
   /** Always hide the row: it is shown inside a group instead (README §2.6). */
   suppressed: boolean
-  /** Locked panels are left exactly as registered (README §2.9). */
-  locked: boolean
 }
 
 /** One group row. */
@@ -114,8 +111,6 @@ export type PlanWarning =
   | { code: 'single-member-group'; groupId: string }
   | { code: 'empty-group'; groupId: string }
   | { code: 'group-id-collision'; groupId: string }
-  | { code: 'locked-member'; groupId: string; panelId: string }
-  | { code: 'locked-in-sequence'; panelId: string }
   | { code: 'duplicate-in-sequence'; panelId: string }
 
 /** The whole projection. */
@@ -130,14 +125,12 @@ export interface Plan {
    */
   groups: ReadonlyMap<string, PlanGroup>
   /**
-   * Every UNLOCKED rail row, in the order the rail shows them: the configured
+   * Every rail row, in the order the rail shows them: the configured
    * block first, then the registered-but-unconfigured panels in their own order.
    *
    * This is the whole rail on purpose. The settings page edits this list
    * directly — there is no separate "not configured yet" pool — so a row's
-   * absence here would mean an entry the user cannot reach. Locked panels are
-   * the one exception: they are never written to, so they are excluded and shown
-   * in their own list (§2.9).
+   * absence here would mean an entry the user cannot reach.
    */
   rows: readonly PlanRow[]
   /** Configured ids with no registration (README §2.8: preserved, marked missing). */
@@ -179,7 +172,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
   const native = new Map<string, RegisteredPanel>()
   for (const panel of registered) native.set(panel.id, panel)
 
-  const locked = new Set(profile.locked)
   const warnings: PlanWarning[] = []
   /**
    * Placement per panel. `order: null` means "this panel is shown inside a
@@ -199,10 +191,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
 
   for (const item of profile.sequence) {
     if (isEntryItem(item)) {
-      if (locked.has(item.id)) {
-        warnings.push({ code: 'locked-in-sequence', panelId: item.id })
-        continue
-      }
       if (!native.has(item.id)) {
         orphan(item.id)
         continue
@@ -228,10 +216,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
     const members: PlanMember[] = []
     const liveMembers: PlanMember[] = []
     for (const memberId of item.members) {
-      if (locked.has(memberId)) {
-        warnings.push({ code: 'locked-member', groupId: item.id, panelId: memberId })
-        continue
-      }
       const panel = native.get(memberId)
       if (panel === undefined) {
         const entry: PlanMember = {
@@ -286,7 +270,7 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
   // slot. An alphabetical tie-break looks harmless and is not: it silently
   // reorders the list against the rail the user is looking at.
   const tail = [...native.values()]
-    .filter(panel => !assigned.has(panel.id) && !locked.has(panel.id))
+    .filter(panel => !assigned.has(panel.id))
     .sort((a, b) => a.order - b.order)
 
   /**
@@ -311,18 +295,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
   const panels = new Map<string, PlanPanel>()
   for (const panel of native.values()) {
     const placement = assigned.get(panel.id)
-    if (locked.has(panel.id)) {
-      panels.set(panel.id, {
-        id: panel.id,
-        order: null,
-        label: panel.label,
-        icon: null,
-        hidden: false,
-        suppressed: false,
-        locked: true,
-      })
-      continue
-    }
     const override = profile.entries[panel.id]
     panels.set(panel.id, {
       id: panel.id,
@@ -333,7 +305,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
       icon: effectiveIcon(override),
       hidden: override?.hidden === true,
       suppressed: placement?.groupId != null,
-      locked: false,
     })
   }
 
@@ -358,7 +329,6 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
 
   // Orphans: anything configured that no registration answers.
   for (const [id] of Object.entries(profile.entries)) if (!native.has(id)) orphan(id)
-  for (const id of profile.locked) if (!native.has(id)) orphan(id)
 
   const rows: PlanRow[] = slots
     .sort((a, b) => a.key - b.key)

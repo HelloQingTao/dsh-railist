@@ -1,6 +1,6 @@
 /**
  * The sequence model, verified against the six examples confirmed in
- * README.zh-CN.md §2.2 plus the takeover rules of §2.3/§2.8/§2.9/§2.11.
+ * README.zh-CN.md §2.2 plus the takeover rules of §2.3/§2.8/§2.10.
  */
 import { describe, expect, it } from 'vitest'
 import { emptyProfileConfig, groupRailId, type ProfileConfig } from '../src/shared/config.ts'
@@ -175,27 +175,14 @@ describe('buildPlan: takeover scope', () => {
     expect(plan.panels.get('b')?.suppressed).toBe(false)
   })
 
-  it('a locked panel is left exactly as registered, even when listed', () => {
-    const plan = buildPlan(PANELS, profile({ sequence: [{ type: 'entry', id: 'b' }], locked: ['b'] }))
-    const panel = plan.panels.get('b')
-    expect(panel?.locked).toBe(true)
-    expect(panel?.order).toBeNull()
-    expect(panel?.label).toBe('B')
-
-    // Nothing live is left in the configured block, so the rail keeps its native
-    // order; the locked panel itself is not a row (it has its own list).
-    expect(plan.rows.map(row => row.id)).toEqual(['a', 'c', 'd', 'e'])
-    expect(plan.warnings).toContainEqual({ code: 'locked-in-sequence', panelId: 'b' })
-  })
-
-  it('locking a panel takes it out of its group', () => {
-    const plan = buildPlan(PANELS, profile({
-      sequence: [{ type: 'group', id: 'group:g1', members: ['b', 'c'] }],
-      locked: ['c'],
-    }))
-    expect(plan.groups.get('group:g1')?.members.map(member => member.id)).toEqual(['b'])
-    expect(plan.panels.get('c')?.locked).toBe(true)
-    expect(plan.warnings).toContainEqual({ code: 'locked-member', groupId: 'group:g1', panelId: 'c' })
+  it('a configured row with no live registration does not disturb the rail', () => {
+    // The sequence is partial: listing an id nothing answers changes nothing —
+    // every real row keeps its own order and the id is reported as an orphan.
+    const plan = buildPlan(PANELS, profile({ sequence: [{ type: 'entry', id: 'ghost' }] }))
+    expect(plan.reordering).toBe(false)
+    expect(plan.rows.map(row => row.id)).toEqual(['a', 'b', 'c', 'd', 'e'])
+    expect(rowOrders(plan).every(order => order === null)).toBe(true)
+    expect(plan.orphans).toEqual(['ghost'])
   })
 })
 
@@ -204,9 +191,8 @@ describe('buildPlan: orphans and warnings', () => {
     const plan = buildPlan(PANELS.slice(0, 2), profile({
       sequence: [{ type: 'entry', id: 'ghost' }, { type: 'group', id: 'group:g1', members: ['a', 'phantom'] }],
       entries: { vanished: { label: 'Gone' } },
-      locked: ['also-gone'],
     }))
-    expect(plan.orphans).toEqual(['ghost', 'phantom', 'vanished', 'also-gone'])
+    expect(plan.orphans).toEqual(['ghost', 'phantom', 'vanished'])
     expect(plan.missingMembers).toEqual(['phantom'])
     expect(plan.groups.get('group:g1')?.members.find(member => member.id === 'phantom')?.missing).toBe(true)
   })

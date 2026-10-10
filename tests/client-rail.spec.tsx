@@ -163,7 +163,7 @@ describe('createRailAdapter: rewriting', () => {
   })
 
   it('is a strict no-op on a fresh install, even for a registration without a label', async () => {
-    // README §2.11 / model.ts: an empty configuration means this plugin is
+    // README §2.10 / model.ts: an empty configuration means this plugin is
     // read-only on the rail. The shell renders `label ?? id`, so the pass must
     // compare against that effective value rather than against `undefined` —
     // otherwise every label-less contributor gets a thunk written and the ledger

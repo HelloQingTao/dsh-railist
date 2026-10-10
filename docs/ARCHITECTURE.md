@@ -96,11 +96,11 @@ For every entry in `sidebar.panellist`, with `original` captured the first time 
 
 | Field | Written value |
 | --- | --- |
-| `entry.options.order` | position computed by the model; `original.order` when the panel is unconfigured or locked |
+| `entry.options.order` | position computed by the model; `original.order` when the panel is unconfigured |
 | `entry.options.label` | `() => override ?? originalLabel` when a name override exists, else `original.label` |
 | `entry.component` | our wrapper when we need a marker or an icon override, else `original.component` |
 
-Locked panels and panels the user has not configured are left exactly as registered (the confirmed takeover rule).
+Panels the user has not configured are left exactly as registered — writes are gated by the plan (§4.3), not by a per-panel opt-in.
 
 ### 4.2 The wrapper
 
@@ -180,7 +180,7 @@ Because the row is a native row, box geometry, hover background, `aria-current` 
 
 The section registers into `settings.section` with id `dsh-panellist`, a late `order`, and the label 「面板列表」/ "Panel list". The shell projects only `id`, `order` and `label` and picks the glyph from its closed list (§2 fact 11), so a `MutationObserver` on `document.body` matches `[role="dialog"] nav button` by `textContent` against our own label, stamps `data-dsh-panellist-settings-nav`, and our stylesheet supplies the plugin glyph. Markers are removed and the observer is disconnected on dispose. If no row matches within a bounded time, the plugin keeps the native gear and reports the failure in its own self-check panel — never an error.
 
-The page itself: sequence editor, per-item overrides (name, icon, hidden, locked), group editing, import/export, open-config-file, orphan cleanup, and the self-check status with a re-run button.
+The page itself: sequence editor, per-item overrides (name and icon), group editing, import/export, open-config-file, orphan cleanup, and the self-check status with a re-run button.
 
 **The sequence editor lists the whole rail, always.** `plan.rows` is every row the rail shows — the configured block first, then the rest in the contributors' own order — and a row's `order` is `null` until something is configured, which is what makes a fresh install write nothing at all (§4.3). Editing the list therefore needs no "adopt this one first" step: the first structural edit materializes the current order, and the per-item actions (move, group, ungroup, hide/show) work on any row from the first open. Hide/show is also available per row in the list, not only inside the appearance editor, because it is the action users reach for most often.
 
@@ -238,7 +238,7 @@ Endpoints: `GET /config`, `PUT /config`, `POST /config/reset`, `POST /reveal`, `
 | DSH stops passing `active` to rail glyphs | A hidden active panel loses its row | Probe; degrade that rule only |
 | DSH freezes the stored options object | No rewriting at all | Probe; degrade to read-only |
 | A writer stops being idempotent (a fresh closure compared per pass) | An endless recompute cascade: the page stops responding | Every generated value is cached per captured registration, every write is compare-first, and the controller cuts a burst at `CASCADE_LIMIT` passes with a console warning |
-| Another plugin hides or moves the same rows (e.g. a mobile-adaptation plugin) | Conflicting presentation | We only touch configured or locked panels we were asked to touch; a plugin row we do not configure is never modified |
+| Another plugin hides or moves the same rows (e.g. a mobile-adaptation plugin) | Conflicting presentation | We only write to rows the plan says to write (§4.3); a plugin row the user never touched is never modified |
 | A member of a group is uninstalled | A dead menu item | Orphan detection marks it missing and disables selection; config is preserved |
 | Two group ids collide, or a group id equals a plugin panel id | Selection lands on the wrong page | Group ids live in the reserved `group:` namespace, the schema enforces the pattern, and the model rejects a collision before writing |
 | A user pastes a hostile SVG | Script execution inside the app | Allow-list sanitiser on write and on read, 64 KB cap, inline render with no external references |

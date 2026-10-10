@@ -13,7 +13,7 @@ import { emptyProfileConfig, type ProfileConfig } from '../src/shared/config.ts'
 import { materializeSequence, moveRow, setGroupHidden, setPanelHidden, type LiveRow } from '../src/shared/edit.ts'
 
 function profileWith(ids: readonly string[]): ProfileConfig {
-  return { sequence: ids.map(id => ({ type: 'entry' as const, id })), entries: {}, locked: [] }
+  return { sequence: ids.map(id => ({ type: 'entry' as const, id })), entries: {} }
 }
 
 // vitest runs without globals, so testing-library cannot auto-register cleanup.
@@ -43,7 +43,6 @@ describe('SequenceEditor', () => {
         { type: 'group', id: 'group:g1', members: ['schedules', 'skills', 'ghost'] },
       ],
       entries: { plugins: { hidden: true } },
-      locked: [],
     })
 
     expect(harness.plan().rows.map(row => row.id)).toEqual(['plugins', 'group:g1'])
@@ -101,7 +100,6 @@ describe('SequenceEditor', () => {
     const profile: ProfileConfig = {
       sequence: [{ type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] }, { type: 'entry', id: 'skills' }],
       entries: {},
-      locked: [],
     }
     const harness = renderPage(profile)
 
@@ -121,7 +119,6 @@ describe('SequenceEditor', () => {
         { type: 'group', id: 'group:g1', members: ['schedules', 'skills'] },
       ],
       entries: {},
-      locked: [],
     }
     const harness = renderPage(profile)
     const source = rowOf('plugins')
@@ -142,7 +139,6 @@ describe('SequenceEditor', () => {
     const profile: ProfileConfig = {
       sequence: [{ type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] }, { type: 'entry', id: 'skills' }],
       entries: {},
-      locked: [],
     }
     const harness = renderPage(profile)
     const member = document.querySelector('[data-member-id="plugins"]')
@@ -200,7 +196,6 @@ describe('SequenceEditor', () => {
     expect(harness.updates[0]).toEqual({
       sequence: [],
       entries: { plugins: { hidden: true } },
-      locked: [],
     })
     // The rail order is still the contributors' own: nothing was taken over.
     expect(harness.plan().reordering).toBe(false)
@@ -210,7 +205,6 @@ describe('SequenceEditor', () => {
     const initial: ProfileConfig = {
       sequence: [{ type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] }],
       entries: {},
-      locked: [],
     }
     const harness = renderPage(initial)
     fireEvent.click(within(rowOf('group:g1')).getByRole('button', { name: 'Hide' }))

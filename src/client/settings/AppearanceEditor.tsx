@@ -21,13 +21,10 @@ import type { SanitizeFailure } from '../contracts.ts'
 import {
   moveMember,
   removeFromGroup,
-  setGroupHidden,
   setGroupIcon,
   setGroupLabel,
-  setPanelHidden,
   setPanelIcon,
   setPanelLabel,
-  setPanelLocked,
 } from '../../shared/edit.ts'
 import type { Plan } from '../../shared/model.ts'
 import type { GlyphComponent, GlyphRequest, SanitizeResult } from '../contracts.ts'
@@ -194,7 +191,6 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
     const group = plan.groups.get(selection.id)
     if (group === undefined) return null
     const groupId = group.id
-    const hidden = group.hidden
     return (
       <section className="dsh-panellist-settings-block" data-editor="group" data-editor-id={groupId}>
         <h3 className="dsh-panellist-settings-blockTitle">{t('settings.appearance.title')}</h3>
@@ -223,17 +219,6 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
           current={group.icon}
           onPick={icon => apply(edit => setGroupIcon(edit, groupId, icon))}
         />
-
-        <label className="dsh-panellist-settings-switchRow">
-          <input
-            type="checkbox"
-            checked={hidden}
-            onChange={event => apply(edit => setGroupHidden(edit, groupId, event.target.checked))}
-          />
-          <span>{t('settings.appearance.hidden')}</span>
-        </label>
-        <p className="dsh-panellist-settings-hint">{t('settings.appearance.hiddenHint')}</p>
-        {hidden ? <p className="dsh-panellist-settings-hint">{t('settings.sequence.groupHidden')}</p> : null}
 
         <div className="dsh-panellist-settings-field">
           <span className="dsh-panellist-settings-fieldLabel">{t('settings.group.members')}</span>
@@ -319,28 +304,14 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
         onPick={icon => apply(edit => setPanelIcon(edit, panelId, icon))}
       />
 
-      <label className="dsh-panellist-settings-switchRow">
-        <input
-          type="checkbox"
-          checked={panel.hidden}
-          onChange={event => apply(edit => setPanelHidden(edit, panelId, event.target.checked))}
-        />
-        <span>{t('settings.appearance.hidden')}</span>
-      </label>
-      <p className="dsh-panellist-settings-hint">{t('settings.appearance.hiddenHint')}</p>
-      {panel.suppressed ? <p className="dsh-panellist-settings-hint">{t('settings.appearance.lockedInGroup')}</p> : null}
-
-      <label className="dsh-panellist-settings-switchRow">
-        <input
-          type="checkbox"
-          checked={panel.locked}
-          // Locking is a SEQUENCE edit (it takes the panel out of any group), so
-          // it goes through the materialising path like every other one.
-          onChange={event => applyStructural(edit => setPanelLocked(edit, panelId, event.target.checked))}
-        />
-        <span>{t('settings.appearance.locked')}</span>
-      </label>
-      <p className="dsh-panellist-settings-hint">{t('settings.appearance.lockedHint')}</p>
+      {/*
+        Visibility has one entry point, and it is the per-row Hide/Show button in
+        the sequence list above — a second checkbox here was a duplicate control
+        for the same write, with its own hint text to keep in sync.
+      */}
+      {panel.suppressed
+        ? <p className="dsh-panellist-settings-hint">{t('settings.appearance.groupedHint')}</p>
+        : null}
     </section>
   )
 }

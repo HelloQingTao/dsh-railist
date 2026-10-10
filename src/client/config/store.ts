@@ -11,6 +11,7 @@
  */
 import {
   cloneProfileConfig,
+  emptyConfig,
   emptyProfileConfig,
   type PanellistConfig,
   type ProfileConfig,
@@ -76,7 +77,7 @@ function emptySnapshot(): StoreSnapshot {
     status: 'loading',
     profileId: '',
     profile: emptyProfileConfig(),
-    document: { schemaVersion: 1, profiles: {} },
+    document: emptyConfig(),
     health: null,
     error: null,
     revision: 0,

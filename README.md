@@ -101,15 +101,11 @@ Three sources, and you can switch back to the original icon at any time:
 - The contributor of a Panel entry is uninstalled while the config still holds it → the config is **kept**, the management panel marks it "missing", and offers a "Clean up orphans" button.
 - Until you make a STRUCTURAL change (a drag, creating or dissolving a group), this plugin writes **no order at all**: the rail keeps the order its contributors chose. A rename, a re-icon or a hide only overrides that one entry and leaves the order alone — which is what "we do not touch what you did not ask us to touch" means in practice.
 
-### 2.9 Locked entries
-
-A Locked entry is unaffected by any rewrite from this plugin (order, name, icon, and hiding all fall back to native DSH behavior), reserving a safe area for other plugins or the user's temporary state.
-
-### 2.10 How a change takes effect
+### 2.9 How a change takes effect
 
 Config changes **take effect immediately**: no need to restart DSH, no need to reload any plugin, and no need to reload the page.
 
-### 2.11 Scope of takeover
+### 2.10 Scope of takeover
 
 The management panel **lists the whole rail from the first time it is opened**: there is nothing to "adopt" before you can touch a Panel entry, and there is no "not taken over yet" list. (An earlier design had a "not configured" list with per-item take-over / release buttons; it was removed on user feedback — it only added a step.)
 
@@ -118,7 +114,6 @@ What still holds is the **minimal-intervention property in what gets WRITTEN**, 
 - The config's `sequence` is **partially authoritative**: it records only what you actually changed.
 - A `sequence` that is empty means **no `order` is written at all** (the state right after installation, a pure no-op), and an unconfigured Panel's name/icon/hidden state is left entirely alone; it keeps the contributor's own order.
 - Your first structural change (a drag, a merge into a Group) writes the current order out as an explicit sequence; unconfigured entries stay after the configured block in their own native order (README §2.8).
-- A locked Panel entry never takes part (§2.9).
 
 Implementation (`src/shared/model.ts`): `rows` is always the whole rail (an unconfigured row's `order` is `null`, meaning "do not write"), while `reordering` decides whether an `order` is written at all.
 
@@ -134,7 +129,7 @@ Adds one item to the left side of the Settings dialog:
 Page content:
 
 1. **Sequence editor** — lists the whole rail (every Panel entry from the start, with nothing to adopt first). **Drag and drop** is the main channel (reordering, dragging into an existing Group, dragging a member back out); each row's "Group with next" button creates a Group and "Ungroup" dissolves one; **Move up/Move down** are the keyboard fallback; and every row carries a **"Hide"/"Show"** button that toggles that row's visibility in place (Group rows included). While nothing is configured, a banner above the list explains the state and offers "Use the current rail order as a starting point" — which only writes the current order out as an explicit sequence, without moving anything;
-2. **Appearance override for an item** — name, icon (keep the original icon / built-in icon set / paste SVG), Shown or Hidden, locked;
+2. **Appearance override for an item** — name, icon (keep the original icon / built-in icon set / paste SVG); visibility is the **"Hide"/"Show"** button on each sequence row (one entry point, not two);
 3. **Group editing** — Group trigger name, Group trigger icon, member order;
 4. **Config import / export** (JSON);
 5. **Open config file** — opens `$DSH_HOME/panellist.json` directly;
@@ -156,7 +151,7 @@ Page content:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "profiles": {
     "desktop": {
       "sequence": [
@@ -174,7 +169,6 @@ Page content:
         "plugins": { "label": "插件市场", "icon": { "kind": "builtin", "name": "puzzle" } },
         "mcp-connector": { "hidden": true }
       },
-      "locked": ["ssh"],
       "meta": { "updatedAt": "2026-10-10T03:00:00.000Z" }
     }
   }
@@ -326,7 +320,7 @@ dsh-panellist/
 
 ## 8. First-version scope and non-goals
 
-**First version includes**: Sequence editing (drag and drop + keyboard fallback), Groups, Shown/Hidden, Label and Icon override (original icon / built-in icon set / paste SVG), Locked entries, config import/export, Orphan retention and cleanup, a Chinese and English UI, self-checks and read-only degradation, a bilingual README + screenshots.
+**First version includes**: Sequence editing (drag and drop + keyboard fallback), Groups, Shown/Hidden, Label and Icon override (original icon / built-in icon set / paste SVG), config import/export, Orphan retention and cleanup, a Chinese and English UI, self-checks and read-only degradation, a bilingual README + screenshots.
 
 **Not in the first version** (left for v1.1): search within a Group, a right-click context menu on the rail, per-language names, and E2E against the real DSH UI.
 

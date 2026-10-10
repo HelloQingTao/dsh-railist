@@ -11,7 +11,7 @@ import { resolve } from 'node:path'
 import Ajv2020 from 'ajv/dist/2020.js'
 import addFormats from 'ajv-formats'
 import { describe, expect, it } from 'vitest'
-import { emptyProfileConfig } from '../src/shared/config.ts'
+import { SCHEMA_VERSION, emptyProfileConfig } from '../src/shared/config.ts'
 import { normalizeConfigDocument } from '../src/shared/validate.ts'
 
 // `import.meta.url` is not a file: URL under the jsdom test transform, so the
@@ -25,7 +25,7 @@ const validate = ajv.compile(schema as object)
 
 /** The exact example from README.zh-CN.md §4.2. */
 const README_EXAMPLE = {
-  schemaVersion: 1,
+  schemaVersion: SCHEMA_VERSION,
   profiles: {
     desktop: {
       sequence: [
@@ -43,14 +43,13 @@ const README_EXAMPLE = {
         plugins: { label: '插件市场', icon: { kind: 'builtin', name: 'puzzle' } },
         'mcp-connector': { hidden: true },
       },
-      locked: ['ssh'],
       meta: { updatedAt: '2026-10-10T03:00:00.000Z' },
     },
   },
 }
 
 /** The shape a fresh install writes: an empty document. */
-const FRESH = { schemaVersion: 1, profiles: {} }
+const FRESH = { schemaVersion: SCHEMA_VERSION, profiles: {} }
 
 describe('docs/config.schema.json', () => {
   it('accepts the documented example', () => {
@@ -64,24 +63,31 @@ describe('docs/config.schema.json', () => {
   })
 
   it('accepts a section holding the empty profile the store creates', () => {
-    const document = { schemaVersion: 1, profiles: { desktop: { ...emptyProfileConfig(), meta: { updatedAt: new Date().toISOString() } } } }
+    const document = { schemaVersion: SCHEMA_VERSION, profiles: { desktop: { ...emptyProfileConfig(), meta: { updatedAt: new Date().toISOString() } } } }
     const ok = validate(document)
     expect(validate.errors ?? []).toEqual([])
     expect(ok).toBe(true)
   })
 
   it('rejects an empty group, a group member that is a group, and unknown keys', () => {
-    const base = { schemaVersion: 1, profiles: { p: { sequence: [] as unknown[] } } }
+    const base = { schemaVersion: SCHEMA_VERSION, profiles: { p: { sequence: [] as unknown[] } } }
     const withGroup = (members: unknown[]): unknown => ({
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
       profiles: { p: { sequence: [{ type: 'group', id: 'group:g', members }] } },
     })
     expect(validate(withGroup([]))).toBe(false)
     expect(validate(withGroup(['group:other']))).toBe(true)
     expect(validate(withGroup(['a', 'a']))).toBe(false)
     expect(validate({ ...base, extra: true })).toBe(false)
-    expect(validate({ schemaVersion: 2, profiles: {} })).toBe(false)
-    expect(validate({ schemaVersion: 1, profiles: { 'bad id!': {} } })).toBe(false)
+    // One version ABOVE the current one is the "future document" case.
+    expect(validate({ schemaVersion: SCHEMA_VERSION + 1, profiles: {} })).toBe(false)
+    expect(validate({ schemaVersion: SCHEMA_VERSION, profiles: { 'bad id!': {} } })).toBe(false)
+  })
+
+  it('rejects the retired locked field in a current-version document', () => {
+    // This is what makes the v1 → v2 migration step necessary rather than
+    // optional: a v1 file that still carried `locked` would be judged corrupt.
+    expect(validate({ schemaVersion: SCHEMA_VERSION, profiles: { p: { sequence: [], locked: [] } } })).toBe(false)
   })
 
   it('accepts every document the lenient reader produces', () => {
@@ -90,8 +96,8 @@ describe('docs/config.schema.json', () => {
     const inputs: unknown[] = [
       README_EXAMPLE,
       FRESH,
-      { schemaVersion: 1 },
-      { schemaVersion: 1, profiles: { p: { entries: { a: { icon: { kind: 'custom', svg: '<svg viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg>' } } } } } },
+      { schemaVersion: SCHEMA_VERSION },
+      { schemaVersion: SCHEMA_VERSION, profiles: { p: { entries: { a: { icon: { kind: 'custom', svg: '<svg viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg>' } } } } } },
     ]
     for (const input of inputs) {
       const normalized = normalizeConfigDocument(input)

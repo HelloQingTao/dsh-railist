@@ -91,7 +91,7 @@ function asEntryOverride(value: unknown): EntryOverride | null {
  * reports whether anything was dropped or clamped.
  */
 function normalizeProfileConfig(value: unknown): { profile: ProfileConfig; repaired: boolean } {
-  const profile: ProfileConfig = { sequence: [], entries: {}, locked: [] }
+  const profile: ProfileConfig = { sequence: [], entries: {} }
   let repaired = false
   if (!isRecord(value)) return { profile, repaired: value !== undefined }
 
@@ -124,22 +124,6 @@ function normalizeProfileConfig(value: unknown): { profile: ProfileConfig; repai
       profile.entries[id] = override
     }
   } else if (rawEntries !== undefined) {
-    repaired = true
-  }
-
-  const rawLocked = value['locked']
-  if (Array.isArray(rawLocked)) {
-    const locked = new Set<string>()
-    for (const raw of rawLocked) {
-      const id = asPanelId(raw)
-      if (id === null) {
-        repaired = true
-        continue
-      }
-      locked.add(id)
-    }
-    profile.locked = [...locked]
-  } else if (rawLocked !== undefined) {
     repaired = true
   }
 

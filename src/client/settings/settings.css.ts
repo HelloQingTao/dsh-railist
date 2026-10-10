@@ -339,17 +339,6 @@ export const SETTINGS_CSS = `
   gap: 8px;
 }
 
-.dsh-panellist-settings-switchRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.dsh-panellist-settings-switchRow input {
-  margin: 2px 0 0;
-}
-
 .dsh-panellist-settings-error {
   margin: 0;
   color: var(--dsh-panellist-danger);
@@ -393,13 +382,6 @@ export const SETTINGS_CSS = `
   flex: none;
   display: inline-flex;
   align-items: center;
-}
-
-.dsh-panellist-settings-lockedRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 
 .dsh-panellist-settings-probeList {

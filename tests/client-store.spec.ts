@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { SCHEMA_VERSION, emptyProfileConfig, type ProfileConfig } from '../src/shared/config.ts'
 import { API_ROUTES, type ConfigResponse, type HealthReport } from '../src/shared/protocol.ts'
 import { createPanellistStore, type FetchLike } from '../src/client/config/store.ts'
+import { setPanelHidden } from '../src/shared/edit.ts'
 
 const HEALTH: HealthReport = {
   ok: true,
@@ -102,12 +103,12 @@ describe('createPanellistStore', () => {
     const seen: number[] = []
     store.subscribe(() => seen.push(store.getSnapshot().revision))
 
-    const ok = await store.update(profile => ({ ...profile, locked: ['a'] }))
+    const ok = await store.update(profile => setPanelHidden(profile, 'a', true))
     expect(ok).toBe(true)
-    expect(store.getSnapshot().profile.locked).toEqual(['a'])
+    expect(store.getSnapshot().profile.entries['a']).toEqual({ hidden: true })
     expect(store.getSnapshot().error).toBeNull()
     const put = calls.find(call => call.method === 'PUT')
-    expect(JSON.parse(put?.body ?? '{}')).toEqual({ profile: { sequence: [], entries: {}, locked: ['a'] } })
+    expect(JSON.parse(put?.body ?? '{}')).toEqual({ profile: { sequence: [], entries: { a: { hidden: true } } } })
     // One notification for the optimistic apply, one for the confirmed write.
     expect(seen.length).toBeGreaterThanOrEqual(2)
     store.dispose()
@@ -118,7 +119,7 @@ describe('createPanellistStore', () => {
     const store = createPanellistStore({ fetch })
     await store.load()
     const before = store.getSnapshot().profile
-    const ok = await store.update(profile => ({ ...profile, locked: ['a'] }))
+    const ok = await store.update(profile => setPanelHidden(profile, 'a', true))
     expect(ok).toBe(false)
     expect(store.getSnapshot().profile).toEqual(before)
     expect(store.getSnapshot().error).toContain('nope')
@@ -131,7 +132,7 @@ describe('createPanellistStore', () => {
     await store.load()
     const text = JSON.stringify({
       schemaVersion: SCHEMA_VERSION,
-      profiles: { desktop: { sequence: [{ type: 'entry', id: 'b' }], entries: {}, locked: [] } },
+      profiles: { desktop: { sequence: [{ type: 'entry', id: 'b' }], entries: {} } },
     })
     const result = await store.importDocument(text)
     expect(result.ok).toBe(true)
@@ -146,7 +147,7 @@ describe('createPanellistStore', () => {
     await store.load()
     const result = await store.importDocument(JSON.stringify({
       schemaVersion: SCHEMA_VERSION,
-      profiles: { tui: { sequence: [], entries: { z: { hidden: true } }, locked: [] } },
+      profiles: { tui: { sequence: [], entries: { z: { hidden: true } } } },
     }))
     expect(result.ok).toBe(true)
     expect(store.getSnapshot().profile.entries['z']).toEqual({ hidden: true })
@@ -166,24 +167,24 @@ describe('createPanellistStore', () => {
   })
 
   it('exports the whole document as pretty JSON', async () => {
-    const { fetch } = stubFetch({ profile: { ...emptyProfileConfig(), locked: ['a'] } })
+    const { fetch } = stubFetch({ profile: { ...emptyProfileConfig(), entries: { a: { label: 'Aye' } } } })
     const store = createPanellistStore({ fetch })
     await store.load()
     const exported = store.exportDocument()
     expect(exported.endsWith('\n')).toBe(true)
     const parsed = JSON.parse(exported) as { schemaVersion: number; profiles: Record<string, ProfileConfig> }
     expect(parsed.schemaVersion).toBe(SCHEMA_VERSION)
-    expect(parsed.profiles['desktop']?.locked).toEqual(['a'])
+    expect(parsed.profiles['desktop']?.entries['a']).toEqual({ label: 'Aye' })
     store.dispose()
   })
 
   it('resets and reveals through the host route', async () => {
-    const { fetch, calls } = stubFetch({ profile: { ...emptyProfileConfig(), locked: ['a'] } })
+    const { fetch, calls } = stubFetch({ profile: { ...emptyProfileConfig(), entries: { a: { hidden: true } } } })
     const store = createPanellistStore({ fetch })
     await store.load()
     expect(await store.reveal()).toBe(true)
     expect(await store.reset()).toBe(true)
-    expect(store.getSnapshot().profile.locked).toEqual([])
+    expect(store.getSnapshot().profile.entries).toEqual({})
     expect(calls.some(call => call.url === API_ROUTES.reveal && call.method === 'POST')).toBe(true)
     expect(calls.some(call => call.url === API_ROUTES.reset && call.method === 'POST')).toBe(true)
     store.dispose()

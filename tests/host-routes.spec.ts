@@ -29,7 +29,6 @@ function sampleProfile(): ProfileConfig {
   return {
     sequence: [{ type: 'entry', id: 'plugins' }],
     entries: { plugins: { label: 'Plugin market', hidden: true } },
-    locked: [],
   }
 }
 
@@ -242,7 +241,7 @@ describe('PUT /config', () => {
     const { res, body } = await callJson<{ error: string; details?: string[] }>({
       method: 'PUT',
       url: API_ROUTES.config,
-      body: JSON.stringify({ profile: { sequence: [{ type: 'entry', id: '' }], entries: {}, locked: [] } }),
+      body: JSON.stringify({ profile: { sequence: [{ type: 'entry', id: '' }], entries: {} } }),
     })
     expect(res.statusCode).toBe(400)
     expect(body.error).toContain('schema')

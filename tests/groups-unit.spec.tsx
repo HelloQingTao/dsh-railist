@@ -31,7 +31,7 @@ const PANELS: RegisteredPanel[] = [
 ]
 
 function profile(sequence: SequenceItem[]): ProfileConfig {
-  return { sequence, entries: {}, locked: [] }
+  return { sequence, entries: {} }
 }
 
 const GROUP: SequenceItem = { type: 'group', id: 'group:more', label: 'More', members: ['beta', 'gamma'] }

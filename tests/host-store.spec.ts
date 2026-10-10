@@ -18,7 +18,6 @@ function sampleProfile(): ProfileConfig {
   return {
     sequence: [{ type: 'entry', id: 'plugins' }, { type: 'group', id: 'group:g1', members: ['ssh'] }],
     entries: { plugins: { label: 'Plugin market', icon: { kind: 'builtin', name: 'puzzle' } } },
-    locked: ['ssh'],
   }
 }
 
@@ -117,7 +116,6 @@ describe('read', () => {
     const other: ProfileConfig = {
       sequence: [{ type: 'group', id: 'group:z', label: 'More', members: ['a', 'b'] }],
       entries: { a: { hidden: true } },
-      locked: ['b'],
       meta: { updatedAt: '2026-10-10T03:00:00.000Z' },
     }
     await writeFile(store.configPath, documentWith({ other }), 'utf8')
@@ -218,7 +216,7 @@ describe('corruption', () => {
 
 describe('write', () => {
   it('rejects a profile the schema refuses and leaves the file alone', async () => {
-    const invalid: ProfileConfig = { sequence: [{ type: 'entry', id: '' }], entries: {}, locked: [] }
+    const invalid: ProfileConfig = { sequence: [{ type: 'entry', id: '' }], entries: {} }
     await expect(store.write(invalid)).rejects.toBeInstanceOf(InvalidConfigError)
     await expect(store.write(invalid)).rejects.toMatchObject({ details: expect.any(Array) })
     await expect(stat(store.configPath)).rejects.toThrow()
