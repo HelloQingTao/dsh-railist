@@ -25,9 +25,17 @@ export class FakeLedger {
   /** Every register/dispose pair the nudge produced, for assertions. */
   readonly mutations: string[] = []
 
-  /** Declare a slot (the shell's `register` throws for an undeclared one). */
+  /**
+   * Declare a slot (the shell's `register` throws for an undeclared one).
+   *
+   * A declaration is a ledger boundary the shell notifies on — "subscribing
+   * ahead of declaration is allowed; the declaration notifies" — so the fake
+   * bumps too, which is what lets `inject` defer to it below.
+   */
   declare(name: string): void {
-    if (!this.slots.has(name)) this.slots.set(name, [])
+    if (this.slots.has(name)) return
+    this.slots.set(name, [])
+    this.bump(name)
   }
 
   /** Whether a slot is declared. */
@@ -91,13 +99,35 @@ export class FakeLedger {
     return this.subscribe(name, listener)
   }
 
-  /** `inject` on an already-declared slot runs the effect immediately. */
+  /**
+   * `inject` on a slot runs the callback when the seat exists — immediately if
+   * the slot is already declared, otherwise at the declaration (the shell's own
+   * "run this when the seat exists" seam, which is what lets a plugin mount
+   * before the entry that declares the slot).
+   */
   inject(name: string, callback: () => (() => void) | Iterable<() => void>): () => void {
-    if (!this.slots.has(name)) return () => {}
-    const produced = callback()
-    if (typeof produced === 'function') return produced
+    let dispose: (() => void) | null = null
+    const run = (): void => {
+      if (dispose !== null) return
+      const produced = callback()
+      dispose = typeof produced === 'function'
+        ? produced
+        : () => { for (const release of produced) release() }
+    }
+    if (this.slots.has(name)) {
+      run()
+    } else {
+      const stop = this.subscribeDeclaration(name, run)
+      const stopOnce = stop
+      return () => {
+        stopOnce()
+        dispose?.()
+        dispose = null
+      }
+    }
     return () => {
-      for (const dispose of produced) dispose()
+      dispose?.()
+      dispose = null
     }
   }
 

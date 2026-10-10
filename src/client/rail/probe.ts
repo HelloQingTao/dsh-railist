@@ -26,6 +26,13 @@ const PROBE_ACTIVE_ID = `${RAIL_ID_PREFIX}probe-active`
 const RAIL_PROBE_ATTEMPTS = 3
 
 /**
+ * How long the probes wait for `sidebar.panellist` to be declared before
+ * measuring. The sidebar entry declares it during boot; a shell that never
+ * declares it is reported honestly after this.
+ */
+const PROBE_DECLARATION_TIMEOUT_MS = 5000
+
+/**
  * The selector the hide rule uses — imported, never restated: a probe that
  * measures a different shape than the rule matches is worse than no probe
  * (`rail/css.ts` owns the string, ARCHITECTURE §4.4).
@@ -41,6 +48,11 @@ export interface SelfCheckOptions {
   sectionLabel(): string
   /** How many rail entries the ledger currently holds (probe 2). */
   entryCount(): number
+  /**
+   * How long to wait for the rail slot's declaration before measuring
+   * (default {@link PROBE_DECLARATION_TIMEOUT_MS}); tests shorten it.
+   */
+  declarationTimeoutMs?: number
 }
 
 function reasonOf(error: unknown): string {
@@ -234,6 +246,47 @@ function stateOf(results: readonly ProbeResult[], version: string): SelfCheckSta
 }
 
 /**
+ * Resolve `true` once the rail slot is declared, `false` after `timeoutMs`.
+ *
+ * `sidebar.panellist` is declared by the SIDEBAR entry's `children` table, and
+ * this plugin can mount before that entry exists: registering a probe row (or a
+ * group row) straight away is refused with "slot … is not declared", and the
+ * self-check then reported the whole plugin read-only on a boot-order race.
+ * `slots.inject` is the shell's own "run this when the seat exists" seam, so the
+ * probes wait on it instead of racing it. A shell that never declares the slot
+ * still ends the wait and is reported honestly.
+ */
+function whenRailDeclared(ctx: ClientContext, timeoutMs: number): Promise<boolean> {
+  return new Promise<boolean>(resolve => {
+    let settled = false
+    const finish = (declared: boolean): void => {
+      if (settled) return
+      settled = true
+      resolve(declared)
+    }
+    let stop: (() => void) | undefined
+    try {
+      stop = ctx.slots.inject(RAIL_SLOT, () => {
+        // `inject` may fire before `stop` is assigned, so release and settle
+        // on a microtask rather than inline.
+        queueMicrotask(() => {
+          try { stop?.() } catch { /* idempotent */ }
+          finish(true)
+        })
+        return () => {}
+      })
+    } catch {
+      finish(false)
+      return
+    }
+    setTimeout(() => {
+      try { stop?.() } catch { /* idempotent */ }
+      finish(false)
+    }, timeoutMs)
+  })
+}
+
+/**
  * Create the self-check controller.
  * @param ctx - the browser-half context (probe registration goes through it).
  * @param options - label and entry-count readers.
@@ -264,6 +317,10 @@ export function createSelfCheck(ctx: ClientContext, options: SelfCheckOptions): 
       if (running !== null) return running
       running = (async () => {
         try {
+          // The rail slot is declared by the sidebar entry's children table and
+          // this plugin can mount first: wait for it, so a boot-order race can
+          // never fail the check and park the whole plugin in read-only.
+          await whenRailDeclared(ctx, options.declarationTimeoutMs ?? PROBE_DECLARATION_TIMEOUT_MS)
           // Order matters: the rail probe counts DOM rows, so it runs BEFORE any
           // probe registers a throwaway row. Counting after probe 3 (which parks
           // a row in the DOM for two frames) is what produced a false "7 rows for

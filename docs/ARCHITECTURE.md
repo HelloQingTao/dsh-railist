@@ -207,6 +207,8 @@ Four probes, run once per mount and on demand (`src/client/rail/probe.ts`):
 
 Any failure sets a degraded state: the settings page shows which probe failed, what is therefore disabled, and the DSH version the plugin measured. Nothing is thrown into the shell's boot path, and no failure is silent.
 
+**The probes wait for the rail slot to exist before measuring.** `sidebar.panellist` is declared by the SIDEBAR entry's `children` table, and this plugin can mount before that entry — registering a probe row then is refused with "slot … is not declared", and that single refusal used to park the whole plugin in read-only on a boot-order race (the rewriting never ran at all). `slots.inject` is the shell's own "run this when the seat exists" seam, so the run waits on it (bounded, default 5s) before probing; a shell that never declares the slot is reported honestly after the wait.
+
 ---
 
 ## 8. Host half

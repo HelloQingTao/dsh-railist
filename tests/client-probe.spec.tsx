@@ -49,11 +49,37 @@ describe('probe: registration rewriting', () => {
 
   it('fails when the slot is not declared at all', async () => {
     const ledger = new FakeLedger()
-    const check = createSelfCheck(contextWith(ledger), { sectionLabel: () => 'Panel list', entryCount: () => 0 })
+    const check = createSelfCheck(contextWith(ledger), {
+      sectionLabel: () => 'Panel list',
+      entryCount: () => 0,
+      // The probes wait for the declaration first; shorten that wait here.
+      declarationTimeoutMs: 20,
+    })
     await check.rerun()
     const result = check.getState().results.find(entry => entry.id === 'registry')
     expect(result?.ok).toBe(false)
     expect(result?.detail).toContain('undeclared slot')
+  })
+
+  it('waits for the rail slot to be declared instead of failing on a boot-order race', async () => {
+    // The sidebar entry declares `sidebar.panellist` from its children table and
+    // this plugin can mount first. A probe that registered straight away was
+    // refused, and the refusal parked the WHOLE plugin in read-only — the
+    // rewriting (order, name, icon) never ran at all.
+    const ledger = new FakeLedger()
+    const check = createSelfCheck(contextWith(ledger), {
+      sectionLabel: () => 'Panel list',
+      entryCount: () => 0,
+      declarationTimeoutMs: 500,
+    })
+    const running = check.rerun()
+    // The sidebar's entry lands a tick later, as it does during boot.
+    setTimeout(() => { ledger.declare(RAIL) }, 10)
+    await running
+
+    const result = check.getState().results.find(entry => entry.id === 'registry')
+    expect(result?.ok).toBe(true)
+    expect(check.getState().readOnly).toBe(false)
   })
 })
 
