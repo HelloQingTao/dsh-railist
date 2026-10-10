@@ -23,6 +23,7 @@ import {
   removeFromGroup,
   setGroupIcon,
   setGroupLabel,
+  setPanelHidden,
   setPanelIcon,
   setPanelLabel,
 } from '../../shared/edit.ts'
@@ -245,6 +246,9 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
                 {member.missing
                   ? <span className="dsh-panellist-settings-badge" data-badge="missing">{t('rail.group.missing')}</span>
                   : null}
+                {member.hidden
+                  ? <span className="dsh-panellist-settings-badge" data-badge="hidden">{t('settings.appearance.hidden')}</span>
+                  : null}
                 <button
                   type="button"
                   className="dsh-panellist-settings-action"
@@ -271,6 +275,17 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
                   title={t('settings.sequence.removeFromGroup')}
                   onClick={() => applyStructural(edit => removeFromGroup(edit, groupId, member.id))}
                 >−</button>
+                {/* Last in the row, like every other row's Hide/Show. The
+                    member's rail row is already suppressed, so this is exactly
+                    "show it in the group's menu". */}
+                <button
+                  type="button"
+                  className="dsh-panellist-settings-action"
+                  data-action="memberToggleHidden"
+                  aria-label={member.hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}
+                  title={t('settings.appearance.hiddenHint')}
+                  onClick={() => apply(edit => setPanelHidden(edit, member.id, !member.hidden))}
+                >{member.hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}</button>
               </li>
             ))}
           </ul>

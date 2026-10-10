@@ -174,6 +174,42 @@ describe('SequenceEditor', () => {
     expect(harness.updates).toEqual([])
   })
 
+  it('hides and shows a group member from its own row', () => {
+    // A member's rail row is already suppressed, so "hidden" inside a group
+    // means "leave it out of the group's menu" — but the entry point is the
+    // same per-row Hide/Show button every other row has.
+    const initial: ProfileConfig = {
+      sequence: [{ type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] }],
+      entries: {},
+    }
+    const harness = renderPage(initial)
+
+    const member = rowOf('group:g1').querySelector('[data-member-id="schedules"]')
+    if (member === null) throw new Error('no member row rendered')
+    const toggle = member.querySelector('[data-action="memberToggleHidden"]')
+    if (toggle === null) throw new Error('the member row has no hide/show affordance')
+
+    // Hide/Show is the LAST control on the row, like every other row's: the
+    // order is "move, then act, then visibility" (↑ ↓ − 隐藏).
+    const order = Array.from(member.querySelectorAll('[data-action]')).map(node => node.getAttribute('data-action'))
+    expect(order).toEqual(['select', 'memberMoveUp', 'memberMoveDown', 'memberRemove', 'memberToggleHidden'])
+
+    fireEvent.click(toggle)
+    expect(harness.updates[0]).toEqual({
+      sequence: initial.sequence,
+      entries: { schedules: { hidden: true } },
+    })
+
+    // The store accepts it: the same button now offers the way back, and the
+    // row carries the same "hidden" badge a top-level row does.
+    const hidden = setPanelHidden(initial, 'schedules', true)
+    harness.setProfile(hidden)
+    const memberAfter = rowOf('group:g1').querySelector('[data-member-id="schedules"]')
+    expect(memberAfter?.querySelector('[data-badge="hidden"]')).not.toBeNull()
+    fireEvent.click(memberAfter?.querySelector('[data-action="memberToggleHidden"]') as HTMLElement)
+    expect(harness.updates[1]).toEqual(setPanelHidden(hidden, 'schedules', false))
+  })
+
   it('lists the whole rail from the start, with no gate to open first', () => {
     const harness = renderPage(emptyProfileConfig())
 
@@ -231,7 +267,11 @@ describe('SequenceEditor', () => {
       entries: {},
     }
     const harness = renderPage(initial)
-    fireEvent.click(within(rowOf('group:g1')).getByRole('button', { name: 'Hide' }))
+    // The group row's own toggle (`toggleHidden`), not the member rows' —
+    // those carry their own `memberToggleHidden` buttons.
+    const toggle = rowOf('group:g1').querySelector('[data-action="toggleHidden"]')
+    if (toggle === null) throw new Error('the group row has no hide/show affordance')
+    fireEvent.click(toggle)
     expect(harness.updates[0]).toEqual(setGroupHidden(initial, 'group:g1', true))
   })
 

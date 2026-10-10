@@ -103,6 +103,7 @@ export const en = {
   'rail.group.open': 'Open group {name}',
   'rail.group.menuTitle': 'Group: {name}',
   'rail.group.missing': 'missing',
+  'rail.group.emptyMenu': 'No panel is shown in this group.',
   'rail.group.overviewTitle': 'Group “{name}”',
   'rail.group.overviewIntro': 'This page lists the panels collected in this group.',
 
@@ -204,6 +205,7 @@ export const zh: Record<I18nKey, string> = {
   'rail.group.open': '展开分组 {name}',
   'rail.group.menuTitle': '分组：{name}',
   'rail.group.missing': '已缺失',
+  'rail.group.emptyMenu': '该分组内没有显示的页签。',
   'rail.group.overviewTitle': '分组「{name}」',
   'rail.group.overviewIntro': '这个页面列出收进该分组的面板。',
 

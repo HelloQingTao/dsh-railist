@@ -39,8 +39,8 @@ interface Harness {
   setActive(panelId: string): void
 }
 
-function createHarness(sequence: SequenceItem[]): Harness {
-  const profile: ProfileConfig = { sequence, entries: {} }
+function createHarness(sequence: SequenceItem[], entries: ProfileConfig['entries'] = {}): Harness {
+  const profile: ProfileConfig = { sequence, entries }
   let plan: Plan = buildPlan(PANELS, profile)
   let activePanelId = ''
   const planListeners = new Set<() => void>()
@@ -338,5 +338,28 @@ describe('groups flyout — missing members', () => {
     // 20 for the row, 18 inside the flyout (the card measures itself, so it
     // renders one extra time before it becomes visible).
     expect([...new Set(harness.glyphRequests.map(request => request.size))].sort()).toEqual([18, 20])
+  })
+})
+
+describe('groups flyout — hidden members', () => {
+  it('leaves a hidden member out of the menu but keeps it in the group', () => {
+    // Hiding a member means "not in this menu": its rail row is already
+    // suppressed, so the rail never showed it. The member stays a member — the
+    // group row, its order and its highlight are unaffected.
+    const harness = createHarness([ALPHA, GROUP], { beta: { hidden: true } })
+    openMenu(harness, { left: 8, top: 100, width: 36, height: 36 })
+
+    const items = screen.getAllByRole('menuitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]?.textContent).toContain('Gamma')
+    expect(screen.queryByText('Beta')).toBeNull()
+  })
+
+  it('says so when every member is hidden', () => {
+    const harness = createHarness([ALPHA, GROUP], { beta: { hidden: true }, gamma: { hidden: true } })
+    openMenu(harness, { left: 8, top: 100, width: 36, height: 36 })
+
+    expect(screen.queryAllByRole('menuitem')).toHaveLength(0)
+    expect(screen.getByText('No panel is shown in this group.')).toBeTruthy()
   })
 })

@@ -50,6 +50,13 @@ export interface PlanMember {
   icon: IconRef | null
   /** No registration carries this id (orphan kept for the reinstall case). */
   missing: boolean
+  /**
+   * Hidden inside the group: the member's rail row is already suppressed, so
+   * "hidden" for a member means the flyout leaves it out (README §2.3). The
+   * member stays in the group — the count, the order and the group highlight
+   * still see it.
+   */
+  hidden: boolean
 }
 
 /** One panel row. */
@@ -223,6 +230,7 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
           label: effectiveLabel(undefined, profile.entries[memberId]) || memberId,
           icon: effectiveIcon(profile.entries[memberId]),
           missing: true,
+          hidden: profile.entries[memberId]?.hidden === true,
         }
         members.push(entry)
         if (!missing.includes(memberId)) missing.push(memberId)
@@ -239,6 +247,7 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
         label: effectiveLabel(panel.label, override) || memberId,
         icon: effectiveIcon(override),
         missing: false,
+        hidden: override?.hidden === true,
       }
       members.push(entry)
       liveMembers.push(entry)

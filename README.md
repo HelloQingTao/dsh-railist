@@ -63,6 +63,7 @@ The six examples you gave are interpreted under this model as follows (`G{…}` 
 - There are only two states: **Shown** / **Hidden** (there is no third "disabled" state).
 - Hidden = it no longer appears on the rail, but the Panel entry itself still exists and is still usable (it can be selected from the management panel, and activated by other plugins or keyboard shortcuts), and the functionality of the plugin it belongs to is unaffected.
 - Exception: **if a Hidden Panel entry is currently active, its row is shown temporarily** — avoiding the case where "the user is still on this page, but the rail has no entry for it".
+- **Members of a Group can be hidden too**, where "hidden" means "left out of the Group menu": a member's rail row is already suppressed by the Group, so for a member hiding only affects the flyout. The member stays in the Group — the count, the ordering and the Group trigger highlight all still see it.
 
 ### 2.4 Label override
 
@@ -128,9 +129,9 @@ Adds one item to the left side of the Settings dialog:
 
 Page content:
 
-1. **Sequence editor** — lists the whole rail (every Panel entry from the start, with nothing to adopt first). **Drag and drop** is the main channel (reordering, dragging into an existing Group, dragging a member back out); each row's "Group with next" button creates a Group and "Ungroup" dissolves one; **Move up/Move down** are the keyboard fallback; and every row carries a **"Hide"/"Show"** button that toggles that row's visibility in place (Group rows included). "Nothing is configured yet" is deliberately invisible: the list is the rail either way, and the first drag or grouping writes the order out on its way in — there is no banner and no "starting point" button to click first;
+1. **Sequence editor** — lists the whole rail (every Panel entry from the start, with nothing to adopt first). **Drag and drop** is the main channel (reordering, dragging into an existing Group, dragging a member back out); each row's "Group with next" button creates a Group and "Ungroup" dissolves one; **Move up/Move down** are the keyboard fallback; and every row carries a **"Hide"/"Show"** button that toggles that row's visibility in place (Group rows included, and the **member rows inside a Group** too — a hidden member leaves the Group menu, see §2.3). "Nothing is configured yet" is deliberately invisible: the list is the rail either way, and the first drag or grouping writes the order out on its way in — there is no banner and no "starting point" button to click first;
 2. **Appearance override for an item** — name, icon (keep the original icon / built-in icon set / paste SVG), opened by clicking that row's name in the list — including a Group's members, which have no row of their own and are otherwise unreachable; visibility is the **"Hide"/"Show"** button on each sequence row (one entry point, not two);
-3. **Group editing** — Group trigger name, Group trigger icon, member order;
+3. **Group editing** — Group trigger name, Group trigger icon, member order (members can be hidden / shown here too);
 4. **Config import / export** (JSON);
 5. **Open config file** — opens `$DSH_HOME/panellist.json` directly;
 6. **Clean up orphans**;

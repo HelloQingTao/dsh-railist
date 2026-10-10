@@ -96,7 +96,10 @@ export function Flyout(props: FlyoutProps): ReactElement {
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
   const container = useMemo(ensurePortalContainer, [])
-  const members = group.members
+  // Hidden members stay in the group (count, order, highlight) but leave the
+  // menu: their rail row is already suppressed, so "hidden" for a member is
+  // exactly "not in this menu" (README §2.3).
+  const members = group.members.filter(member => !member.hidden)
   const activePanelId = deps.rail.activePanelId()
 
   // Measure once the card is in the DOM; keyed on the member count so a plan
@@ -266,7 +269,9 @@ export function Flyout(props: FlyoutProps): ReactElement {
         aria-activedescendant={activeIndex >= 0 ? itemId(group.id, activeIndex) : undefined}
         onKeyDown={onKeyDown}
       >
-        {items}
+        {items.length === 0
+          ? <p data-dsh-panellist-flyout-empty="">{translate.t('rail.group.emptyMenu')}</p>
+          : items}
       </div>
     </div>,
     container,

@@ -377,6 +377,9 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                   {member.missing
                     ? <span className="dsh-panellist-settings-badge" data-badge="missing">{t('rail.group.missing')}</span>
                     : null}
+                  {member.hidden
+                    ? <span className="dsh-panellist-settings-badge" data-badge="hidden">{t('settings.appearance.hidden')}</span>
+                    : null}
                   <button
                     type="button"
                     className="dsh-panellist-settings-action"
@@ -403,6 +406,20 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                     title={t('settings.sequence.removeFromGroup')}
                     onClick={() => applyStructural(profile => removeFromGroup(profile, row.id, member.id))}
                   >−</button>
+                  {/* Last in the row, like every other row's Hide/Show: the
+                      ordering is "move, then act, then visibility", so the
+                      destructive/structural controls read together. A member is
+                      hidden inside the group, not on the rail — its row is
+                      already suppressed, so this toggle is exactly "show it in
+                      the group's menu" (README §2.3). */}
+                  <button
+                    type="button"
+                    className="dsh-panellist-settings-action"
+                    data-action="memberToggleHidden"
+                    aria-label={member.hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}
+                    title={t('settings.appearance.hiddenHint')}
+                    onClick={() => toggleHidden('panel', member.id, !member.hidden)}
+                  >{member.hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}</button>
                 </li>
               ))}
             </ul>
