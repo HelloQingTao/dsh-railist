@@ -151,6 +151,8 @@ nav[class*="_panelList"] > button[class*="_panelRow"]:has([data-dsh-panellist-hi
 
 Raw mutation bumps no version (§2 fact 4), so after a batch of writes we register a throwaway entry into `sidebar.panellist` and dispose it immediately. Both operations mutate the ledger and notify subscribers, so the shell re-reads `order` and `label`. The nudge is coalesced to at most one per microtask-batch of changes. It uses only public service methods; calling the ledger's internal mutation hook directly would be shorter but strictly more fragile.
 
+**A nudge is owed by the plan, not by the write.** The pass compares a digest of everything the shell renders a row from — `order`, `label`, `icon`, `hidden`, `suppressed`, per panel and per group (`renderingDigest` in `registry/rail.tsx`) — and nudges whenever that digest moved, even if the pass had no field to write. Otherwise an edit that only changes what our own wrapper reads (a second built-in icon on a panel that already has one, a rename resolved by the already-installed label thunk) would leave the ledger untouched: no mutation, no re-render, and the rail would keep the previous glyph or text while the settings preview showed the new one. The FIRST pass of a mount is the exception — the digest is only remembered, never acted on, because a fresh install must stay a strict no-op (README §2.10).
+
 ---
 
 ## 5. Group rows and the flyout

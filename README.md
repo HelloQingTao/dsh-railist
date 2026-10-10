@@ -103,7 +103,7 @@ Three sources, and you can switch back to the original icon at any time:
 
 ### 2.9 How a change takes effect
 
-Config changes **take effect immediately**: no need to restart DSH, no need to reload any plugin, and no need to reload the page.
+Config changes **take effect immediately**: no need to restart DSH, no need to reload any plugin, and no need to reload the page. That holds for *every* edit, including the ones that write nothing at all: the rewrite pass compares a digest of everything the rail renders (order, name, icon, visible/hidden) and re-projects when it moves, so a second icon pick or a second rename lands on the rail just like the first one did (ARCHITECTURE §4.5).
 
 ### 2.10 Scope of takeover
 

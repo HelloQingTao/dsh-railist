@@ -22,7 +22,7 @@
  */
 import type { ReactNode } from 'react'
 import type { StoredEntry, SlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import type { Plan, RegisteredPanel } from '../../shared/model.ts'
+import type { Plan, PlanPanel, RegisteredPanel } from '../../shared/model.ts'
 import { RAIL_ID_PREFIX, isOwnRailId } from '../../shared/config.ts'
 import type { ClientContext } from '../ctx.ts'
 import type { GlyphComponent, GlyphProps, GlyphRequest, RailRowRegistration } from '../contracts.ts'
@@ -88,6 +88,48 @@ function unwrap(component: unknown): GlyphComponent | null {
   if (origin === undefined) return null
   const value = origin()
   return typeof value === 'function' ? value as GlyphComponent : null
+}
+
+/** One glyph choice, in a form two plans can be compared by. */
+function iconKey(icon: PlanPanel['icon']): string {
+  if (icon === null) return '-'
+  if (icon.kind === 'builtin') return `builtin:${icon.name}`
+  // The whole SVG: a re-paste that renders differently must re-project too.
+  if (icon.kind === 'custom') return `custom:${icon.svg}`
+  return 'original'
+}
+
+/**
+ * Everything the shell renders for one rail row: the fields it reads off the
+ * ledger (`order`, `label`) and the values our own glyph reads out of the live
+ * plan (`icon`, `hidden`, `suppressed`). See {@link createRailAdapter}'s rewrite
+ * pass for why a plan is compared by this digest at all.
+ */
+function renderingDigest(plan: Plan): string {
+  const parts: string[] = []
+  for (const [id, panel] of plan.panels) {
+    parts.push([
+      id,
+      String(panel.order),
+      panel.label,
+      iconKey(panel.icon),
+      panel.hidden ? 'hidden' : '-',
+      panel.suppressed ? 'suppressed' : '-',
+    ].join('\u0001'))
+  }
+  parts.push('\u0002')
+  for (const [id, group] of plan.groups) {
+    parts.push([
+      id,
+      String(group.order),
+      group.label,
+      iconKey(group.icon),
+      group.hidden ? 'hidden' : '-',
+      group.iconFallbackPanelId ?? '-',
+      group.members.map(member => `${member.id}=${member.label}${member.missing ? '?' : ''}`).join(','),
+    ].join('\u0001'))
+  }
+  return parts.join('\u0003')
 }
 
 /** Structural view of the shell's locale-free panel source (`ctx.layout`). */
@@ -164,6 +206,8 @@ export function createRailAdapter(
   const captures = new Map<string, Capture>()
   let nudged = false
   let disposed = false
+  /** Digest of the last plan this adapter reconciled against; see the pass below. */
+  let lastDigest: string | null = null
 
   /**
    * The one structural seam to the shell's slot registry.
@@ -274,6 +318,21 @@ export function createRailAdapter(
   const applyOverrides = (): void => {
     if (disposed) return
     const currentPlan = plan()
+    /**
+     * Everything the shell renders a row from, in one comparable string.
+     *
+     * The rewrite pass only writes what it would CHANGE on the ledger, which
+     * leaves one hole: an edit that changes nothing but the values our wrapper
+     * reads (`panel.icon`, `panel.hidden`, `panel.suppressed`) or the value a
+     * cached label thunk resolves to. Picking a second built-in icon for a panel
+     * already carrying one writes no field at all — the wrapper is installed, it
+     * reads the live plan, and the ledger never moves, so the shell has no reason
+     * to re-render the row and the rail kept the previous glyph. Comparing this
+     * digest and nudging on a difference closes that hole for every such edit.
+     */
+    const digest = renderingDigest(currentPlan)
+    const appearanceChanged = lastDigest !== null && digest !== lastDigest
+    lastDigest = digest
     let changed = false
     const live = new Set<string>()
     for (const entry of entriesFor()) {
@@ -344,7 +403,11 @@ export function createRailAdapter(
     // Drop captures for entries that left the ledger, so a later reinstall
     // starts from the fresh registration's own values.
     for (const id of [...captures.keys()]) if (!live.has(id)) captures.delete(id)
-    if (changed) nudge()
+    // The first pass of a mount never nudges on the digest alone: a fresh
+    // install is a strict no-op, and `lastDigest` starts empty for exactly that
+    // reason. Everything after it re-projects as soon as the rail would look
+    // different, whether or not this pass had a field to write.
+    if (changed || appearanceChanged) nudge()
   }
 
   const restore = (captured: Capture): boolean => {

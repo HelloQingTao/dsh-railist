@@ -163,6 +163,66 @@ describe('createRailAdapter: rewriting', () => {
     adapter.dispose()
   })
 
+  it('nudges when an edit changes only what our wrapper reads, not a single field', async () => {
+    // Picking a second built-in icon for a panel that already carries one writes
+    // nothing: the wrapper is installed, it reads `panel.icon` at render time,
+    // and every ledger field stays exactly as it was. Without a nudge the shell
+    // has no reason to re-render the row, so the rail kept the previous glyph
+    // while the settings preview showed the new one.
+    const ledger = new FakeLedger()
+    seed(ledger)
+    let profile = profileWith({ entries: { a: { icon: { kind: 'builtin', name: 'star' } } } })
+    const plan = (): Plan => buildPlan([{ id: 'a', label: 'Alpha', order: 0 }], profile)
+    const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, plan, glyph)
+    adapter.applyOverrides()
+    await Promise.resolve()
+
+    const wrapper = entryOf(ledger, 'a').component
+    const order = entryOf(ledger, 'a').options.order
+    const label = entryOf(ledger, 'a').options.label
+    const version = ledger.currentVersion
+
+    profile = profileWith({ entries: { a: { icon: { kind: 'builtin', name: 'bolt' } } } })
+    adapter.applyOverrides()
+    // Nothing was written: same wrapper, same order, and the contributor's own
+    // label is still the one its registration carried.
+    expect(entryOf(ledger, 'a').component).toBe(wrapper)
+    expect(entryOf(ledger, 'a').options.order).toBe(order)
+    expect(entryOf(ledger, 'a').options.label).toBe(label)
+
+    await Promise.resolve()
+    expect(ledger.currentVersion).toBeGreaterThan(version)
+    adapter.dispose()
+  })
+
+  it('nudges a rename that keeps the already-installed label thunk', async () => {
+    // Same hole through the other door: the thunk is cached per registration and
+    // resolves through the live plan, so the second rename writes no field and
+    // the shell would keep rendering the previous text.
+    const ledger = new FakeLedger()
+    seed(ledger)
+    let profile = profileWith({ entries: { b: { label: 'First' } } })
+    const plan = (): Plan => buildPlan([{ id: 'b', label: 'Beta', order: 1 }], profile)
+    const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, plan, glyph)
+    adapter.applyOverrides()
+    await Promise.resolve()
+
+    const thunk = entryOf(ledger, 'b').options.label
+    const version = ledger.currentVersion
+    expect(typeof thunk).toBe('function')
+    expect((thunk as () => string)()).toBe('First')
+
+    profile = profileWith({ entries: { b: { label: 'Second' } } })
+    adapter.applyOverrides()
+    expect(entryOf(ledger, 'b').options.label).toBe(thunk)
+    // The value the shell reads off the thunk changed with the plan.
+    expect((thunk as () => string)()).toBe('Second')
+
+    await Promise.resolve()
+    expect(ledger.currentVersion).toBeGreaterThan(version)
+    adapter.dispose()
+  })
+
   it('is a strict no-op on a fresh install, even for a registration without a label', async () => {
     // README §2.10 / model.ts: an empty configuration means this plugin is
     // read-only on the rail. The shell renders `label ?? id`, so the pass must
