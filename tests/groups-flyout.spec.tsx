@@ -308,24 +308,25 @@ describe('groups flyout — missing members', () => {
     type: 'group', id: 'group:more', label: 'More', members: ['ghost', 'beta'],
   }
 
-  it('renders a missing member disabled and labelled, and skips it on the keyboard', () => {
+  it('leaves a missing member out of the menu instead of parking a dead row in it', () => {
+    // A missing member's registration is gone: a disabled "missing" row only
+    // took up room the user cannot act on. The settings page is where one gets
+    // cleaned up, so the menu just leaves it out.
     const harness = createHarness([ALPHA, WITH_MISSING])
     const registration = harness.registered.get(RAIL_ID)
     expect(registration?.order).toBe(20)
     openMenu(harness, { left: 8, top: 100, width: 36, height: 36 })
 
     const items = screen.getAllByRole('menuitem') as HTMLButtonElement[]
-    expect(items).toHaveLength(2)
-    expect(items[0]?.disabled).toBe(true)
-    expect(items[0]?.textContent).toContain('ghost')
-    expect(items[0]?.textContent).toContain('missing')
-    expect(items[1]?.disabled).toBe(false)
+    expect(items).toHaveLength(1)
+    expect(items[0]?.textContent).toContain('Beta')
+    expect(items[0]?.disabled).toBe(false)
+    expect(screen.queryByText('ghost')).toBeNull()
 
+    // The remaining member is selectable; nothing traps the keyboard cursor.
     const menu = screen.getByRole('menu')
     fireEvent.keyDown(menu, { key: 'ArrowDown' })
     fireEvent.keyDown(menu, { key: 'Enter' })
-
-    // The only selectable member is `beta`; the disabled row cannot be entered.
     expect(harness.selectCalls).toEqual(['beta'])
   })
 

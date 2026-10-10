@@ -98,8 +98,10 @@ export function Flyout(props: FlyoutProps): ReactElement {
   const container = useMemo(ensurePortalContainer, [])
   // Hidden members stay in the group (count, order, highlight) but leave the
   // menu: their rail row is already suppressed, so "hidden" for a member is
-  // exactly "not in this menu" (README §2.3).
-  const members = group.members.filter(member => !member.hidden)
+  // exactly "not in this menu" (README §2.3). A MISSING member leaves too —
+  // its registration is gone, so a disabled "missing" row only took up room
+  // the user cannot act on; the settings page is where one gets cleaned up.
+  const members = group.members.filter(member => !member.hidden && !member.missing)
   const activePanelId = deps.rail.activePanelId()
 
   // Measure once the card is in the DOM; keyed on the member count so a plan
@@ -164,9 +166,9 @@ export function Flyout(props: FlyoutProps): ReactElement {
     }
   }, [anchor])
 
-  // Only members that still have a page can be selected; a missing member is
-  // skipped by arrow navigation rather than trapping the keyboard.
-  const selectable = members.map((member, index) => (member.missing ? -1 : index)).filter(index => index >= 0)
+  // Everything in the menu is selectable: hidden and missing members are
+  // filtered out before this, so no row can trap the keyboard cursor.
+  const selectable = members.map((_member, index) => index)
 
   const move = (delta: 1 | -1): void => {
     if (selectable.length === 0) return
@@ -187,7 +189,7 @@ export function Flyout(props: FlyoutProps): ReactElement {
     }
     if (key !== 'Enter' && key !== ' ' && key !== 'Spacebar') return
     const member = members[activeIndex]
-    if (member === undefined || member.missing) return
+    if (member === undefined) return
     event.preventDefault()
     event.stopPropagation()
     onSelect(member.id)
@@ -201,18 +203,12 @@ export function Flyout(props: FlyoutProps): ReactElement {
         type="button"
         role="menuitem"
         id={itemId(group.id, index)}
-        disabled={member.missing}
-        aria-disabled={member.missing ? 'true' : undefined}
         aria-current={current ? 'true' : undefined}
         data-dsh-panellist-flyout-item=""
-        {...(member.missing ? { 'data-dsh-panellist-flyout-missing': '' } : {})}
         {...(current ? { 'data-dsh-panellist-flyout-current': '' } : {})}
         {...(index === activeIndex ? { 'data-dsh-panellist-flyout-highlighted': '' } : {})}
         onMouseEnter={() => { setActiveIndex(index) }}
-        onClick={() => {
-          if (member.missing) return
-          onSelect(member.id)
-        }}
+        onClick={() => { onSelect(member.id) }}
       >
         <span data-dsh-panellist-flyout-glyph="">
           {deps.glyph({
@@ -223,9 +219,6 @@ export function Flyout(props: FlyoutProps): ReactElement {
           })}
         </span>
         <span data-dsh-panellist-flyout-label="">{member.label}</span>
-        {member.missing
-          ? <span data-dsh-panellist-flyout-missing-label="">{translate.t('rail.group.missing')}</span>
-          : null}
       </button>
     )
   })

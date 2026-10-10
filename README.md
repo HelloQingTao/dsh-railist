@@ -64,6 +64,7 @@ The six examples you gave are interpreted under this model as follows (`G{…}` 
 - Hidden = it no longer appears on the rail, but the Panel entry itself still exists and is still usable (it can be selected from the management panel, and activated by other plugins or keyboard shortcuts), and the functionality of the plugin it belongs to is unaffected.
 - Exception: **if a Hidden Panel entry is currently active, its row is shown temporarily** — avoiding the case where "the user is still on this page, but the rail has no entry for it".
 - **Members of a Group can be hidden too**, where "hidden" means "left out of the Group menu": a member's rail row is already suppressed by the Group, so for a member hiding only affects the flyout. The member stays in the Group — the count, the ordering and the Group trigger highlight all still see it.
+- **A missing member is left out of the Group menu automatically** (its registration is gone, and a disabled "missing" row in the menu only took up room). It stays in the configuration and in the settings page's "missing panels" list, waiting to be cleaned up.
 
 ### 2.4 Label override
 

@@ -133,12 +133,6 @@ nav[class*="_panelList"] button[class*="_panelRow"]:has([data-dsh-panellist-grou
   white-space: nowrap;
 }
 
-[data-dsh-panellist-flyout-missing-label] {
-  flex: none;
-  color: var(--dsw-alias-label-tertiary, inherit);
-  font-size: 11px;
-}
-
 [data-dsh-panellist-overview] {
   padding: 16px;
   color: var(--dsw-alias-label-primary, inherit);
