@@ -334,7 +334,7 @@ dsh-panellist/
 3. ✅ **Minimal closed loop** — registry rewrite (order/name/icon/hidden flag) → hiding → settings tab → persistence;
 4. ✅ **Groups** — Group trigger rows, popup menus, drag-and-drop editing, the Group overview fallback page;
 5. ✅ **Hardening** — the four self-checks and read-only degradation, SVG sanitization, import/export, Orphan cleanup, bilingual;
-6. ⏳ **Verification and release** — tests are complete (20 specs / 269 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
+6. ⏳ **Verification and release** — tests are complete (20 specs / 272 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
 
 On-device verification must happen with DSH fully closed (see the link install and rollback in §6), because it modifies the profile's `node_modules`.
 
