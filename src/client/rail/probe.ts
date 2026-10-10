@@ -20,6 +20,9 @@ import { RAIL_SLOT } from '../registry/rail.tsx'
 const PROBE_REGISTRY_ID = `${RAIL_ID_PREFIX}probe`
 const PROBE_ACTIVE_ID = `${RAIL_ID_PREFIX}probe-active`
 
+/** How many times the rail probe re-measures while the DOM catches up. */
+const RAIL_PROBE_ATTEMPTS = 3
+
 /** Selector the hide rule depends on (ARCHITECTURE §4.4). */
 const ROW_SELECTOR = 'nav[class*="_panelList"] > button[class*="_panelRow"]'
 
@@ -105,7 +108,7 @@ function probeRegistry(ctx: ClientContext): ProbeResult {
 }
 
 /** Probe 2: does the selector the hide rule needs find one row per entry? */
-function probeRail(options: SelfCheckOptions): ProbeResult {
+async function probeRail(options: SelfCheckOptions): Promise<ProbeResult> {
   const supports = (): boolean => {
     if (typeof CSS === 'undefined' || typeof CSS.supports !== 'function') return false
     try {
@@ -116,16 +119,40 @@ function probeRail(options: SelfCheckOptions): ProbeResult {
   }
   if (!supports()) return { id: 'rail', ok: false, detail: ':has() selector support is missing' }
   if (typeof document === 'undefined') return { id: 'rail', ok: false, detail: 'no document' }
-  const nav = document.querySelector('nav[class*="_panelList"]')
-  if (nav === null) {
-    return { id: 'rail', ok: true, detail: ':has() supported; the rail is not mounted right now (sidebar hidden)' }
+
+  let last = { rows: 0, entries: 0, detail: '' }
+  for (let attempt = 0; attempt < RAIL_PROBE_ATTEMPTS; attempt += 1) {
+    const nav = document.querySelector('nav[class*="_panelList"]')
+    if (nav === null) {
+      return { id: 'rail', ok: true, detail: ':has() supported; the rail is not mounted right now (sidebar hidden)' }
+    }
+    const rows = document.querySelectorAll(ROW_SELECTOR).length
+    const entries = options.entryCount()
+    if (rows === entries) {
+      return { id: 'rail', ok: true, detail: `${rows} row(s) match ${ROW_SELECTOR}` }
+    }
+    last = { rows, entries, detail: describeMismatch(rows, entries) }
+    // The DOM trails the ledger by a frame whenever a row was registered or
+    // disposed a moment ago (React commits on the next frame, not synchronously
+    // inside the call that mutated the ledger). Re-measure before concluding
+    // anything — the first version of this probe counted a throwaway row that
+    // the previous probe had already disposed, and reported a false failure.
+    if (attempt < RAIL_PROBE_ATTEMPTS - 1) await frames(1)
   }
-  const rows = document.querySelectorAll(ROW_SELECTOR).length
-  const entries = options.entryCount()
-  if (rows !== entries) {
-    return { id: 'rail', ok: false, detail: `${rows} row(s) for ${entries} rail entr(ies) using ${ROW_SELECTOR}` }
+  return { id: 'rail', ok: false, detail: last.detail }
+}
+
+/** Name the surplus rows, so a genuine mismatch is diagnosable from the page. */
+function describeMismatch(rows: number, entries: number): string {
+  const base = `${rows} row(s) for ${entries} rail entr(ies) using ${ROW_SELECTOR}`
+  if (rows <= entries) return base
+  const labels: string[] = []
+  for (const row of document.querySelectorAll(ROW_SELECTOR)) {
+    if (labels.length >= entries + 3 || labels.length >= rows) break
+    const label = row.getAttribute('aria-label') ?? row.textContent?.trim() ?? ''
+    if (label.length > 0) labels.push(label)
   }
-  return { id: 'rail', ok: true, detail: `${rows} row(s) match ${ROW_SELECTOR}` }
+  return labels.length === 0 ? base : `${base}; rows seen: ${labels.join(' | ')}`
 }
 
 /** Probe 3: does the shell still hand our glyph an `active` prop? */
@@ -226,11 +253,18 @@ export function createSelfCheck(ctx: ClientContext, options: SelfCheckOptions): 
       if (running !== null) return running
       running = (async () => {
         try {
+          // Order matters: the rail probe counts DOM rows, so it runs BEFORE any
+          // probe registers a throwaway row. Counting after probe 3 (which parks
+          // a row in the DOM for two frames) is what produced a false "7 rows for
+          // 6 entries" on the first real DSH run.
+          const rail = await probeRail(options)
           const registry = probeRegistry(ctx)
           // A read-only shell cannot be probed further: registrations are the
-          // mechanism every other probe needs.
-          const active = registry.ok ? await probeActive(ctx) : { id: 'active' as const, ok: true, detail: 'skipped: probing needs registrations' }
-          publish([registry, probeRail(options), active, probeSettingsNav(options)])
+          // mechanism the remaining probe needs.
+          const active = registry.ok
+            ? await probeActive(ctx)
+            : { id: 'active' as const, ok: true, detail: 'skipped: probing needs registrations' }
+          publish([registry, rail, active, probeSettingsNav(options)])
         } catch (error) {
           publish([
             { id: 'registry', ok: false, detail: reasonOf(error) },

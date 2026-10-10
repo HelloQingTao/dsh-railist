@@ -99,6 +99,91 @@ describe('probe: the rail selector', () => {
       disableHasSelectorSupport()
     }
   })
+
+  it('names the surplus rows when the mismatch is real', async () => {
+    enableHasSelectorSupport()
+    const ledger = new FakeLedger()
+    ledger.declare(RAIL)
+    const nav = document.createElement('nav')
+    nav.className = '_hash_panelList'
+    for (const label of ['Plugins', 'Schedules', 'Skills']) {
+      const row = document.createElement('button')
+      row.className = '_hash_panelRow'
+      row.setAttribute('aria-label', label)
+      nav.appendChild(row)
+    }
+    document.body.appendChild(nav)
+    try {
+      const check = createSelfCheck(contextWith(ledger), { sectionLabel: () => 'Panel list', entryCount: () => 2 })
+      await check.rerun()
+      const result = check.getState().results.find(entry => entry.id === 'rail')
+      expect(result?.ok).toBe(false)
+      expect(result?.detail).toContain('3 row(s) for 2 rail entr')
+      expect(result?.detail).toContain('Plugins | Schedules')
+    } finally {
+      nav.remove()
+      disableHasSelectorSupport()
+    }
+  })
+
+  it('re-measures while the DOM catches up, instead of reporting a stale row', async () => {
+    // Regression for a REAL run on DSH 0.2.0-rc.2: the rail probe reported
+    // "7 row(s) for 6 rail entr(ies)" because it counted a row that the previous
+    // probe had just disposed — React commits that removal on the NEXT frame, so
+    // a single synchronous measurement is not evidence.
+    enableHasSelectorSupport()
+    const ledger = new FakeLedger()
+    ledger.declare(RAIL)
+    const nav = document.createElement('nav')
+    nav.className = '_hash_panelList'
+    const rows: HTMLButtonElement[] = []
+    for (let index = 0; index < 7; index += 1) {
+      const row = document.createElement('button')
+      row.className = '_hash_panelRow'
+      row.setAttribute('aria-label', `Panel ${index}`)
+      nav.appendChild(row)
+      rows.push(row)
+    }
+    document.body.appendChild(nav)
+    const extra = rows[6] as HTMLButtonElement
+    // The shell committing the removal of a row that was disposed a moment ago.
+    requestAnimationFrame(() => { extra.remove() })
+    try {
+      const check = createSelfCheck(contextWith(ledger), { sectionLabel: () => 'Panel list', entryCount: () => 6 })
+      await check.rerun()
+      const result = check.getState().results.find(entry => entry.id === 'rail')
+      expect(result?.ok).toBe(true)
+      expect(result?.detail).toContain('6 row(s) match')
+      expect(check.getState().hidingDisabled).toBe(false)
+    } finally {
+      nav.remove()
+      disableHasSelectorSupport()
+    }
+  })
+
+  it('measures the rail before any probe row of its own exists', async () => {
+    enableHasSelectorSupport()
+    const ledger = new FakeLedger()
+    ledger.declare(RAIL)
+    const nav = document.createElement('nav')
+    nav.className = '_hash_panelList'
+    const row = document.createElement('button')
+    row.className = '_hash_panelRow'
+    nav.appendChild(row)
+    document.body.appendChild(nav)
+    try {
+      const check = createSelfCheck(contextWith(ledger), { sectionLabel: () => 'Panel list', entryCount: () => 1 })
+      await check.rerun()
+      expect(check.getState().results.find(entry => entry.id === 'rail')?.ok).toBe(true)
+      // Probe 3 did park a row in the DOM during its two-frame wait, and it is
+      // gone from the ledger again afterwards: the rail verdict must not depend
+      // on the order the probes run in.
+      expect(ledger.entries(RAIL).some(entry => entry.options.id === 'dsh-panellist:probe-active')).toBe(false)
+    } finally {
+      nav.remove()
+      disableHasSelectorSupport()
+    }
+  })
 })
 
 describe('probe: the active prop', () => {
@@ -107,9 +192,14 @@ describe('probe: the active prop', () => {
     ledger.declare(RAIL)
     const check = createSelfCheck(contextWith(ledger), { sectionLabel: () => 'Panel list', entryCount: () => 0 })
     const running = check.rerun()
-    // `rerun()` runs probe 1 synchronously and parks inside probe 3's frame
-    // wait, so the throwaway row is already registered here.
-    const entry = ledger.entries(RAIL).find(candidate => candidate.options.id === 'dsh-panellist:probe-active')
+    // The probe chain now starts with an `await` (the rail probe is async), so
+    // the throwaway row appears a tick later: poll briefly instead of assuming
+    // the registration happened before `rerun()` returned.
+    let entry = ledger.entries(RAIL).find(candidate => candidate.options.id === 'dsh-panellist:probe-active')
+    for (let tick = 0; entry === undefined && tick < 20; tick += 1) {
+      await new Promise(resolve => { setTimeout(resolve, 1) })
+      entry = ledger.entries(RAIL).find(candidate => candidate.options.id === 'dsh-panellist:probe-active')
+    }
     expect(entry).toBeDefined()
     const Probe = entry?.component as (props: { size: number; active: boolean }) => null
     const rendered = render(<Probe size={18} active={false} />)
