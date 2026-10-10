@@ -372,17 +372,39 @@ export const SETTINGS_CSS = `
 .dsh-panellist-settings-plainList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/*
+ * A row is icon + label, laid out explicitly: as inline content the
+ * contributor's SVG sits on the text baseline, so a tight line box clips it or
+ * runs it into the name. Flex keeps both on one optical line at any glyph size,
+ * and only the label may be truncated.
+ */
 .dsh-panellist-settings-plainList li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsh-panellist-muted);
+}
+
+.dsh-panellist-settings-plainList li > * {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Only the label may be truncated: it is the one part that can be long. */
+.dsh-panellist-settings-plainListLabel {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--dsh-panellist-muted);
 }
 
 .dsh-panellist-settings-lockedRow {
@@ -443,8 +465,21 @@ export const SETTINGS_CSS = `
   color: var(--dsh-panellist-muted);
 }
 
-.dsh-panellist-settings-unmanaged summary {
+.dsh-panellist-settings-unmanaged > summary {
   cursor: pointer;
   font-weight: 600;
+}
+
+/*
+ * Explicit spacing rather than relying on the browser's default margins for
+ * disclosure content: without it the hint crowds the summary and the list, and
+ * the three blocks read as one mangled paragraph.
+ */
+.dsh-panellist-settings-unmanaged > .dsh-panellist-settings-hint {
+  margin-top: 4px;
+}
+
+.dsh-panellist-settings-unmanaged > .dsh-panellist-settings-plainList {
+  margin-top: 8px;
 }
 `.trim()

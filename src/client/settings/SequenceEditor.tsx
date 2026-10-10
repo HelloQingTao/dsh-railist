@@ -423,9 +423,8 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                 const panel = plan.panels.get(id)
                 return (
                   <li key={id} data-unmanaged-id={id}>
-                    {glyph({ icon: panel?.icon ?? null, native: nativeGlyph(id), size: 16 })}
-                    {' '}
-                    {panel?.label ?? id}
+                    <span className="dsh-panellist-settings-plainListGlyph">{glyph({ icon: panel?.icon ?? null, native: nativeGlyph(id), size: 16 })}</span>
+                    <span className="dsh-panellist-settings-plainListLabel">{panel?.label ?? id}</span>
                   </li>
                 )
               })}

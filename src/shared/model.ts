@@ -268,10 +268,16 @@ export function buildPlan(registered: readonly RegisteredPanel[], profile: Profi
   // Unmanaged panels: everything registered that the sequence did not place and
   // the user did not lock, kept in their own native order, appended after the
   // configured block (README §2.8).
+  //
+  // The sort is by `order` ONLY, and `Array.prototype.sort` is stable, so panels
+  // that declare the same order (or none at all) keep the order the ledger
+  // handed them — which is exactly what the shell does when it projects the same
+  // slot. An alphabetical tie-break looks harmless and is not: it silently
+  // reorders the "not configured" list against the rail the user is looking at.
   const unmanaged: string[] = []
   const unmanagedSorted = [...native.values()]
     .filter(panel => !assigned.has(panel.id) && !locked.has(panel.id))
-    .sort((a, b) => (a.order - b.order) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    .sort((a, b) => a.order - b.order)
   for (const panel of unmanagedSorted) {
     if (isUntouched(profile, panel.id)) unmanaged.push(panel.id)
   }

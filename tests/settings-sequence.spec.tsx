@@ -109,6 +109,11 @@ describe('SequenceEditor', () => {
     }
     // The picker's "keep original" preview is the same story for a configured row.
     expect(list?.querySelector('[data-glyph="native"][data-native="yes"]')).not.toBeNull()
+    // Icon and label are separate flex items: as inline content the contributor's
+    // SVG sits on the text baseline and collides with the name.
+    const first = list?.querySelector('[data-unmanaged-id="plugins"]')
+    expect(first?.querySelector('.dsh-panellist-settings-plainListGlyph')).not.toBeNull()
+    expect(first?.querySelector('.dsh-panellist-settings-plainListLabel')?.textContent).toBe('Plugins')
   })
 
   it('dissolves a group back into bare rows', () => {

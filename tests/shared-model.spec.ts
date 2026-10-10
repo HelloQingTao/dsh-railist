@@ -82,6 +82,31 @@ describe('buildPlan: the six confirmed examples', () => {
 })
 
 describe('buildPlan: takeover scope', () => {
+  it('keeps the ledger order when panels declare the same order', () => {
+    // The shell sorts the same slot with a stable sort, so equal `order` values
+    // stay in registration order. Ties must therefore NOT be broken
+    // alphabetically here: that would show the rail and the "not configured"
+    // list in two different orders (found on a real DSH window).
+    const registered: RegisteredPanel[] = [
+      { id: 'zulu', label: 'Zulu', order: 0 },
+      { id: 'mike', label: 'Mike', order: 0 },
+      { id: 'alfa', label: 'Alfa', order: 0 },
+    ]
+    const plan = buildPlan(registered, shape(['zulu']))
+    expect(plan.rows.map(row => row.id)).toEqual(['zulu', 'mike', 'alfa'])
+    expect(plan.unmanaged).toEqual(['mike', 'alfa'])
+  })
+
+  it('still lets a declared order win over the ledger order', () => {
+    const registered: RegisteredPanel[] = [
+      { id: 'second', label: 'Second', order: 20 },
+      { id: 'first', label: 'First', order: 10 },
+    ]
+    const plan = buildPlan(registered, shape(['second']))
+    expect(plan.rows.map(row => row.id)).toEqual(['second', 'first'])
+    expect(plan.unmanaged).toEqual(['first'])
+  })
+
   it('an empty sequence is a strict no-op on the rail', () => {
     const plan = buildPlan(PANELS, profile())
     expect(plan.reordering).toBe(false)
