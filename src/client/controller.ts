@@ -135,6 +135,7 @@ export function createController(deps: ControllerDeps): PanellistController {
     selfCheck,
     translate,
     glyph: deps.glyph,
+    nativeGlyph: (panelId) => rail.nativeGlyph(panelId),
     builtinNames: deps.builtinNames,
     sanitizeSvg: deps.sanitizeSvg,
     health: () => store.getSnapshot().health,

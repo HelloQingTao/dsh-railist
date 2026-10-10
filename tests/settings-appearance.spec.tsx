@@ -136,6 +136,22 @@ describe('AppearanceEditor (panel row)', () => {
     // Locked panels are not rail rows, so the page keeps a list to unlock them.
     expect(document.querySelector('[data-locked-id="plugins"]')).not.toBeNull()
   })
+  it('previews the rail icon itself while nothing is overridden', () => {
+    renderPage(profileWith(['plugins']))
+    selectRow('plugins')
+    const preview = document.querySelector('.dsh-panellist-settings-preview')
+    expect(preview?.querySelector('[data-native-panel="plugins"]')).not.toBeNull()
+  })
+
+  it('previews a group trigger with its first member\'s glyph', () => {
+    renderPage(GROUPED)
+    selectRow('group:g1')
+    const preview = document.querySelector('.dsh-panellist-settings-preview')
+    // README §2.6: an icon-less trigger borrows the first live member's glyph,
+    // exactly as the rail row does.
+    expect(preview?.querySelector('[data-native-panel="plugins"]')).not.toBeNull()
+  })
+
   it('shows a localized sentence for a coded refusal, not the raw English reason', () => {
     const harness = createHarness({
       profile: profileWith(['plugins']),

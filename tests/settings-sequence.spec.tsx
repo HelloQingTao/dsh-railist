@@ -97,6 +97,20 @@ describe('SequenceEditor', () => {
     expect(next?.sequence[1]).toEqual({ type: 'entry', id: 'skills' })
   })
 
+  it('previews an unconfigured panel with its own rail glyph, not the fallback', () => {
+    // On-device regression: every row under "not configured" showed the same
+    // generic placeholder, because the page was never handed the contributor's
+    // own glyph component.
+    renderPage(emptyProfileConfig())
+    const list = document.querySelector('[data-section="unmanaged"]')
+    expect(list).not.toBeNull()
+    for (const id of ['plugins', 'schedules', 'skills']) {
+      expect(list?.querySelector(`[data-native-panel="${id}"]`), `${id} should preview its own glyph`).not.toBeNull()
+    }
+    // The picker's "keep original" preview is the same story for a configured row.
+    expect(list?.querySelector('[data-glyph="native"][data-native="yes"]')).not.toBeNull()
+  })
+
   it('dissolves a group back into bare rows', () => {
     const profile: ProfileConfig = {
       sequence: [{ type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] }, { type: 'entry', id: 'skills' }],

@@ -328,7 +328,12 @@ export function createRailAdapter(
     },
     nativeGlyph: (panelId) => {
       const captured = captures.get(panelId)
-      return (captured?.component ?? null) as GlyphComponent | null
+      // Prefer the captured original: once we wrap an entry, `entry.component`
+      // is OUR wrapper, and handing that back would recurse.
+      if (captured !== undefined && captured.touchedComponent) return captured.component as GlyphComponent | null
+      const live = entriesFor().find(entry => entry.options.id === panelId)
+      const component = live?.component ?? captured?.component ?? null
+      return component as GlyphComponent | null
     },
     hasPage: (id) => {
       try {

@@ -119,6 +119,7 @@ export function Section({ deps, close }: SectionProps): ReactNode {
         registered={registered}
         t={t}
         glyph={deps.glyph}
+        nativeGlyph={deps.nativeGlyph}
         selected={selection}
         onSelect={setSelected}
         apply={apply}
@@ -135,6 +136,7 @@ export function Section({ deps, close }: SectionProps): ReactNode {
             selection={selection}
             t={t}
             glyph={deps.glyph}
+            nativeGlyph={deps.nativeGlyph}
             builtinNames={deps.builtinNames}
             sanitizeSvg={deps.sanitizeSvg}
             apply={apply}

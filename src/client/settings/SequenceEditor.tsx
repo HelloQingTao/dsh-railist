@@ -27,7 +27,7 @@ import {
   type LiveRow,
 } from '../../shared/edit.ts'
 import type { Plan, RegisteredPanel } from '../../shared/model.ts'
-import type { GlyphRequest } from '../contracts.ts'
+import type { GlyphComponent, GlyphRequest } from '../contracts.ts'
 import type { Translator } from '../i18n/index.ts'
 
 /** Which row the appearance editor is currently editing. */
@@ -42,6 +42,8 @@ export interface SequenceEditorProps {
   registered: readonly RegisteredPanel[]
   t: Translator['t']
   glyph: (request: GlyphRequest) => ReactNode
+  /** The contributor's own glyph, so an unconfigured row previews its real icon. */
+  nativeGlyph: (panelId: string) => GlyphComponent | null
   selected: SequenceSelection | null
   onSelect: (selection: SequenceSelection) => void
   /** Apply an edit that needs no materialization. */
@@ -86,7 +88,7 @@ function beforeIndex(from: number, target: number): number {
 }
 
 export function SequenceEditor(props: SequenceEditorProps): ReactNode {
-  const { plan, registered, t, glyph, selected, onSelect, apply, applyStructural } = props
+  const { plan, registered, t, glyph, nativeGlyph, selected, onSelect, apply, applyStructural } = props
   const dragRef = useRef<DragPayload | null>(null)
   const [draggingKey, setDraggingKey] = useState<string | null>(null)
   const rows = plan.rows
@@ -225,6 +227,9 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
     const locked = panel?.locked === true
     const missing = plan.orphans.includes(row.id) || plan.missingMembers.includes(row.id)
     const icon = isGroup ? group?.icon ?? null : panel?.icon ?? null
+    // A group borrows the first live member's glyph when it has no icon of its
+    // own, exactly as the rail trigger does.
+    const nativePanelId = isGroup ? group?.iconFallbackPanelId ?? null : row.id
     const isSelected = selected !== null && selected.kind === row.kind && selected.id === row.id
     const next = rows[index + 1]
     const canGroupWithNext = !isGroup && next !== undefined && next.kind === 'panel'
@@ -259,7 +264,11 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
             aria-pressed={isSelected}
             onClick={() => onSelect({ kind: row.kind, id: row.id })}
           >
-            <span className="dsh-panellist-settings-rowGlyph">{glyph({ icon, size: 18 })}</span>
+            <span className="dsh-panellist-settings-rowGlyph">{glyph({
+              icon,
+              native: nativePanelId === null ? null : nativeGlyph(nativePanelId),
+              size: 18,
+            })}</span>
             <span className="dsh-panellist-settings-rowName">{row.label}</span>
           </button>
           {badges.length === 0
@@ -323,7 +332,11 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                   onDragOver={allowDrop}
                   onDrop={event => dropOnMember(event, row.id, memberIndex, memberIds)}
                 >
-                  <span className="dsh-panellist-settings-rowGlyph">{glyph({ icon: member.icon, size: 16 })}</span>
+                  <span className="dsh-panellist-settings-rowGlyph">{glyph({
+                    icon: member.icon,
+                    native: nativeGlyph(member.id),
+                    size: 16,
+                  })}</span>
                   <span className="dsh-panellist-settings-memberName">{member.label}</span>
                   {member.missing
                     ? <span className="dsh-panellist-settings-badge" data-badge="missing">{t('rail.group.missing')}</span>
@@ -410,7 +423,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                 const panel = plan.panels.get(id)
                 return (
                   <li key={id} data-unmanaged-id={id}>
-                    {glyph({ icon: panel?.icon ?? null, size: 16 })}
+                    {glyph({ icon: panel?.icon ?? null, native: nativeGlyph(id), size: 16 })}
                     {' '}
                     {panel?.label ?? id}
                   </li>

@@ -30,7 +30,7 @@ import {
   setPanelLocked,
 } from '../../shared/edit.ts'
 import type { Plan } from '../../shared/model.ts'
-import type { GlyphRequest, SanitizeResult } from '../contracts.ts'
+import type { GlyphComponent, GlyphRequest, SanitizeResult } from '../contracts.ts'
 import type { Translator } from '../i18n/index.ts'
 import type { SequenceSelection } from './SequenceEditor.tsx'
 
@@ -49,6 +49,8 @@ export interface AppearanceEditorProps {
   selection: SequenceSelection
   t: Translator['t']
   glyph: (request: GlyphRequest) => ReactNode
+  /** The contributor's own glyph, so "keep original" previews the real icon. */
+  nativeGlyph: (panelId: string) => GlyphComponent | null
   builtinNames: readonly BuiltinIconName[]
   sanitizeSvg: (source: string) => SanitizeResult
   apply: (edit: (profile: ProfileConfig) => ProfileConfig) => void
@@ -60,6 +62,8 @@ interface IconPickerProps {
   label: string
   t: Translator['t']
   glyph: (request: GlyphRequest) => ReactNode
+  /** The glyph the rail shows when no override is set. */
+  native: GlyphComponent | null
   builtinNames: readonly BuiltinIconName[]
   sanitizeSvg: (source: string) => SanitizeResult
   /** `null` means "keep the original". */
@@ -69,7 +73,7 @@ interface IconPickerProps {
 
 /** The three-source glyph picker shared by panel rows and group triggers. */
 function IconPicker(props: IconPickerProps): ReactNode {
-  const { idPrefix, label, t, glyph, builtinNames, sanitizeSvg, current, onPick } = props
+  const { idPrefix, label, t, glyph, native, builtinNames, sanitizeSvg, current, onPick } = props
   const svgRef = useRef<HTMLTextAreaElement>(null)
   const [error, setError] = useState<string | null>(null)
   const committed: 'original' | 'builtin' | 'custom' = current === null || current.kind === 'original' ? 'original' : current.kind
@@ -177,14 +181,14 @@ function IconPicker(props: IconPickerProps): ReactNode {
 
       <span className="dsh-panellist-settings-preview">
         <span className="dsh-panellist-settings-fieldLabel">{t('settings.appearance.preview')}</span>
-        {glyph({ icon: current, size: 20 })}
+        {glyph({ icon: current, native, size: 20 })}
       </span>
     </div>
   )
 }
 
 export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
-  const { plan, profile, selection, t, glyph, builtinNames, sanitizeSvg, apply, applyStructural } = props
+  const { plan, profile, selection, t, glyph, nativeGlyph, builtinNames, sanitizeSvg, apply, applyStructural } = props
 
   if (selection.kind === 'group') {
     const group = plan.groups.get(selection.id)
@@ -213,6 +217,7 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
           label={t('settings.group.icon')}
           t={t}
           glyph={glyph}
+          native={group.iconFallbackPanelId === null ? null : nativeGlyph(group.iconFallbackPanelId)}
           builtinNames={builtinNames}
           sanitizeSvg={sanitizeSvg}
           current={group.icon}
@@ -235,7 +240,11 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
           <ul className="dsh-panellist-settings-members">
             {group.members.map((member, index) => (
               <li key={member.id} className="dsh-panellist-settings-member" data-member-id={member.id}>
-                <span className="dsh-panellist-settings-rowGlyph">{glyph({ icon: member.icon, size: 16 })}</span>
+                <span className="dsh-panellist-settings-rowGlyph">{glyph({
+                  icon: member.icon,
+                  native: nativeGlyph(member.id),
+                  size: 16,
+                })}</span>
                 <span className="dsh-panellist-settings-memberName">{member.label}</span>
                 {member.missing
                   ? <span className="dsh-panellist-settings-badge" data-badge="missing">{t('rail.group.missing')}</span>
@@ -303,6 +312,7 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
         label={t('settings.appearance.icon')}
         t={t}
         glyph={glyph}
+        native={nativeGlyph(panelId)}
         builtinNames={builtinNames}
         sanitizeSvg={sanitizeSvg}
         current={currentIcon}

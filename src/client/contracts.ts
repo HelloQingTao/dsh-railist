@@ -158,6 +158,13 @@ export interface SettingsUnitDeps {
   selfCheck: SelfCheckController
   translate: Translator
   glyph: (request: GlyphRequest) => ReactNode
+  /**
+   * The contributor's own glyph component for a panel, or `null` when the rail
+   * cannot offer one. The page must pass this alongside an `original`/absent
+   * icon override, otherwise an unconfigured panel would be previewed with the
+   * generic fallback instead of the icon the user actually sees on the rail.
+   */
+  nativeGlyph: (panelId: string) => GlyphComponent | null
   builtinNames: readonly BuiltinIconName[]
   sanitizeSvg: (source: string) => SanitizeResult
   /** Host-reported storage health, for the diagnostics block. */

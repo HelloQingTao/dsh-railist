@@ -11,6 +11,7 @@ import { emptyProfileConfig, SCHEMA_VERSION, cloneProfileConfig, type BuiltinIco
 import { buildPlan, type Plan, type RegisteredPanel } from '../../src/shared/model.ts'
 import type { HealthReport } from '../../src/shared/protocol.ts'
 import type {
+  GlyphProps,
   GlyphRequest,
   ProbeResult,
   SanitizeResult,
@@ -113,10 +114,19 @@ const DEFAULT_SELF_CHECK: SelfCheckState = {
 
 function glyphStub(request: GlyphRequest): JSX.Element {
   const icon = request.icon
-  const name = icon === null || icon.kind === 'original'
+  const keepsOriginal = icon === null || icon.kind === 'original'
+  const name = keepsOriginal
     ? 'native'
     : icon.kind === 'builtin' ? `builtin:${icon.name}` : 'custom'
-  return <span className="dsh-panellist-harness-glyph" data-glyph={name} data-size={request.size} />
+  // A "keep original" request renders the contributor's component when one was
+  // supplied, so a spec can assert that the page previews the icon the user
+  // actually sees on the rail — the generic fallback is what you get without it.
+  const Native = keepsOriginal ? request.native ?? null : null
+  return (
+    <span className="dsh-panellist-harness-glyph" data-glyph={name} data-native={Native === null ? 'none' : 'yes'} data-size={request.size}>
+      {Native === null ? null : <Native size={request.size} />}
+    </span>
+  )
 }
 
 /** Build a complete fake of the settings seam. */
@@ -270,6 +280,11 @@ export function createHarness(options: HarnessOptions = {}): Harness {
     },
     translate: t,
     glyph: glyphStub,
+    // Every registered panel answers with its own distinguishable component,
+    // exactly as the rail adapter does for a contributor that has not been wrapped.
+    nativeGlyph: (panelId: string) => (registered.some(panel => panel.id === panelId)
+      ? (props: GlyphProps) => <span data-native-panel={panelId} data-size={props.size} />
+      : null),
     builtinNames: options.builtinNames ?? DEFAULT_BUILTINS,
     sanitizeSvg: options.sanitizeSvg ?? (source => (source.includes('<script')
       ? { ok: false, reason: 'script element' }
