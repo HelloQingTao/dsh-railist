@@ -422,7 +422,7 @@ dsh-panellist/
 4. ✅ **分组**——组头行、分组菜单、拖拽编辑、分组页；
 5. ✅ **加固**——四项自检与只读降级、SVG 净化、导入导出、孤儿清理、中英双语；
 6. ✅ **真机迭代**——插件已在真实 desktop profile 里跑过若干轮反馈：设置页从第一次打开就列出整条轨道、隐藏与分组行为正确、图标集按外壳自己的美术重绘、分组内成员隐藏落地、自检的启动顺序竞态被修掉；
-7. ⏳ **发布**——`pnpm check` 全绿（21 个 spec / 295 条用例，见 §6）；仓库已推送到 GitHub 并打上 `v0.1.0`。**待办：发布到 npm，并向 `awesome-dsh-plugin` 提交收录**。
+7. ✅ **发布**——`pnpm check` 全绿（21 个 spec / 295 条用例，见 §6）；代码在 GitHub 上并打上 `v0.1.0`，已发布到 npm（[`dsh-panellist`](https://www.npmjs.com/package/dsh-panellist)），并已向 `awesome-dsh-plugin` 提交收录。
 
 ### 不启动应用也能做的静态校验
 

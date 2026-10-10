@@ -422,7 +422,7 @@ The `settings.section` contract has no icon field and the shell picks the nav gl
 4. ✅ **Groups** — Group trigger rows, the menu, drag-and-drop editing, the Group page;
 5. ✅ **Hardening** — the four self-checks and read-only degradation, SVG sanitization, import/export, orphan cleanup, bilingual copy;
 6. ✅ **On-device iteration** — the plugin has been running in a real desktop profile through several feedback rounds: the settings page lists the whole rail, hidden rows and Groups behave, the icon set was redrawn against the shell's own artworks, member hiding landed, and the self-check's boot-order race was fixed;
-7. ⏳ **Release** — `pnpm check` is green (21 specs / 295 cases, §6); the repository is pushed to GitHub and tagged `v0.1.0`. **TODO: publish to npm and submit the entry to `awesome-dsh-plugin`**.
+7. ✅ **Release** — `pnpm check` is green (21 specs / 295 cases, §6); the code is on GitHub and tagged `v0.1.0`, published to npm ([`dsh-panellist`](https://www.npmjs.com/package/dsh-panellist)), and submitted to `awesome-dsh-plugin`.
 
 ### Static checks that need no application start
 
