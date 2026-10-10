@@ -65,6 +65,7 @@ src/client/
 ├─ contracts.ts         the frozen seams between units (types only)
 ├─ ctx.ts               type-only imports that merge ctx.slots / ctx.layout / slot declarations
 ├─ styles.ts            one aggregated `<style>` element, adopted by document id
+├─ mount.ts             one live mount per document (retires a previous `apply`)
 ├─ service.ts           tolerant reads of optional cordis services
 ├─ config/store.ts      plan state; reads/writes the host route; optimistic apply + rollback
 ├─ i18n/index.ts        zh/en dictionaries; the key set is closed
@@ -127,6 +128,8 @@ Notes:
 - The `active` prop is supplied by the shell (`renderSlot("sidebar.panellist", { size, active }, { only: id })`), which is what makes the "hidden but active" rule declarative.
 - The zero-size `<span>` carries EXACTLY the two state hooks the hide rule matches on (`:has([data-dsh-panellist-hidden])` / `:has([data-dsh-panellist-suppressed])`), and nothing else — a per-row identity attribute with no reader would be a hook waiting to rot. The row is matched as a whole, so the marker owns no layout.
 - The original component is rendered in the same React position, so any state it keeps survives.
+- **A wrapper is recognisable, and never mistaken for a contributor's component.** The contributor's component lives only in the wrapper's closure, so anything that reads `entry.component` back can pick up our own wrapper: `nativeGlyph` feeds the settings previews from it, and a capture meeting an entry it has not seen adopts it. A wrapper renders the marker instead of a glyph whenever its panel is suppressed (group member) or hidden, so a preview fed our own wrapper was an empty box — the icons of every group member vanished from the settings page. Every wrapper is therefore registered in a page-global `WeakMap` (wrapper → getter for the captured component), `capture` unwraps what it finds and claims the slot, and `nativeGlyph` unwraps its answer. The map is page-global, like the mount guard, because a re-evaluated bundle must still recognise the previous evaluation's wrapper.
+- **One live mount per document** (`mount.ts`). The shell may apply the bundle twice on one page (a re-evaluated bundle, an HMR pass); two controllers over one ledger write the same entries and cannot tell each other's wrappers from the contributors' components. `apply` retires the previous mount before building its own, and every disposer here is idempotent: a late call from a retired mount releases nothing.
 
 ### 4.3 Order and label
 
@@ -222,7 +225,7 @@ Endpoints: `GET /config`, `PUT /config`, `POST /config/reset`, `POST /reveal`, `
 
 - Every unit is wired inside `ctx.effect(() => { …; return () => { /* undo */ } }, 'dsh-panellist: <unit>')`, matching the ecosystem's convention (better-sidebar, dream-skin).
 - Disposal restores `entry.component`, `entry.options.label` and `entry.options.order` from the captured originals, disposes our group registrations and the group pages, removes the injected stylesheet, strips every marker attribute, unmounts the flyout root, disconnects observers and removes document listeners. Restoration is followed by one nudge, because a restore is a raw write like any other and the shell otherwise has no reason to re-read.
-- The rewrite pass is idempotent per plan revision: recomputing from a new plan overwrites the same fields rather than stacking wrappers, and the wrapper is rebuilt from the captured original component, never from a previous wrapper.
+- The rewrite pass is idempotent per plan revision: recomputing from a new plan overwrites the same fields rather than stacking wrappers, and the wrapper is rebuilt from the captured original component, never from a previous wrapper — a wrapper it does find is unwrapped through the page-global registry (§4.2) and claimed, so the pass that no longer needs one restores the contributor's own component instead of leaving ours installed.
 - **Every writer compares before it writes, and every generated value is cached per captured registration.** That is not a style preference: an identity-fresh label thunk (or wrapper) would never compare equal, so the pass would report a change on every run, nudge the ledger, and re-enter itself forever. The controller additionally bounds a burst to `CASCADE_LIMIT` recomputations per task and logs a warning, so a future non-idempotent writer degrades to a visible console warning instead of a frozen page.
 - The stylesheet is adopted by document id rather than a module-scope cache, because the client bundle can be evaluated twice under HMR (a lesson recorded by `dsh-dream-skin`).
 - Config changes apply immediately: write → plan → rewrite pass → nudge → shell re-reads. No restart, no plugin reload, no page reload.

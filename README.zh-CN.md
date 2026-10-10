@@ -297,6 +297,7 @@ dsh-panellist/
 │     ├─ contracts.ts         # 各单元之间的冻结接口
 │     ├─ ctx.ts               # 只做类型增补：ctx.slots / ctx.layout / 槽位声明
 │     ├─ styles.ts            # 单一注入样式表（按 id 聚合各单元的 CSS 块）
+│     ├─ mount.ts             # 每页只保留一个挂载：二次 apply 会先退役上一个
 │     ├─ service.ts           # 可选 cordis 服务的容错读取
 │     ├─ config/store.ts      # 配置状态：乐观应用、失败回滚、导入导出
 │     ├─ i18n/index.ts        # 中英词条（键集合是封闭的）
@@ -306,7 +307,7 @@ dsh-panellist/
 │     ├─ groups/              # 组头行、捕获阶段点击拦截、弹出菜单、概览页
 │     ├─ settings/            # 设置页签：序列编辑、外观覆盖、配置、自检
 │     └─ icons/               # 24 个内置图标 + SVG 白名单净化
-├─ tests/                     # 20 个 spec（模型、宿主半、改写、探针、分组、设置、图标、文案一致性、打包契约）
+├─ tests/                     # 21 个 spec（模型、宿主半、改写、挂载守卫、探针、分组、设置、图标、文案一致性、打包契约）
 ├─ docs/
 │  ├─ adr/0001-registry-rewrite-plus-minimal-dom.md
 │  ├─ ARCHITECTURE.md
@@ -335,7 +336,7 @@ dsh-panellist/
 3. ✅ **最小闭环**——注册表改写（顺序/名称/图标/隐藏标记）→ 隐藏 → 设置页签 → 持久化；
 4. ✅ **分组**——组头行、弹出菜单、拖拽编辑、分组概览兜底页；
 5. ✅ **加固**——四项自检与只读降级、SVG 净化、导入导出、孤儿清理、中英双语；
-6. ⏳ **验证与发布**——测试已补齐（20 个 spec / 279 条用例，`pnpm check` 全绿）；**待办：真机验证（`link:` 进 desktop profile 后重启 DSH）与截图，然后决定是否发布 npm**。
+6. ⏳ **验证与发布**——测试已补齐（21 个 spec / 285 条用例，`pnpm check` 全绿）；**待办：真机验证（`link:` 进 desktop profile 后重启 DSH）与截图，然后决定是否发布 npm**。
 
 真机验证要在 DSH 完全退出后进行（见 §6 的 link 安装与回滚），因为它会改动 profile 的 `node_modules`。
 

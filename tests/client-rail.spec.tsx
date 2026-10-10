@@ -11,6 +11,7 @@ import { render, screen } from '@testing-library/react'
 import { emptyProfileConfig, type IconRef, type ProfileConfig } from '../src/shared/config.ts'
 import { buildPlan, type Plan } from '../src/shared/model.ts'
 import type { GlyphRequest } from '../src/client/contracts.ts'
+import { Glyph } from '../src/client/icons/index.tsx'
 import { createRailAdapter } from '../src/client/registry/rail.tsx'
 import type { ClientContext } from '../src/client/ctx.ts'
 import { FakeLedger, fakeContext } from './helpers/fake-ledger.ts'
@@ -279,5 +280,85 @@ describe('createRailAdapter: glyph fallback', () => {
     expect(screen.getByTestId('native')).toBeTruthy()
     rendered.unmount()
     adapter.dispose()
+  })
+})
+
+describe('createRailAdapter: glyph provenance', () => {
+  /** The production wiring: the icons unit renders whatever the plan picked. */
+  const realGlyph = (request: GlyphRequest): React.ReactNode => <Glyph {...request} />
+
+  it('hands the contributor’s component back, not our own wrapper, to a second adapter on the same ledger', () => {
+    // The shell may apply the bundle twice on one page (mount.ts). The second
+    // controller meets entries that already hold THIS plugin's wrapper — a
+    // wrapper renders the suppression marker instead of a glyph, so adopting it
+    // as "the contributor's component" previewed every hidden panel and every
+    // group member as an empty box in the settings page.
+    const ledger = new FakeLedger()
+    seed(ledger)
+    const plan = (): Plan => buildPlan([
+      { id: 'a', label: 'Alpha', order: 0 },
+      { id: 'b', label: 'Beta', order: 1 },
+      { id: 'c', label: 'Gamma', order: 2 },
+    ], profileWith({
+      sequence: [{ type: 'group', id: 'group:g1', members: ['b', 'c'] }],
+      entries: { a: { hidden: true } },
+    }))
+    const first = createRailAdapter(fakeContext(ledger) as ClientContext, plan, realGlyph)
+    first.applyOverrides()
+    const second = createRailAdapter(fakeContext(ledger) as ClientContext, plan, realGlyph)
+    second.applyOverrides()
+
+    // b is a group member (suppressed), a is hidden: both are wrapped, and the
+    // wrapper is what the entry holds.
+    expect(entryOf(ledger, 'b').component).not.toBe(Native)
+    expect(entryOf(ledger, 'a').component).not.toBe(Native)
+
+    for (const id of ['a', 'b']) {
+      expect(second.nativeGlyph(id)).toBe(Native)
+      const preview = render(<>{realGlyph({ icon: null, native: second.nativeGlyph(id), size: 16 })}</>)
+      // The contributor's own icon, never the marker span the rail hides on.
+      expect(preview.container.querySelector('[data-testid="native"]')).not.toBeNull()
+      expect(preview.container.querySelector('[data-dsh-panellist-suppressed]')).toBeNull()
+      expect(preview.container.querySelector('[data-dsh-panellist-hidden]')).toBeNull()
+      preview.unmount()
+    }
+
+    first.dispose()
+    second.dispose()
+    // Every entry the two adapters touched is back to the contributor's own row.
+    expect(entryOf(ledger, 'a').component).toBe(Native)
+    expect(entryOf(ledger, 'b').component).toBe(Native)
+  })
+
+  it('restores the contributor’s component when the wrapper is gone but the entry still holds it', () => {
+    // A capture that adopts an entry an earlier controller wrapped must also
+    // claim the slot, or a pass that needs no wrapper would leave ours installed
+    // for the rest of the page's life.
+    const ledger = new FakeLedger()
+    seed(ledger)
+    let profile = profileWith({ entries: { a: { hidden: true } } })
+    const adapter = createRailAdapter(
+      fakeContext(ledger) as ClientContext,
+      () => buildPlan([{ id: 'a', label: 'Alpha', order: 0 }], profile),
+      realGlyph,
+    )
+    adapter.applyOverrides()
+    const wrapped = entryOf(ledger, 'a').component
+    expect(wrapped).not.toBe(Native)
+
+    // A second adapter over the same ledger captures the wrapper, then the row
+    // stops needing one.
+    const second = createRailAdapter(
+      fakeContext(ledger) as ClientContext,
+      () => buildPlan([{ id: 'a', label: 'Alpha', order: 0 }], profile),
+      realGlyph,
+    )
+    second.applyOverrides()
+    profile = emptyProfileConfig()
+    second.applyOverrides()
+    expect(entryOf(ledger, 'a').component).toBe(Native)
+
+    adapter.dispose()
+    second.dispose()
   })
 })

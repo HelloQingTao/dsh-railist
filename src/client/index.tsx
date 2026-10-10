@@ -14,6 +14,7 @@ import { createPanellistStore } from './config/store.ts'
 import { createController, type PanellistController } from './controller.ts'
 import { createTranslator, type LocaleLike, type Translator } from './i18n/index.ts'
 import { BuiltinGlyph, Glyph, glyphDataUri, sanitizeSvg } from './icons/index.tsx'
+import { beginExclusiveMount } from './mount.ts'
 import { optionalService } from './service.ts'
 import { createStyleRegistry } from './styles.ts'
 
@@ -40,6 +41,12 @@ function loggerOf(ctx: ClientContext): Logger {
  * @returns the disposer that restores every shell entry this plugin touched.
  */
 export function apply(ctx: ClientContext): () => void {
+  // The shell may apply this bundle twice on one page (a re-evaluated bundle, an
+  // HMR pass). Retire the previous mount BEFORE building this one: two
+  // controllers over one ledger fight over the same entries, and the second one
+  // cannot tell this plugin's own glyph wrappers from the contributors'
+  // components (see registry/rail.tsx and mount.ts).
+  const registerMount = beginExclusiveMount()
   const log = loggerOf(ctx)
   const translate: Translator = createTranslator(optionalService<LocaleLike>(ctx, 'locale'))
   const styles = createStyleRegistry()
@@ -86,11 +93,11 @@ export function apply(ctx: ClientContext): () => void {
     }
   })
 
-  return () => {
+  return registerMount(() => {
     controller.dispose()
     store.dispose()
     translate.dispose()
-  }
+  })
 }
 
 export { BuiltinGlyph, Glyph, glyphDataUri, sanitizeSvg }

@@ -297,6 +297,7 @@ dsh-panellist/
 │     ├─ contracts.ts         # frozen interfaces between units
 │     ├─ ctx.ts               # type augmentation only: ctx.slots / ctx.layout / slot declarations
 │     ├─ styles.ts            # the single injected stylesheet (aggregates each unit's CSS block by id)
+│     ├─ mount.ts             # one live mount per page: a second apply retires the previous one
 │     ├─ service.ts           # fault-tolerant reading of optional cordis services
 │     ├─ config/store.ts      # config state: optimistic apply, rollback on failure, import/export
 │     ├─ i18n/index.ts        # Chinese and English entries (the key set is closed)
@@ -306,7 +307,7 @@ dsh-panellist/
 │     ├─ groups/              # Group trigger rows, capture-phase click interception, popup menu, overview page
 │     ├─ settings/            # settings tab: Sequence editing, appearance overrides, config, self-checks
 │     └─ icons/               # 24 built-in icons + SVG allowlist sanitization
-├─ tests/                     # 20 specs (model, host half, rewriting, probe, groups, settings, icons, copy consistency, packaging contract)
+├─ tests/                     # 21 specs (model, host half, rewriting, mount guard, probe, groups, settings, icons, copy consistency, packaging contract)
 ├─ docs/
 │  ├─ adr/0001-registry-rewrite-plus-minimal-dom.md
 │  ├─ ARCHITECTURE.md
@@ -335,7 +336,7 @@ dsh-panellist/
 3. ✅ **Minimal closed loop** — registry rewrite (order/name/icon/hidden flag) → hiding → settings tab → persistence;
 4. ✅ **Groups** — Group trigger rows, popup menus, drag-and-drop editing, the Group overview fallback page;
 5. ✅ **Hardening** — the four self-checks and read-only degradation, SVG sanitization, import/export, Orphan cleanup, bilingual;
-6. ⏳ **Verification and release** — tests are complete (20 specs / 279 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
+6. ⏳ **Verification and release** — tests are complete (21 specs / 285 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
 
 On-device verification must happen with DSH fully closed (see the link install and rollback in §6), because it modifies the profile's `node_modules`.
 

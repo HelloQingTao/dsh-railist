@@ -50,6 +50,46 @@ function resolveLabel(label: SlotLabel | undefined): string | undefined {
   return label
 }
 
+/**
+ * Page-global registry of the glyph wrappers THIS plugin built, each mapped to
+ * a getter for the contributor's own component.
+ *
+ * A wrapped entry carries the contributor's component nowhere but inside the
+ * wrapper's closure, so anything that reads `entry.component` back can pick up
+ * one of our own wrappers: `nativeGlyph` feeds the settings previews from it,
+ * and {@link createRailAdapter}'s capture adopts it when it meets an entry it
+ * has not seen. A wrapper renders the suppression marker instead of an icon
+ * when its panel is a group member, so a preview fed our own wrapper was blank
+ * — every icon inside a group disappeared from the settings page.
+ *
+ * The map lives on `globalThis`, not in module scope, for the same reason the
+ * mount guard does (`mount.ts`): the shell may evaluate this bundle again while
+ * the entries it wrapped are still installed, and a module-local map would not
+ * recognise the previous evaluation's wrapper.
+ */
+const WRAPPER_REGISTRY_KEY = '__dshPanellistGlyphWrappers'
+
+/** Tells one of our wrappers apart from a contributor's component, and unwraps it. */
+interface WrapperRegistry extends WeakMap<GlyphComponent, () => unknown> {}
+
+function wrapperRegistry(): WrapperRegistry {
+  const scope = globalThis as unknown as Record<string, unknown>
+  const existing = scope[WRAPPER_REGISTRY_KEY]
+  if (existing instanceof WeakMap) return existing as WrapperRegistry
+  const created: WrapperRegistry = new WeakMap()
+  scope[WRAPPER_REGISTRY_KEY] = created
+  return created
+}
+
+/** The contributor component behind one of our wrappers, or `null` for anything else. */
+function unwrap(component: unknown): GlyphComponent | null {
+  if (typeof component !== 'function') return null
+  const origin = wrapperRegistry().get(component as GlyphComponent)
+  if (origin === undefined) return null
+  const value = origin()
+  return typeof value === 'function' ? value as GlyphComponent : null
+}
+
 /** Structural view of the shell's locale-free panel source (`ctx.layout`). */
 interface LayoutLike {
   panelInfo?: {
@@ -156,13 +196,20 @@ export function createRailAdapter(
   const capture = (entry: StoredEntry, id: string): Capture => {
     const existing = captures.get(id)
     if (existing !== undefined && existing.entry === entry) return existing
+    // The entry may still hold OUR wrapper from an earlier controller over this
+    // ledger (a second `apply`, or a re-evaluated bundle). Adopting it as the
+    // contributor's component is what produced an icon-less settings page: the
+    // wrapper renders a marker, not a glyph. Unwrapping also claims the slot, so
+    // the pass that no longer needs a wrapper puts the contributor's own
+    // component back instead of leaving ours installed.
+    const origin = unwrap(entry.component)
     const fresh: Capture = {
       entry,
       order: entry.options.order,
       label: entry.options.label,
-      component: entry.component,
+      component: origin ?? entry.component,
       touchedOrder: false,
-      touchedComponent: false,
+      touchedComponent: origin !== null,
     }
     captures.set(id, fresh)
     return fresh
@@ -186,8 +233,8 @@ export function createRailAdapter(
   }
 
   /** The glyph a managed panel renders: a marker plus the effective visual. */
-  const wrapperFor = (captureOf: () => Capture, id: string): GlyphComponent => {
-    return function RailGlyph(props: GlyphProps): ReactNode {
+  const wrapperFor = (captured: Capture, id: string): GlyphComponent => {
+    const wrapper = function RailGlyph(props: GlyphProps): ReactNode {
       const panel = plan().panels.get(id)
       const icon = panel?.icon ?? null
       const suppressed = panel?.suppressed === true
@@ -207,7 +254,7 @@ export function createRailAdapter(
         if (icon !== null) {
           visual = glyph({ icon, native: null, size, active })
         } else {
-          const Native = captureOf().component as GlyphComponent | null
+          const Native = captured.component as GlyphComponent | null
           // The contributor's component may consume composed props this plugin
           // knows nothing about (locale seats, hooks), so the whole prop bag is
           // forwarded verbatim through JSX — never called as a plain function.
@@ -216,6 +263,12 @@ export function createRailAdapter(
       }
       return <><span {...marker} />{visual}</>
     }
+    // Registered against the CAPTURE, not against the live map: the getter must
+    // keep answering after this instance cleared its captures, and it must never
+    // re-enter `capture` (asking a wrapper for its origin while the origin is
+    // that same wrapper would recurse).
+    wrapperRegistry().set(wrapper, () => captured.component)
+    return wrapper
   }
 
   const applyOverrides = (): void => {
@@ -276,7 +329,7 @@ export function createRailAdapter(
       // --- glyph -----------------------------------------------------------
       const needsWrapper = panel.icon !== null || panel.hidden || panel.suppressed
       if (needsWrapper) {
-        captured.wrapper ??= wrapperFor(captureOf, id)
+        captured.wrapper ??= wrapperFor(captured, id)
         if (entry.component !== captured.wrapper) {
           entry.component = captured.wrapper
           captured.touchedComponent = true
@@ -339,7 +392,10 @@ export function createRailAdapter(
       if (captured !== undefined && captured.touchedComponent) return captured.component as GlyphComponent | null
       const live = entriesFor().find(entry => entry.options.id === panelId)
       const component = live?.component ?? captured?.component ?? null
-      return component as GlyphComponent | null
+      // An entry another instance wrapped (or this one wrapped while its captures
+      // were dropped) still holds a wrapper: unwrap it rather than hand a
+      // marker-rendering function to the caller that asked for an icon.
+      return unwrap(component) ?? (component as GlyphComponent | null)
     },
     hasPage: (id) => {
       try {
