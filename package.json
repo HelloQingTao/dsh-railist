@@ -31,6 +31,10 @@
     "access": "public"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qwq1999/dsh-panellist.git"
+  },
   "keywords": [
     "dsh",
     "deepseek-harness",
