@@ -1,0 +1,73 @@
+/**
+ * dsh-panellist, host half.
+ *
+ * `package.json#main` points at `lib/index.js`, which re-exports this module:
+ * the host loader mounts the module's export surface as a cordis plugin, so
+ * `name` / `inject` / `apply` *are* the plugin (README §4.3).
+ *
+ * The half owns three things and nothing else: the configuration file, the
+ * loopback route that reads and writes it, and the health report the settings
+ * page shows. The rail itself belongs to the browser half.
+ * @module
+ */
+import type { Context } from '@deepseek-ai/cordis'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { API_PREFIX } from '../shared/protocol.ts'
+import { createApiHandler, type ApiHandlerOptions } from './routes.ts'
+import { PanellistStore } from './store.ts'
+
+/** Plugin id the composition mounts this module as (`cordis.patch.yml`). */
+export const name = 'dsh-panellist'
+
+/**
+ * No hard service requirements.
+ *
+ * The store is useful without a webserver, so `webServer` is deliberately not
+ * an `inject` entry: a hard requirement would keep this plugin unloaded (and
+ * its configuration unreachable) on a host that has none. The route instead
+ * lives in a dependency fiber that starts, stops and restarts with the
+ * service (see {@link apply}).
+ */
+export const inject: string[] = []
+
+/** Configuration the host may pass to {@link apply}. */
+export interface PanellistPluginConfig {
+  /** Override the harness home (defaults to `$DSH_HOME`, else `~/.dsh`). */
+  home?: string
+  /** Override the profile section this half reads and writes (defaults to `$DSH_PROFILE`, else `default`). */
+  profileId?: string
+  /** Side-effect overrides; production hosts pass nothing. */
+  routes?: ApiHandlerOptions
+}
+
+/** The slice of the webserver service this plugin registers through. */
+interface WebServerLike {
+  register(route: {
+    kind: 'prefix'
+    path: string
+    handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void>
+  }): () => void
+}
+
+/**
+ * Wire the store and the route.
+ *
+ * `webServer` is optional at apply time, so the registration runs inside
+ * `ctx.inject(['webServer'], …)` and is wrapped in `ctx.effect` — the service
+ * may be provided later, replaced, or withdrawn on a reload, and the route
+ * follows it either way.
+ * @param ctx - cordis context of this plugin.
+ * @param config - optional home/profile/route overrides.
+ */
+export function apply(ctx: Context, config?: PanellistPluginConfig): void {
+  const store = new PanellistStore({ home: config?.home, profileId: config?.profileId })
+  const handler = createApiHandler(store, config?.routes)
+
+  ctx.inject(['webServer'], (webCtx) => {
+    const webServer = webCtx.reflect.get('webServer') as WebServerLike
+    webCtx.effect(
+      () => webServer.register({ kind: 'prefix', path: API_PREFIX, handler }),
+      'dsh-panellist: loopback api route',
+    )
+  })
+}
