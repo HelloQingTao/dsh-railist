@@ -127,7 +127,7 @@ Adds one item to the left side of the Settings dialog:
 
 Page content:
 
-1. **Sequence editor** — in list form, with **drag and drop** as the main channel (reordering, dragging into an existing Group, dragging a member back out) and each row's "Group with next" button for creating a Group; each item's **Move up/Move down** buttons are the fallback (keyboard and accessibility accessible); each row also offers **"Release to original"** (drop this panel from the sequence and clear its name/icon/hidden/locked overrides, handing it back to its contributor). Every item in the "not configured" list below carries a **"Take over"** button that adds that one panel to the sequence — neither per-item action touches any other panel, while the "Use the current rail order as a starting point" button above takes over everything at once;
+1. **Sequence editor** — in list form, with **drag and drop** as the main channel (reordering, dragging into an existing Group, dragging a member back out) and each row's "Group with next" button for creating a Group; each item's **Move up/Move down** buttons are the fallback (keyboard and accessibility accessible); each row also offers **"Release to original"** (drop this panel from the sequence and clear its name/icon/hidden/locked overrides, handing it back to its contributor). Every item in the "not configured" list below carries a **"Take over"** button that adds that one panel to the sequence, and dragging a sequence row **onto that list** is the same as pressing "Release to original" (a group dropped there is dissolved). Neither per-item action touches any other panel, while the "Use the current rail order as a starting point" button above takes over everything at once;
 2. **Appearance override for an item** — name, icon (keep the original icon / built-in icon set / paste SVG), Shown or Hidden, locked;
 3. **Group editing** — Group trigger name, Group trigger icon, member order;
 4. **Config import / export** (JSON);
@@ -335,7 +335,7 @@ dsh-panellist/
 3. ✅ **Minimal closed loop** — registry rewrite (order/name/icon/hidden flag) → hiding → settings tab → persistence;
 4. ✅ **Groups** — Group trigger rows, popup menus, drag-and-drop editing, the Group overview fallback page;
 5. ✅ **Hardening** — the four self-checks and read-only degradation, SVG sanitization, import/export, Orphan cleanup, bilingual;
-6. ⏳ **Verification and release** — tests are complete (20 specs / 281 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
+6. ⏳ **Verification and release** — tests are complete (20 specs / 285 cases, `pnpm check` all green); **TODO: on-device verification (mount into the desktop profile via `link:` and restart DSH) and screenshots, then decide whether to publish to npm**.
 
 On-device verification must happen with DSH fully closed (see the link install and rollback in §6), because it modifies the profile's `node_modules`.
 
