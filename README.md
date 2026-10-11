@@ -334,9 +334,9 @@ Tests cover four areas: the **model** (normalization, serialization, migration, 
 
 ### Releases (maintainers)
 
-A tag publishes the package, and no machine holds a credential to do it: `.github/workflows/release.yml` authenticates with npm trusted publishing (OIDC) — GitHub mints an OIDC token for that run, the registry trades it for a short-lived publish token, and provenance is attached automatically, so there is no long-lived secret to leak or rotate. The loop is: bump `version` in `package.json`, commit, `git tag -a vX.Y.Z -m "…"`, `git push origin vX.Y.Z`. CI runs `pnpm check`, checks the tag against `package.json`, and calls `npm publish` (`lib/` is not committed, so that step is also what produces the published files).
+A tag publishes the package, and no machine holds a credential to do it: `.github/workflows/release.yml` authenticates with npm trusted publishing (OIDC) — GitHub mints an OIDC token for that run, the registry trades it for a short-lived publish token, and provenance is attached automatically, so there is no long-lived secret to leak or rotate. The loop is: bump `version` in `package.json`, `pnpm check`, `git tag -a vX.Y.Z`, `git push origin main vX.Y.Z`. CI checks the tag against `package.json` and calls `npm publish` (`lib/` is not committed, so that step is also what produces the published files).
 
-The entry on npmjs.com names the repository and this workflow **file**, so renaming it — or moving the package to another repository — stops releases until that entry is deleted and recreated. Its "Allowed actions" must also permit `npm publish`: a new entry allows only `npm stage publish` by default. An entry that has not completed its first successful publish within two days expires.
+The one-time configuration (the trusted-publisher fields on npmjs.com), the post-release verification checklist, the failure table, and the manual fallback for when OIDC is unavailable are all in **[docs/RELEASING.md](https://github.com/qwq1999/dsh-panellist/blob/main/docs/RELEASING.md)**.
 
 ---
 
@@ -377,6 +377,7 @@ dsh-panellist/
 │     └─ icons/               # 24 built-in glyphs + the settings-nav glyph + SVG allow-list sanitization
 ├─ docs/                      # documentation assets
 │  ├─ images/                 # README screenshots
+│  ├─ RELEASING.md            # the release runbook (tag → CI)
 │  └─ schema/config.schema.json  # normative config shape (read by the host at runtime)
 ├─ tests/                     # 21 specs (model, host half, rewriting, mount guard, probe, groups, settings, icons, copy consistency, packaging contract)
 ├─ cordis.patch.yml           # auto-mount layer
