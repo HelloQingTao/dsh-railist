@@ -332,6 +332,12 @@ pnpm check      # 以上全部
 
 测试覆盖四块：**模型**（序列/分组/覆盖的归一化、序列化、迁移、损坏回退）、**管理面板交互**（拖拽、上下移、图标选择、SVG 净化、导入导出、成员隐藏）、**降级路径**（四项自检各自失败后的只读行为，含启动顺序等待）、**打包契约**（清单、挂载层、schema 版本与路由前缀单一来源）。不引入对真实 DSH 界面的 E2E。
 
+### 发布（维护者）
+
+打 tag 即发布，机器上不需要任何 token：`.github/workflows/release.yml` 用 npm trusted publishing（OIDC）认证——GitHub 为这次运行签发 OIDC token，registry 把它换成短期发布凭据，provenance 自动生成，没有可以泄露或过期的长期凭据。流程是：改 `package.json` 的 `version` → 提交 → `git tag -a vX.Y.Z -m "…"` → `git push origin vX.Y.Z`。CI 先跑 `pnpm check`、校验 tag 与 `package.json` 一致，再 `npm publish`（`lib/` 不入库，所以这一步同时负责产出要发布的文件）。
+
+npm 那一侧的条目把**仓库 + workflow 文件名**写死，所以改这个文件名、或把包搬到别的仓库，都会让发布失败——需要到 npm 的包设置里删掉重建。该条目的「Allowed actions」还必须显式允许 `npm publish`：新条目默认只允许 `npm stage publish`。新建的条目若 2 天内没有完成第一次成功发布就会作废。
+
 ---
 
 ## 7. 实现方式
@@ -374,6 +380,7 @@ dsh-panellist/
 │  └─ schema/config.schema.json  # 配置的权威形状（宿主运行时读取）
 ├─ tests/                     # 21 个 spec（模型、宿主半、改写、挂载守卫、探针、分组、设置、图标、文案一致性、打包契约）
 ├─ cordis.patch.yml           # 自动挂载层
+├─ .github/workflows/release.yml  # 打 tag 即发布（npm trusted publishing / OIDC）
 ├─ README.md                  # 英文
 └─ README.zh-CN.md            # 本文件
 ```

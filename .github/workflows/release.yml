@@ -1,0 +1,63 @@
+# Release: a tag publishes to npm, with no token anywhere.
+#
+# Authentication is npm trusted publishing (OIDC): the package's entry on
+# npmjs.com names this repository and this workflow FILE, GitHub mints an OIDC
+# token for the run, and the registry exchanges it for a short-lived publish
+# token. Nothing is stored, so nothing can leak or expire — and provenance is
+# generated automatically because this is a public repository publishing a
+# public package.
+#
+# The filename below is part of that contract: renaming this file, or moving the
+# package to another repository, stops releases until the entry on npmjs.com is
+# deleted and recreated to match.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  # Manual dispatch, for re-running a tag after a transient failure. A version
+  # that is already on the registry cannot be published twice, so this is only
+  # useful before the tag's own run succeeds.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # the OIDC token npm trades for a publish token
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.5.1
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          # A release build must not inherit a cache: what users install has to
+          # come from this commit's lockfile and nothing else.
+          package-manager-cache: false
+
+      - run: pnpm install --frozen-lockfile
+
+      # A tag that disagrees with package.json would publish a version nobody
+      # asked for under a name that says otherwise. Fail before the upload.
+      - name: The tag and package.json must agree
+        run: |
+          declared="v$(node -p "require('./package.json').version")"
+          if [ "$declared" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json ($declared)"
+            exit 1
+          fi
+
+      # The same gate as `pnpm check` locally: typecheck, the test suite, the
+      # declarations and both bundles. `lib/` is not committed, so this step is
+      # also what produces the files `npm publish` ships.
+      - run: pnpm check
+
+      # No --provenance: trusted publishing generates the attestation by itself.
+      - run: npm publish

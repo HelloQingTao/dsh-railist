@@ -332,6 +332,12 @@ pnpm check      # all of the above
 
 Tests cover four areas: the **model** (normalization, serialization, migration, and corruption fallback for Sequence/Groups/overrides), the **management panel interactions** (drag and drop, move up/down, icon selection, SVG sanitization, import and export, member hiding), the **degradation paths** (read-only behavior after each of the four self-checks fails, including the boot-order wait), and the **packaging contract** (the manifest, the mount layer, one source of truth for the schema version and the route prefix). No E2E against the real DSH UI is introduced.
 
+### Releases (maintainers)
+
+A tag publishes the package, and no machine holds a credential to do it: `.github/workflows/release.yml` authenticates with npm trusted publishing (OIDC) — GitHub mints an OIDC token for that run, the registry trades it for a short-lived publish token, and provenance is attached automatically, so there is no long-lived secret to leak or rotate. The loop is: bump `version` in `package.json`, commit, `git tag -a vX.Y.Z -m "…"`, `git push origin vX.Y.Z`. CI runs `pnpm check`, checks the tag against `package.json`, and calls `npm publish` (`lib/` is not committed, so that step is also what produces the published files).
+
+The entry on npmjs.com names the repository and this workflow **file**, so renaming it — or moving the package to another repository — stops releases until that entry is deleted and recreated. Its "Allowed actions" must also permit `npm publish`: a new entry allows only `npm stage publish` by default. An entry that has not completed its first successful publish within two days expires.
+
 ---
 
 ## 7. How it works
@@ -374,6 +380,7 @@ dsh-panellist/
 │  └─ schema/config.schema.json  # normative config shape (read by the host at runtime)
 ├─ tests/                     # 21 specs (model, host half, rewriting, mount guard, probe, groups, settings, icons, copy consistency, packaging contract)
 ├─ cordis.patch.yml           # auto-mount layer
+├─ .github/workflows/release.yml  # a tag publishes (npm trusted publishing / OIDC)
 ├─ README.md                  # English (this file)
 └─ README.zh-CN.md            # Chinese
 ```
