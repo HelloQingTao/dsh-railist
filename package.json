@@ -1,6 +1,6 @@
 {
   "name": "dsh-panellist",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Panellist manager for DeepSeek Harness: take over the left rail — order, show/hide, rename, re-icon, and collect panels into flyout groups. Configuration lives in a new Settings tab and applies instantly.",
   "type": "module",
   "main": "lib/index.js",
