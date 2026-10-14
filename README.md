@@ -125,7 +125,11 @@ The **settings navigation row has its own dedicated glyph** (a panel list, at th
 
 #### 2.9 How a change takes effect
 
-Config changes **take effect immediately**: no need to restart DSH, no need to reload any plugin, and no need to reload the page. That holds for *every* edit, including the ones that write nothing at all: the rewrite pass compares a digest of everything the rail renders (order, name, icon, shown/hidden, suppressed) and re-projects when it moves, so a second icon pick or a second rename lands on the rail just like the first one did. A change that moves a row into another seat is applied by the placement pass (§7.6), which runs after the registry writes settle.
+Appearance edits — a rename, an icon, show/hide — **take effect and are written immediately**: no need to restart DSH, no need to reload any plugin, and no need to reload the page. That holds even for the edits that write nothing at all: the rewrite pass compares a digest of everything the rail renders (order, name, icon, shown/hidden, suppressed) and re-projects when it moves, so a second icon pick or a second rename lands on the rail just like the first one did.
+
+**Structural edits — a drag, a merge into a group, an ungroup — deliberately run at two speeds.** The rail and the list follow every pointer move, but nothing reaches the file until you say so: the first structural change makes a **pending-edit bar** appear above the list — *"this order is only a preview; it is kept after you save"* — carrying **Discard** and **Save**. A drag used to be a dozen writes, one per pointer move, and the list visibly stuttered; the store now holds the working copy beside the last one the host confirmed, so a drag touches memory only and **Save** writes the accumulated result in a single pass. **Discard** restores the file's own section, so no unsaved move can outlive the decision.
+
+A change that moves a row into another seat is applied by the placement pass (§7.6), which runs after the registry writes settle.
 
 #### 2.10 Scope of takeover
 
@@ -181,6 +185,7 @@ Page content:
 
 - Lists the whole left column — every Panel entry of both managed seats from the first open, with nothing to adopt first. The list order **is** the column order, so the top of the list is the top seat and a row dragged past a seat boundary changes seat (§2.11).
 - **Drag and drop is the primary channel.** Drag a row **onto another row** to reorder it (the top/bottom third of the target places it before/after), **onto a Group row** to join that Group (its middle band), **out of a Group onto the list** to leave it, and **onto the gap under the last row** to send it to the end.
+- **A drag is staged, not written.** The rail and this list follow it at once, but the file is untouched until you press **Save** in the **pending-edit bar** that appears above the list on the first structural change — **Discard** drops every unpersisted move and restores the file's order, so trying an order costs nothing (§2.9).
 - The **grab handle** (`⠿`, on the left of every row and every member) is the **only draggable node** — the row itself is not draggable, so Select / Hide / Ungroup stay mis-touch-proof — and it is also the **keyboard control**: focus it and press `↑` / `↓` to step the row one position (the member list inside a Group behaves the same). There are **deliberately no Move up / Move down buttons**: the handle carries the same capability, and a button pair per row was two more tab stops per entry for an action the arrow keys already cover.
 - Each row's **"Group with next"** creates a Group; a Group row's **"Ungroup"** dissolves one.
 - Every row carries a **"Hide"/"Show"** button that toggles that row in place — Group rows included, and the **member rows inside a Group** too (a hidden member leaves the Group menu, §2.3).
@@ -690,7 +695,11 @@ DSH 左侧栏是一份**只读投影**：shell 枚举 `sidebar.panellist` 槽位
 
 #### 2.9 改动如何生效
 
-配置改动**即时生效**：不用重启 DSH，不用重载任何插件，也不用刷新页面。这对*每一次*编辑都成立，包括那些什么都没写的编辑：改写过程会比较「轨道所渲染的一切」的摘要（顺序、名字、图标、显示/隐藏、被压制），只要它变了就重新投影，所以第二次换图标、第二次改名，和第一次一样会落到轨道上。会把某一行搬进另一格的改动，由放置过程执行（§7.6），它在注册表写入稳定之后运行。
+外观类改动（改名、换图标、显示/隐藏）**即时生效、也即时落盘**：不用重启 DSH，不用重载任何插件，也不用刷新页面。那些什么都没写的编辑同样成立：改写过程会比较「轨道所渲染的一切」的摘要（顺序、名字、图标、显示/隐藏、被压制），只要它变了就重新投影，所以第二次换图标、第二次改名，和第一次一样会落到轨道上。
+
+**结构性改动（拖拽、并入分组、解散分组）故意分成两拍。** 轨道和列表跟着每一次指针移动走，但**在你发话之前一个字都不写盘**：第一次结构性改动会让列表上方出现一条**待保存条**——「当前顺序只是预览，保存后才会在刷新后保留。」——上面是**「放弃更改」**和**「保存更改」**。以前一次拖动就是十几次写盘（指针每动一下写一次），列表会肉眼可见地卡顿；现在 store 把工作副本放在宿主最后确认的那一份旁边，拖动只碰内存，**保存**时一次性把累积结果写下去，**放弃**则把文件里的那一段恢复回来，没保存的东西不可能留下来。
+
+会把某一行搬进另一格的改动，由放置过程执行（§7.6），它在注册表写入稳定之后运行。
 
 #### 2.10 接管范围
 
@@ -745,6 +754,7 @@ shell 可能在同一个页面上多次应用同一个客户端 bundle（文件�
 
 - 列出整个左侧栏——从第一次打开起，两个被管理格子的所有面板条目都在，不需要先认领。列表顺序**就是**这一列的顺序，因此列表顶部就是上格，一行被拖过格子边界就会换格（§2.11）。
 - **拖拽是主要通道。** 把一行拖**到另一行上**完成排序（目标的上/下三分之一分别表示放在它之前/之后）、拖**到分组行上**加入该分组（中间那条带）、**从分组里拖到列表上**离开分组、**拖到最后一行之下的空档**送到末尾。
+- **拖拽是先暂存、不写盘的。** 轨道和这份列表立刻跟随，但**在你按下列表上方那条待保存条里的「保存更改」之前，文件完全不动**；「放弃更改」会丢弃所有未持久化的移动、把文件里的顺序恢复回来，所以随便试一个顺序没有代价（§2.9）。
 - **拖拽把手**（`⠿`，在每一行和每个成员左侧）是**唯一可拖的节点**——行本身不可拖，这样「选中 / 隐藏 / 解散」不会被轻微移动的点击误触——同时也是**键盘控件**：聚焦它按 `↑` / `↓` 让该行上下移动一格（分组内的成员列表同理）。**故意没有上移/下移按钮**：把手已经承载同样的能力，而每行一对按钮等于每个条目多两个 Tab 停留点，只为做方向键已经覆盖的事。
 - 每行的 **「与下一项合并为分组」** 建一个分组；分组行的 **「解散分组」** 解散一个。
 - 每行都有 **「隐藏」/「显示」** 按钮，就地切换该行——分组行也有，**分组内的成员行也有**（被隐藏的成员不进分组菜单，§2.3）。
