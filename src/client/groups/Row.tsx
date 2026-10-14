@@ -10,7 +10,7 @@
  * `preventDefault()` cancels the row's default activation.
  *
  * The marker span is the only DOM this unit owns in the row. It carries the group
- * id and, while any member is the active panel, `data-dsh-panellist-group-active`
+ * id and, while any member is the active panel, `data-dsh-railist-group-active`
  * — the shell highlights a row only when the row *is* the active panel, which a
  * group row never is, so membership drives the highlight instead.
  */
@@ -104,9 +104,9 @@ export function createTriggerGlyph(runtime: GroupUnitRuntime, groupId: string): 
       <>
         <span
           ref={markerRef}
-          data-dsh-panellist-group={groupId}
-          {...(active ? { 'data-dsh-panellist-group-active': '' } : {})}
-          {...(hidden ? { 'data-dsh-panellist-hidden': '' } : {})}
+          data-dsh-railist-group={groupId}
+          {...(active ? { 'data-dsh-railist-group-active': '' } : {})}
+          {...(hidden ? { 'data-dsh-railist-hidden': '' } : {})}
         />
         {group === undefined || hidden
           ? null

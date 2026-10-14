@@ -67,7 +67,7 @@ describe('i18n', () => {
     // feature removal leaves behind (the keys survive the code that used them).
     // Two families are built at runtime from closed sets and are listed below.
     const used = new Set(usedKeys().keys())
-    const generated = /^(warning|probe)\./
+    const generated = /^(warning|probe)\.|^settings\.sequence\.seat/
     const unused = Object.keys(en).filter(key => !used.has(key) && !generated.test(key))
     expect(unused).toEqual([])
   })

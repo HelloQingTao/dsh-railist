@@ -5,7 +5,7 @@
  * the older shape is by definition not the current shape, and a step must never
  * throw on malformed input — the caller reports corruption instead.
  */
-import { SCHEMA_VERSION, type PanellistConfig } from './config.ts'
+import { SCHEMA_VERSION, type RailistConfig } from './config.ts'
 import { normalizeConfigDocument } from './validate.ts'
 
 /** One version step: rewrites the raw document from `from` to `from + 1`. */
@@ -46,7 +46,7 @@ export const MIGRATION_STEPS: readonly MigrationStep[] = [dropLockedPanels]
 
 /** Outcome of a raw read. */
 export type MigrationResult =
-  | { ok: true; config: PanellistConfig; from: number; migrated: boolean; applied: string[] }
+  | { ok: true; config: RailistConfig; from: number; migrated: boolean; applied: string[] }
   | { ok: false; errors: string[] }
 
 /**

@@ -1,7 +1,7 @@
 {
-  "name": "dsh-panellist",
-  "version": "0.1.1",
-  "description": "Panellist manager for DeepSeek Harness: take over the left rail — order, show/hide, rename, re-icon, and collect panels into flyout groups. Configuration lives in a new Settings tab and applies instantly.",
+  "name": "dsh-railist",
+  "version": "0.1.0",
+  "description": "Whole-left-column manager for DeepSeek Harness: one sequence across the panel list, the footer action row and the Settings seat — reorder, drag across seats, rename, re-icon, show/hide and collect rows into flyout groups. Configuration lives in a new Settings tab and applies instantly.",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/types/plugin/index.d.ts",
@@ -24,7 +24,6 @@
     "docs/schema/config.schema.json",
     "docs/images",
     "README.md",
-    "README.zh-CN.md",
     "LICENSE"
   ],
   "publishConfig": {
@@ -33,14 +32,15 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/qwq1999/dsh-panellist.git"
+    "url": "git+https://github.com/HelloQingTao/dsh-railist.git"
   },
   "keywords": [
     "dsh",
     "deepseek-harness",
     "plugin",
-    "panellist",
+    "rail",
     "sidebar",
+    "panellist",
     "ui"
   ],
   "dependencies": {

@@ -16,7 +16,7 @@ import type { ClientContext } from '../ctx.ts'
 import { createElement, type ReactNode } from 'react'
 import { RAIL_ID_PREFIX } from '../../shared/config.ts'
 import type { ProbeResult, SelfCheckController, SelfCheckState } from '../contracts.ts'
-import { RAIL_SLOT } from '../registry/rail.tsx'
+import { MANAGED_SEATS, RAIL_SLOT, type ManagedSeat } from '../registry/rail.tsx'
 import { PANEL_ROW_SELECTOR } from './css.ts'
 
 const PROBE_REGISTRY_ID = `${RAIL_ID_PREFIX}probe`
@@ -48,6 +48,12 @@ export interface SelfCheckOptions {
   sectionLabel(): string
   /** How many rail entries the ledger currently holds (probe 2). */
   entryCount(): number
+  /**
+   * Which seat containers the DOM half could locate (probe 5). Returning
+   * `undefined` skips the check, so a caller without a DOM half is not reported as
+   * broken.
+   */
+  seats?(): Record<ManagedSeat, boolean>
   /**
    * How long to wait for the rail slot's declaration before measuring
    * (default {@link PROBE_DECLARATION_TIMEOUT_MS}); tests shorten it.
@@ -194,7 +200,7 @@ async function probeActive(ctx: ClientContext): Promise<ProbeResult> {
     // The throwaway row hides itself with the same suppressed marker a group
     // member uses, so HIDE_CSS takes it off the rail while the probe waits its
     // two frames — the user never sees an extra row.
-    return createElement('span', { 'data-dsh-panellist-suppressed': '' })
+    return createElement('span', { 'data-dsh-railist-suppressed': '' })
   }
   let dispose: (() => void) | undefined
   try {
@@ -217,6 +223,23 @@ async function probeActive(ctx: ClientContext): Promise<ProbeResult> {
       // Disposal is idempotent.
     }
   }
+}
+
+/** Probe 5: can the DOM half find the three seat containers? */
+function probeSeats(options: SelfCheckOptions): ProbeResult {
+  if (typeof document === 'undefined') return { id: 'seats', ok: false, detail: 'no document' }
+  if (options.seats === undefined) return { id: 'seats', ok: true, detail: 'skipped: no DOM half in this build' }
+  const seats = options.seats()
+  const ready = MANAGED_SEATS.filter(seat => seats[seat] === true)
+  const missing = MANAGED_SEATS.filter(seat => seats[seat] !== true)
+  // The seats the sidebar always renders are what the check is about; a row the
+  // plan puts into a seat that is not there simply stays where the shell put it,
+  // which the detail names rather than hiding.
+  const fatal = missing
+  if (fatal.length > 0) {
+    return { id: 'seats', ok: false, detail: `seat container(s) not found: ${fatal.join(', ')} (found ${ready.join(', ') || 'none'})` }
+  }
+  return { id: 'seats', ok: true, detail: `found ${ready.join(', ')}${missing.length > 0 ? `; not mounted: ${missing.join(', ')}` : ''}` }
 }
 
 /** Probe 4: can the marker pass find our settings navigation row? */
@@ -332,7 +355,7 @@ export function createSelfCheck(ctx: ClientContext, options: SelfCheckOptions): 
           const active = registry.ok
             ? await probeActive(ctx)
             : { id: 'active' as const, ok: true, detail: 'skipped: probing needs registrations' }
-          publish([registry, rail, active, probeSettingsNav(options)])
+          publish([registry, rail, active, probeSettingsNav(options), probeSeats(options)])
         } catch (error) {
           publish([
             { id: 'registry', ok: false, detail: reasonOf(error) },

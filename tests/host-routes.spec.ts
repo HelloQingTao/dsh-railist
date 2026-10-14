@@ -11,7 +11,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SCHEMA_VERSION, emptyProfileConfig, type ProfileConfig } from '../src/shared/config.ts'
 import { API_PREFIX, API_ROUTES, type ConfigResponse, type HealthReport } from '../src/shared/protocol.ts'
-import { PanellistStore } from '../src/plugin/store.ts'
+import { RailistStore } from '../src/plugin/store.ts'
 import { apply, inject, name } from '../src/plugin/index.ts'
 import { MAX_BODY_BYTES, createApiHandler, isLoopbackRequest } from '../src/plugin/routes.ts'
 
@@ -79,7 +79,7 @@ class FakeResponse {
 }
 
 let home = ''
-let store: PanellistStore
+let store: RailistStore
 let handler: ReturnType<typeof createApiHandler>
 let revealed: string[]
 
@@ -96,7 +96,11 @@ async function callJson<T>(options: RequestOptions): Promise<{ res: FakeResponse
 
 beforeEach(async () => {
   home = await mkdtemp(join(tmpdir(), 'panellist-routes-'))
-  store = new PanellistStore({ home, profileId: PROFILE })
+  // The route answers an unqualified read for the store's own profile, and the
+  // store resolves that from the launcher's `profileContext` — so a store built
+  // with only a `profileId` must be given the section it addresses too.
+  await mkdir(join(home, 'profiles', PROFILE), { recursive: true })
+  store = new RailistStore({ home, profileId: PROFILE })
   revealed = []
   handler = createApiHandler(store, { reveal: (configPath) => { revealed.push(configPath) } })
 })
@@ -348,7 +352,7 @@ describe('corruption', () => {
     expect(health.res.statusCode).toBe(200)
     expect(health.body.ok).toBe(false)
     expect(health.body.corruption.detected).toBe(true)
-    expect(health.body.corruption.backupPath).toContain('panellist.json.corrupt-')
+    expect(health.body.corruption.backupPath).toContain('railist.json.corrupt-')
 
     const config = await callJson<ConfigResponse>({ method: 'GET', url: API_ROUTES.config })
     expect(config.res.statusCode).toBe(200)
@@ -377,7 +381,7 @@ describe('plugin entry', () => {
   }
 
   it('exposes the host-half contract and registers the prefix route when webServer appears', async () => {
-    expect(name).toBe('dsh-panellist')
+    expect(name).toBe('dsh-railist')
     // `webServer` is optional: it must not be a hard inject requirement.
     expect(inject).toEqual([])
 
@@ -402,7 +406,11 @@ describe('plugin entry', () => {
       },
     }
 
-    apply(context as unknown as Context, { home, profileId: PROFILE, routes: { reveal: () => {} } })
+    apply(context as unknown as Context, {
+      home,
+      profileId: PROFILE,
+      routes: { reveal: () => {} },
+    })
 
     expect(state.route?.kind).toBe('prefix')
     expect(state.route?.path).toBe(API_PREFIX)

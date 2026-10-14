@@ -20,7 +20,7 @@ function profileWith(ids: readonly string[]): ProfileConfig {
 afterEach(cleanup)
 
 function panelRows(ids: readonly string[]): LiveRow[] {
-  return ids.map(id => ({ kind: 'panel', id }))
+  return ids.map(id => ({ kind: 'panel', id, container: 'top' }))
 }
 
 function renderPage(profile: ProfileConfig): ReturnType<typeof createHarness> {
@@ -33,6 +33,16 @@ function rowOf(id: string): HTMLElement {
   const row = document.querySelector(`[data-row-id="${id}"]`)
   if (row === null) throw new Error(`no row rendered for "${id}"`)
   return row as HTMLElement
+}
+
+/**
+ * The grab handle inside a row (or member) element: the row's drag origin and,
+ * now that the ↑/↓ buttons are gone, its keyboard reorder control.
+ */
+function handleOf(scope: HTMLElement): HTMLElement {
+  const handle = scope.querySelector('[data-drag-handle="true"]')
+  if (handle === null) throw new Error('the row has no drag handle')
+  return handle as HTMLElement
 }
 
 describe('SequenceEditor', () => {
@@ -65,17 +75,51 @@ describe('SequenceEditor', () => {
     const profile = profileWith(['plugins', 'schedules', 'skills'])
     const harness = renderPage(profile)
 
-    fireEvent.click(within(rowOf('plugins')).getByRole('button', { name: 'Move down' }))
+    // The row's grab handle is the keyboard control now that the ↑/↓ buttons are
+    // gone: focus it and press the arrow key.
+    fireEvent.keyDown(handleOf(rowOf('plugins')), { key: 'ArrowDown' })
 
     expect(harness.updates).toHaveLength(1)
     expect(harness.updates[0]).toEqual(moveRow(materializeSequence(profile, panelRows(['plugins', 'schedules', 'skills'])), 'plugins', 1))
     expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
+    // Every row is in the top seat, and materializing writes that seat down: a
+    // same-seat reorder must not lose the seat the plan already resolved.
+    expect(harness.updates[0]?.sequence.every(item => item.type === 'entry' && item.seat === 'top')).toBe(true)
   })
 
-  it('keeps the move-up button disabled on the first row', () => {
-    renderPage(profileWith(['plugins', 'schedules']))
-    const up = within(rowOf('plugins')).getByRole('button', { name: 'Move up' })
-    expect((up as HTMLButtonElement).disabled).toBe(true)
+  it('moves a row back up with the arrow keys, and stops at the ends', () => {
+    const profile = profileWith(['plugins', 'schedules', 'skills'])
+    const harness = renderPage(profile)
+
+    fireEvent.keyDown(handleOf(rowOf('schedules')), { key: 'ArrowUp' })
+    expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
+
+    // The row that is now first has nowhere to go: the key is swallowed, not
+    // applied, which is the behaviour the old disabled "Move up" button used to
+    // express with a `disabled` attribute.
+    fireEvent.keyDown(handleOf(rowOf('schedules')), { key: 'ArrowUp' })
+    expect(harness.updates).toHaveLength(1)
+
+    // The same at the other end: the last row cannot step down.
+    fireEvent.keyDown(handleOf(rowOf('skills')), { key: 'ArrowDown' })
+    expect(harness.updates).toHaveLength(1)
+  })
+
+  it('keeps the arrow keys free for other modifiers, and for scrolling otherwise', () => {
+    const harness = renderPage(profileWith(['plugins', 'schedules']))
+
+    // Ctrl/Alt/Meta + arrow belongs to the host and to assistive tooling, so the
+    // handle must not claim it.
+    for (const key of ['ArrowDown', 'ArrowUp']) {
+      fireEvent.keyDown(handleOf(rowOf('plugins')), { key, ctrlKey: true })
+      fireEvent.keyDown(handleOf(rowOf('plugins')), { key, altKey: true })
+      fireEvent.keyDown(handleOf(rowOf('plugins')), { key, metaKey: true })
+    }
+    expect(harness.updates).toEqual([])
+
+    // Any other key is left alone too.
+    fireEvent.keyDown(handleOf(rowOf('plugins')), { key: 'Tab' })
+    expect(harness.updates).toEqual([])
   })
 
   it('groups a row with the next row', () => {
@@ -93,7 +137,10 @@ describe('SequenceEditor', () => {
     // identity the first member's own name, resolved when it renders (so it also
     // follows a language switch instead of freezing the creation-time one).
     expect(group.label).toBeUndefined()
-    expect(next?.sequence[1]).toEqual({ type: 'entry', id: 'skills' })
+    // `skills` keeps the seat the plan resolved for it, so the seat survives the
+    // group edit too — only `plugins` and `schedules` lose theirs by joining a
+    // group, which renders in one seat as a unit.
+    expect(next?.sequence[1]).toEqual({ type: 'entry', id: 'skills', seat: 'top' })
   })
 
   it('dissolves a group back into bare rows', () => {
@@ -106,9 +153,13 @@ describe('SequenceEditor', () => {
     fireEvent.click(within(rowOf('group:g1')).getByRole('button', { name: 'Ungroup' }))
 
     expect(harness.updates[0]?.sequence).toEqual([
+      // A dissolved group leaves its members bare. Only `skills` was a bare row
+      // already, so only it carries the seat the plan resolved for it; the two that
+      // were folded inside the group had no seat of their own while suppressed, and
+      // get one the next time the plan runs (which reads their contributor seat).
       { type: 'entry', id: 'plugins' },
       { type: 'entry', id: 'schedules' },
-      { type: 'entry', id: 'skills' },
+      { type: 'entry', id: 'skills', seat: 'top' },
     ])
   })
 
@@ -124,7 +175,11 @@ describe('SequenceEditor', () => {
     const source = rowOf('plugins')
     const target = rowOf('group:g1')
 
-    fireEvent.dragStart(source)
+    // The handle is the only drag origin: the row itself is not draggable, which
+    // is what stops a slightly-moved click on Select/Hide from starting a drag.
+    expect(source.getAttribute('draggable')).toBeNull()
+
+    fireEvent.dragStart(handleOf(source))
     fireEvent.dragOver(target)
     fireEvent.drop(target)
 
@@ -144,7 +199,9 @@ describe('SequenceEditor', () => {
     const member = document.querySelector('[data-member-id="plugins"]')
     if (member === null) throw new Error('no member rendered')
 
-    fireEvent.dragStart(member)
+    // A member's drag starts on its own handle; the group row above it must not
+    // claim the same dragstart and turn it into a top-level row move.
+    fireEvent.dragStart(handleOf(member as HTMLElement))
     fireEvent.drop(screen.getByTestId('dsh-panellist-settings-dropZone'))
 
     const next = harness.updates[0]
@@ -152,7 +209,11 @@ describe('SequenceEditor', () => {
     const group = next?.sequence[0]
     if (group?.type !== 'group') throw new Error('expected the group to survive')
     expect(group.members).toEqual(['schedules'])
+    // `plugins` left the group, so it carries the seat the plan resolved for it
+    // again — the seat is a property of the row, not of the group. (`skills`, the
+    // row that was already bare, is the one that proves the seat is written.)
     expect(next?.sequence[1]).toEqual({ type: 'entry', id: 'plugins' })
+    expect(next?.sequence[2]).toEqual({ type: 'entry', id: 'skills', seat: 'top' })
   })
 
   it('opens a member’s own editor from the member list of its group', () => {
@@ -190,9 +251,12 @@ describe('SequenceEditor', () => {
     if (toggle === null) throw new Error('the member row has no hide/show affordance')
 
     // Hide/Show is the LAST control on the row, like every other row's: the
-    // order is "move, then act, then visibility" (↑ ↓ − 隐藏).
+    // order is "move, then act, then visibility". Moving is the handle now, and
+    // the handle is not a `data-action` button — the ↑/↓ pair is gone.
     const order = Array.from(member.querySelectorAll('[data-action]')).map(node => node.getAttribute('data-action'))
-    expect(order).toEqual(['select', 'memberMoveUp', 'memberMoveDown', 'memberRemove', 'memberToggleHidden'])
+    expect(order).toEqual(['select', 'memberRemove', 'memberToggleHidden'])
+    // The move affordance is still on the row, just not as a button pair.
+    expect(handleOf(member as HTMLElement).getAttribute('data-drag-handle')).toBe('true')
 
     fireEvent.click(toggle)
     expect(harness.updates[0]).toEqual({
@@ -225,8 +289,10 @@ describe('SequenceEditor', () => {
     expect(screen.queryByText(/no order is written/)).toBeNull()
 
     // The first structural edit turns the live order into an explicit sequence
-    // on its way in, so the gate stays invisible in both directions.
-    fireEvent.click(within(rowOf('plugins')).getByRole('button', { name: 'Move down' }))
+    // on its way in, so the gate stays invisible in both directions. Reordering
+    // is reachable from the first frame: the handle carries it, with no button
+    // pair and no "materialize first" step in front of it.
+    fireEvent.keyDown(handleOf(rowOf('plugins')), { key: 'ArrowDown' })
     expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
   })
 

@@ -6,7 +6,7 @@
  *
  * - **Read** never throws. A file that is missing, unparsable or
  *   schema-invalid yields the default document, and an unreadable original is
- *   copied aside as `panellist.json.corrupt-<timestamp>` rather than being
+ *   copied aside as `railist.json.corrupt-<timestamp>` rather than being
  *   overwritten or silently dropped (README §4.1).
  * - **Write** validates the *whole* document (with the caller's section
  *   replaced) against the normative schema before touching the disk, then
@@ -27,14 +27,15 @@ import {
   SCHEMA_VERSION,
   emptyConfig,
   emptyProfileConfig,
-  type PanellistConfig,
+  type RailistConfig,
   type ProfileConfig,
 } from '../shared/config.ts'
 import { migrateConfigDocument } from '../shared/migrate.ts'
 import type { HealthReport } from '../shared/protocol.ts'
+import { resolveProfileId } from './profile.ts'
 
 /** File inside the harness home that holds the whole document. */
-const CONFIG_FILE_NAME = 'panellist.json'
+const CONFIG_FILE_NAME = 'railist.json'
 
 /** Per-profile directory under the harness home; an explicit `?profile=` is honoured only for one that exists. */
 const PROFILES_DIR_NAME = 'profiles'
@@ -54,6 +55,8 @@ export interface StoreOptions {
   home?: string
   /** Profile section this store reads and writes by default. */
   profileId?: string
+  /** The launcher's `profileContext`, whose `name` names the running profile. */
+  profileContext?: { name?: unknown }
 }
 
 /** A write was refused by the normative schema. */
@@ -127,10 +130,14 @@ export function resolveDshHome(configured?: string): string {
   return chosen === undefined ? join(homedir(), '.dsh') : resolve(chosen)
 }
 
-/** Resolve the default profile id: `$DSH_PROFILE`, else `default`. */
-function resolveProfileId(): string {
-  const fromEnv = process.env['DSH_PROFILE']
-  return fromEnv !== undefined && fromEnv.trim().length > 0 ? fromEnv : 'default'
+/**
+ * Resolve the default profile id.
+ *
+ * Delegated to {@link resolveProfileId}: the launcher's `profileContext` is the
+ * authority, `$DSH_PROFILE` the override, and `default` the last resort.
+ */
+function resolveDefaultProfileId(profileContext?: { name?: unknown }): string {
+  return resolveProfileId(profileContext, process.env)
 }
 
 /** Read the normative schema from whichever layout this module runs in. */
@@ -144,7 +151,7 @@ async function readSchema(): Promise<object> {
     }
   }
   throw new Error(
-    `dsh-panellist: docs/schema/config.schema.json not found next to ${import.meta.url} `
+    `dsh-railist: docs/schema/config.schema.json not found next to ${import.meta.url} `
     + `(tried ${SCHEMA_CANDIDATES.join(', ')})`,
   )
 }
@@ -177,18 +184,18 @@ async function loadValidator(): Promise<ValidateFunction> {
  * Replace one profile section inside a stored document, leaving every other
  * byte of it — root keys included — as it was.
  */
-function withProfile(base: unknown, profileId: string, profile: ProfileConfig): PanellistConfig {
+function withProfile(base: unknown, profileId: string, profile: ProfileConfig): RailistConfig {
   const record = isRecord(base) ? base : {}
   const profiles = isRecord(record['profiles']) ? record['profiles'] : {}
   return {
     ...record,
     schemaVersion: SCHEMA_VERSION,
     profiles: { ...profiles, [profileId]: profile },
-  } as unknown as PanellistConfig
+  } as unknown as RailistConfig
 }
 
 /** The best-effort document inside `raw`: migration + normalisation, or defaults. */
-function repairRaw(raw: string): PanellistConfig {
+function repairRaw(raw: string): RailistConfig {
   try {
     const migrated = migrateConfigDocument(JSON.parse(raw))
     return migrated.ok ? migrated.config : emptyConfig()
@@ -210,13 +217,13 @@ interface StoreState {
 }
 
 /**
- * The file store behind `GET`/`PUT /panellist/api/config`.
+ * The file store behind `GET`/`PUT /railist/api/config`.
  *
  * Every method is safe to call on a fresh process: nothing is read at
  * construction time and no method throws on a bad file (only `write` throws,
  * and only when the caller's own input fails the schema).
  */
-export class PanellistStore {
+export class RailistStore {
   /** Resolved harness home. */
   readonly home: string
   /** Profile section this store reads and writes when no id is given. */
@@ -235,7 +242,7 @@ export class PanellistStore {
 
   constructor(options: StoreOptions = {}) {
     this.home = resolveDshHome(options.home)
-    this.profileId = options.profileId ?? resolveProfileId()
+    this.profileId = options.profileId ?? resolveDefaultProfileId(options.profileContext)
     this.configPath = join(this.home, CONFIG_FILE_NAME)
   }
 
@@ -247,7 +254,7 @@ export class PanellistStore {
    * served as defaults with the failure recorded.
    * @returns the current-shape document.
    */
-  async readDocument(): Promise<PanellistConfig> {
+  async readDocument(): Promise<RailistConfig> {
     const state = this.state
     state.lastError = undefined
     state.migrations = []
@@ -448,7 +455,7 @@ export class PanellistStore {
   }
 
   /** Write the document atomically, falling back to a direct write on a Windows lock. */
-  private async writeDocument(document: PanellistConfig): Promise<void> {
+  private async writeDocument(document: RailistConfig): Promise<void> {
     const text = `${JSON.stringify(document, null, 2)}\n`
     await mkdir(dirname(this.configPath), { recursive: true })
     const tempPath = `${this.configPath}.${process.pid.toString(36)}.${Math.random().toString(36).slice(2, 8)}.tmp`

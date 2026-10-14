@@ -7,7 +7,7 @@
  * and the three `tests/settings-*.spec.tsx` suites share it instead of each
  * re-declaring a 150-line fake.
  */
-import { emptyProfileConfig, SCHEMA_VERSION, cloneProfileConfig, type BuiltinIconName, type PanellistConfig, type ProfileConfig } from '../../src/shared/config.ts'
+import { emptyProfileConfig, SCHEMA_VERSION, cloneProfileConfig, type BuiltinIconName, type RailistConfig, type ProfileConfig } from '../../src/shared/config.ts'
 import { buildPlan, type Plan, type RegisteredPanel } from '../../src/shared/model.ts'
 import type { HealthReport } from '../../src/shared/protocol.ts'
 import type {
@@ -19,8 +19,9 @@ import type {
   SettingsUnitDeps,
 } from '../../src/client/contracts.ts'
 import type { ClientContext } from '../../src/client/ctx.ts'
-import type { PanellistStore, StoreSnapshot } from '../../src/client/config/store.ts'
+import type { RailistStore, StoreSnapshot } from '../../src/client/config/store.ts'
 import { createTranslator, type Translator } from '../../src/client/i18n/index.ts'
+import { createPluginInfoStore, type PluginInfo } from '../../src/client/settings/pluginInfo.ts'
 import type { StyleRegistry } from '../../src/client/styles.ts'
 
 /** One `ctx.slots.register` call, as the fake context records it. */
@@ -62,7 +63,7 @@ export interface Harness {
   imports: ProfileConfig[]
   /** Notify every `deps.subscribe` listener without changing the profile. */
   notify(): void
-  document(): PanellistConfig
+  document(): RailistConfig
 }
 
 export interface HarnessOptions {
@@ -73,12 +74,18 @@ export interface HarnessOptions {
   sanitizeSvg?: (source: string) => SanitizeResult
   translate?: Translator
   builtinNames?: readonly BuiltinIconName[]
+  /**
+   * Panel id → contributor, as `GET /plugins` would answer. Omitted means the
+   * store starts empty and never resolves anything — the state every existing
+   * test was written against, so none of them gain a subtitle by accident.
+   */
+  plugins?: Record<string, PluginInfo>
 }
 
 const DEFAULT_REGISTERED: readonly RegisteredPanel[] = [
-  { id: 'plugins', label: 'Plugins', order: 10 },
-  { id: 'schedules', label: 'Scheduled tasks', order: 20 },
-  { id: 'skills', label: 'Skills', order: 30 },
+  { id: 'plugins', label: 'Plugins', order: 10 , container: 'top'},
+  { id: 'schedules', label: 'Scheduled tasks', order: 20 , container: 'top'},
+  { id: 'skills', label: 'Skills', order: 30 , container: 'top'},
 ]
 
 const DEFAULT_BUILTINS: readonly BuiltinIconName[] = ['grid', 'puzzle', 'sparkles', 'clock']
@@ -86,7 +93,7 @@ const DEFAULT_BUILTINS: readonly BuiltinIconName[] = ['grid', 'puzzle', 'sparkle
 const DEFAULT_HEALTH: HealthReport = {
   ok: true,
   profileId: 'desktop',
-  configPath: 'C:/Users/test/.dsh/panellist.json',
+  configPath: 'C:/Users/test/.dsh/railist.json',
   schemaVersion: SCHEMA_VERSION,
   storage: { writable: true, exists: true },
   corruption: { detected: false },
@@ -120,7 +127,7 @@ function glyphStub(request: GlyphRequest): JSX.Element {
   // actually sees on the rail — the generic fallback is what you get without it.
   const Native = keepsOriginal ? request.native ?? null : null
   return (
-    <span className="dsh-panellist-harness-glyph" data-glyph={name} data-native={Native === null ? 'none' : 'yes'} data-size={request.size}>
+    <span className="dsh-railist-harness-glyph" data-glyph={name} data-native={Native === null ? 'none' : 'yes'} data-size={request.size}>
       {Native === null ? null : <Native size={request.size} />}
     </span>
   )
@@ -136,6 +143,7 @@ export function createHarness(options: HarnessOptions = {}): Harness {
   let status: StoreSnapshot['status'] = 'ready'
   let error: string | null = null
   let revision = 0
+  let lastMoved: string | null = null
   const listeners = new Set<() => void>()
   const updates: ProfileConfig[] = []
   const imports: ProfileConfig[] = []
@@ -145,7 +153,7 @@ export function createHarness(options: HarnessOptions = {}): Harness {
   let resets = 0
   let reveals = 0
 
-  const configDocument = (): PanellistConfig => ({
+  const configDocument = (): RailistConfig => ({
     schemaVersion: SCHEMA_VERSION,
     profiles: { desktop: cloneProfileConfig(current) },
   })
@@ -157,6 +165,7 @@ export function createHarness(options: HarnessOptions = {}): Harness {
     document: configDocument(),
     health,
     error,
+    movedRow: lastMoved,
     revision,
   })
 
@@ -172,15 +181,16 @@ export function createHarness(options: HarnessOptions = {}): Harness {
     notify()
   }
 
-  const store: PanellistStore = {
+  const store: RailistStore = {
     getSnapshot: () => cached,
     subscribe: (listener) => {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
     },
     load: async () => {},
-    update: async (mutator) => {
+    update: async (mutator, moved) => {
       current = mutator(cloneProfileConfig(current))
+      lastMoved = moved ?? null
       updates.push(cloneProfileConfig(current))
       bump()
       return true
@@ -284,6 +294,17 @@ export function createHarness(options: HarnessOptions = {}): Harness {
       ? { ok: false, reason: 'script element' }
       : { ok: true, svg: source })),
     health: () => health,
+    // The response the harness was configured with, delivered through the real
+    // store so a test exercises the same normalization the browser does. The
+    // default is an empty map, which is also what a host that predates the
+    // route answers — so no existing test gains a subtitle by accident.
+    plugins: createPluginInfoStore({
+      fetch: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ plugins: options.plugins ?? {} }),
+      }),
+    }),
     styles,
   }
 

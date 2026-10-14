@@ -7,12 +7,12 @@ import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { SCHEMA_VERSION, emptyProfileConfig, type ProfileConfig } from '../src/shared/config.ts'
-import { InvalidConfigError, PanellistStore, resolveDshHome } from '../src/plugin/store.ts'
+import { InvalidConfigError, RailistStore, resolveDshHome } from '../src/plugin/store.ts'
 
 const PROFILE = 'desktop'
 
 let home = ''
-let store: PanellistStore
+let store: RailistStore
 
 function sampleProfile(): ProfileConfig {
   return {
@@ -28,12 +28,12 @@ function documentWith(profiles: Record<string, ProfileConfig>): string {
 
 async function backupNames(): Promise<string[]> {
   const names = await readdir(home)
-  return names.filter(name => name.startsWith('panellist.json.corrupt-')).sort()
+  return names.filter(name => name.startsWith('railist.json.corrupt-')).sort()
 }
 
 beforeEach(async () => {
   home = await mkdtemp(join(tmpdir(), 'panellist-store-'))
-  store = new PanellistStore({ home, profileId: PROFILE })
+  store = new RailistStore({ home, profileId: PROFILE })
 })
 
 afterEach(async () => {
@@ -64,14 +64,14 @@ describe('home resolution', () => {
     }
   })
 
-  it('places the file at <home>/panellist.json and defaults the profile id', () => {
-    expect(store.configPath).toBe(join(home, 'panellist.json'))
+  it('places the file at <home>/railist.json and defaults the profile id', () => {
+    expect(store.configPath).toBe(join(home, 'railist.json'))
     const previous = process.env['DSH_PROFILE']
     try {
       delete process.env['DSH_PROFILE']
-      expect(new PanellistStore({ home }).profileId).toBe('default')
+      expect(new RailistStore({ home }).profileId).toBe('default')
       process.env['DSH_PROFILE'] = 'work'
-      expect(new PanellistStore({ home }).profileId).toBe('work')
+      expect(new RailistStore({ home }).profileId).toBe('work')
     } finally {
       if (previous === undefined) delete process.env['DSH_PROFILE']
       else process.env['DSH_PROFILE'] = previous

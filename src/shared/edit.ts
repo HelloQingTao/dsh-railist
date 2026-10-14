@@ -18,19 +18,27 @@ import {
   cloneProfileConfig,
   isEntryItem,
   isGroupItem,
+  isManagedSeat,
+  type Container,
+  type EntryItem,
   type EntryOverride,
   type GroupItem,
   type IconRef,
   type ProfileConfig,
   type SequenceItem,
 } from './config.ts'
-
-/** One live rail row, as `Plan.rows` reports it. */
+/**
+ * One live rail row, as `Plan.rows` reports it.
+ *
+ * `container` is the seat the plan resolved for the row — the stored one when the
+ * user dragged it there, its contributor's otherwise. It is carried through
+ * {@link materializeSequence} so a cross-seat drag survives a reload.
+ */
 export interface LiveRow {
   kind: 'panel' | 'group'
   id: string
+  container?: Container
 }
-
 function sequenceOf(profile: ProfileConfig): SequenceItem[] {
   return profile.sequence.map(item => (isGroupItem(item) ? { ...item, members: [...item.members] } : { ...item }))
 }
@@ -136,6 +144,10 @@ export function setGroupHidden(profile: ProfileConfig, groupId: string, hidden: 
  * Turn the live rail order into an explicit sequence, keeping every orphan
  * config entry. Group members are preserved; a dormant group (no live member)
  * is kept at the end so its configuration survives until the plugin returns.
+ *
+ * A panel row's resolved seat is written back as its stored `seat`, so a
+ * cross-seat drag survives a reload. Rows whose seat the plan no longer
+ * recognises (a seat this plugin stopped managing) are written without one.
  */
 export function materializeSequence(profile: ProfileConfig, rows: readonly LiveRow[]): ProfileConfig {
   const next = base(profile)
@@ -147,7 +159,12 @@ export function materializeSequence(profile: ProfileConfig, rows: readonly LiveR
       if (group !== undefined && group.members.length > 0) rebuilt.push(group)
       continue
     }
-    rebuilt.push({ type: 'entry', id: row.id })
+    const item: EntryItem = { type: 'entry', id: row.id }
+    // The plan already resolved this row's seat — the stored one when the user
+    // dragged it there, its contributor's otherwise — so it is written back
+    // unchanged. Only a seat the plan no longer recognises is dropped.
+    if (row.container !== undefined && isManagedSeat(row.container)) item.seat = row.container
+    rebuilt.push(item)
   }
   const liveIds = new Set(rebuilt.map(item => item.id))
   for (const item of next.sequence) {

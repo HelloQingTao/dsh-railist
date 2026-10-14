@@ -2,7 +2,7 @@
  * One injected stylesheet for the whole plugin.
  *
  * Every unit contributes its own CSS chunk under a stable id; the registry
- * concatenates them into a single `<style data-plugin-css="dsh-panellist">`
+ * concatenates them into a single `<style data-plugin-css="dsh-railist">`
  * element and re-renders it whenever a chunk changes. Adopting the element by a
  * document id (rather than a module-scope flag) keeps a re-evaluated bundle
  * under HMR from producing a second copy — a lesson recorded by `dsh-dream-skin`.
@@ -21,7 +21,7 @@ export interface StyleRegistry {
   dispose(): void
 }
 
-const ELEMENT_ID = 'dsh-panellist-styles'
+const ELEMENT_ID = 'dsh-railist-styles'
 
 /** Create the registry. Safe to call before `document` exists (tests, SSR probe). */
 export function createStyleRegistry(): StyleRegistry {

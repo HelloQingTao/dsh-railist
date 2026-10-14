@@ -16,15 +16,15 @@ import type { ProfileConfig, SequenceItem } from '../src/shared/config.ts'
 
 afterEach(() => {
   cleanup()
-  for (const node of document.querySelectorAll('[data-dsh-panellist-portal]')) node.remove()
+  for (const node of document.querySelectorAll('[data-dsh-railist-portal]')) node.remove()
 })
 
-const RAIL_ID = 'dsh-panellist:group:more'
+const RAIL_ID = 'dsh-railist:group:more'
 
 const PANELS: RegisteredPanel[] = [
-  { id: 'alpha', label: 'Alpha', order: 0 },
-  { id: 'beta', label: 'Beta', order: 10 },
-  { id: 'gamma', label: 'Gamma', order: 20 },
+  { id: 'alpha', label: 'Alpha', order: 0 , container: 'top'},
+  { id: 'beta', label: 'Beta', order: 10 , container: 'top'},
+  { id: 'gamma', label: 'Gamma', order: 20 , container: 'top'},
 ]
 
 const ALPHA: SequenceItem = { type: 'entry', id: 'alpha' }
@@ -143,7 +143,7 @@ function openMenu(harness: Harness, rect: Partial<DOMRect>): HTMLButtonElement {
 
 /** The portaled card. */
 function card(): HTMLElement {
-  const found = document.querySelector<HTMLElement>('[data-dsh-panellist-flyout]')
+  const found = document.querySelector<HTMLElement>('[data-dsh-railist-flyout]')
   if (found === null) throw new Error('the flyout card is not in the document')
   return found
 }
@@ -154,7 +154,7 @@ describe('groups flyout — placement', () => {
     openMenu(harness, { left: 8, top: 100, width: 200, height: 36 })
 
     const container = card().parentElement
-    expect(container?.hasAttribute('data-dsh-panellist-portal')).toBe(true)
+    expect(container?.hasAttribute('data-dsh-railist-portal')).toBe(true)
     expect(container?.parentElement).toBe(document.body)
     expect(card().style.position).toBe('fixed')
   })
@@ -221,7 +221,7 @@ describe('groups flyout — interaction', () => {
     const menu = screen.getByRole('menu')
 
     fireEvent.keyDown(menu, { key: 'ArrowDown' })
-    expect(menu.querySelector('[data-dsh-panellist-flyout-highlighted]')?.textContent).toContain('Beta')
+    expect(menu.querySelector('[data-dsh-railist-flyout-highlighted]')?.textContent).toContain('Beta')
 
     fireEvent.keyDown(menu, { key: 'Enter' })
 
@@ -246,7 +246,7 @@ describe('groups flyout — interaction', () => {
     const harness = createHarness([ALPHA, GROUP])
     openMenu(harness, { left: 8, top: 100, width: 36, height: 36 })
 
-    const header = document.querySelector('[data-dsh-panellist-flyout-header]')
+    const header = document.querySelector('[data-dsh-railist-flyout-header]')
     expect(header?.textContent).toBe('Group: More')
     expect(header?.querySelector('button')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Overview' })).toBeNull()
@@ -260,7 +260,7 @@ describe('groups flyout — interaction', () => {
     act(() => { harness.setActive('beta') })
     openMenu(harness, { left: 8, top: 100, width: 36, height: 36 })
 
-    const current = screen.getByRole('menu').querySelector('[data-dsh-panellist-flyout-current]')
+    const current = screen.getByRole('menu').querySelector('[data-dsh-railist-flyout-current]')
     expect(current?.textContent).toContain('Beta')
     expect(current?.getAttribute('aria-current')).toBe('true')
   })

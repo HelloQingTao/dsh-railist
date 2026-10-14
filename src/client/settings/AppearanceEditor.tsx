@@ -103,10 +103,10 @@ function IconPicker(props: IconPickerProps): ReactNode {
   }
 
   return (
-    <div className="dsh-panellist-settings-field">
-      <span className="dsh-panellist-settings-fieldLabel">{label}</span>
-      <div className="dsh-panellist-settings-radioRow" role="radiogroup" aria-label={label}>
-        <label className="dsh-panellist-settings-radio">
+    <div className="dsh-railist-settings-field">
+      <span className="dsh-railist-settings-fieldLabel">{label}</span>
+      <div className="dsh-railist-settings-radioRow" role="radiogroup" aria-label={label}>
+        <label className="dsh-railist-settings-radio">
           <input
             type="radio"
             name={`${idPrefix}-icon`}
@@ -115,7 +115,7 @@ function IconPicker(props: IconPickerProps): ReactNode {
           />
           <span>{t('settings.appearance.iconOriginal')}</span>
         </label>
-        <label className="dsh-panellist-settings-radio">
+        <label className="dsh-railist-settings-radio">
           <input
             type="radio"
             name={`${idPrefix}-icon`}
@@ -129,7 +129,7 @@ function IconPicker(props: IconPickerProps): ReactNode {
           />
           <span>{t('settings.appearance.iconBuiltin')}</span>
         </label>
-        <label className="dsh-panellist-settings-radio">
+        <label className="dsh-railist-settings-radio">
           <input
             type="radio"
             name={`${idPrefix}-icon`}
@@ -142,12 +142,12 @@ function IconPicker(props: IconPickerProps): ReactNode {
 
       {mode === 'builtin'
         ? (
-          <div className="dsh-panellist-settings-iconGrid" role="group" aria-label={t('settings.appearance.iconBuiltin')}>
+          <div className="dsh-railist-settings-iconGrid" role="group" aria-label={t('settings.appearance.iconBuiltin')}>
             {builtinNames.map(name => (
               <button
                 key={name}
                 type="button"
-                className="dsh-panellist-settings-iconCell"
+                className="dsh-railist-settings-iconCell"
                 aria-label={name}
                 aria-pressed={current?.kind === 'builtin' && current.name === name}
                 onClick={() => onPick({ kind: 'builtin', name })}
@@ -159,17 +159,17 @@ function IconPicker(props: IconPickerProps): ReactNode {
 
       {mode === 'custom'
         ? (
-          <div className="dsh-panellist-settings-field">
+          <div className="dsh-railist-settings-field">
             <textarea
               ref={svgRef}
-              className="dsh-panellist-settings-textarea"
+              className="dsh-railist-settings-textarea"
               aria-label={t('settings.appearance.iconCustom')}
               placeholder={t('settings.appearance.iconCustomPlaceholder')}
               defaultValue={current?.kind === 'custom' ? current.svg : ''}
               rows={4}
             />
-            <span className="dsh-panellist-settings-actionRow">
-              <button type="button" className="dsh-panellist-settings-action" onClick={submitCustom}>
+            <span className="dsh-railist-settings-actionRow">
+              <button type="button" className="dsh-railist-settings-action" onClick={submitCustom}>
                 {t('common.save')}
               </button>
             </span>
@@ -177,10 +177,10 @@ function IconPicker(props: IconPickerProps): ReactNode {
         )
         : null}
 
-      {error === null ? null : <p className="dsh-panellist-settings-error" role="alert">{error}</p>}
+      {error === null ? null : <p className="dsh-railist-settings-error" role="alert">{error}</p>}
 
-      <span className="dsh-panellist-settings-preview">
-        <span className="dsh-panellist-settings-fieldLabel">{t('settings.appearance.preview')}</span>
+      <span className="dsh-railist-settings-preview">
+        <span className="dsh-railist-settings-fieldLabel">{t('settings.appearance.preview')}</span>
         {glyph({ icon: current, native, size: 20 })}
       </span>
     </div>
@@ -195,14 +195,14 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
     if (group === undefined) return null
     const groupId = group.id
     return (
-      <section className="dsh-panellist-settings-block" data-editor="group" data-editor-id={groupId}>
-        <h3 className="dsh-panellist-settings-blockTitle">{t('settings.appearance.title')}</h3>
-        <label className="dsh-panellist-settings-field">
-          <span className="dsh-panellist-settings-fieldLabel">{t('settings.group.rename')}</span>
+      <section className="dsh-railist-settings-block" data-editor="group" data-editor-id={groupId}>
+        <h3 className="dsh-railist-settings-blockTitle">{t('settings.appearance.title')}</h3>
+        <label className="dsh-railist-settings-field">
+          <span className="dsh-railist-settings-fieldLabel">{t('settings.group.rename')}</span>
           <input
             key={`group-label:${groupId}`}
             type="text"
-            className="dsh-panellist-settings-input"
+            className="dsh-railist-settings-input"
             defaultValue={group.labelExplicit ? group.label : ''}
             placeholder={t('settings.appearance.namePlaceholder')}
             maxLength={MAX_LABEL_LENGTH}
@@ -223,35 +223,35 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
           onPick={icon => apply(edit => setGroupIcon(edit, groupId, icon))}
         />
 
-        <div className="dsh-panellist-settings-field">
-          <span className="dsh-panellist-settings-fieldLabel">{t('settings.group.members')}</span>
-          <ul className="dsh-panellist-settings-members">
+        <div className="dsh-railist-settings-field">
+          <span className="dsh-railist-settings-fieldLabel">{t('settings.group.members')}</span>
+          <ul className="dsh-railist-settings-members">
             {group.members.map((member, index) => (
-              <li key={member.id} className="dsh-panellist-settings-member" data-member-id={member.id}>
+              <li key={member.id} className="dsh-railist-settings-member" data-member-id={member.id}>
                 {/* Selecting a member here is the same navigation the sequence
                     list offers: the member's own name and icon open its editor. */}
                 <button
                   type="button"
-                  className="dsh-panellist-settings-rowSelect"
+                  className="dsh-railist-settings-rowSelect"
                   data-action="select"
                   onClick={() => onSelect({ kind: 'panel', id: member.id })}
                 >
-                  <span className="dsh-panellist-settings-rowGlyph">{glyph({
+                  <span className="dsh-railist-settings-rowGlyph">{glyph({
                     icon: member.icon,
                     native: nativeGlyph(member.id),
                     size: 16,
                   })}</span>
-                  <span className="dsh-panellist-settings-memberName">{member.label}</span>
+                  <span className="dsh-railist-settings-memberName">{member.label}</span>
                 </button>
                 {member.missing
-                  ? <span className="dsh-panellist-settings-badge" data-badge="missing">{t('rail.group.missing')}</span>
+                  ? <span className="dsh-railist-settings-badge" data-badge="missing">{t('rail.group.missing')}</span>
                   : null}
                 {member.hidden
-                  ? <span className="dsh-panellist-settings-badge" data-badge="hidden">{t('settings.appearance.hidden')}</span>
+                  ? <span className="dsh-railist-settings-badge" data-badge="hidden">{t('settings.appearance.hidden')}</span>
                   : null}
                 <button
                   type="button"
-                  className="dsh-panellist-settings-action"
+                  className="dsh-railist-settings-action"
                   data-action="memberMoveUp"
                   aria-label={t('settings.sequence.moveUp')}
                   title={t('settings.sequence.moveUp')}
@@ -260,7 +260,7 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
                 >↑</button>
                 <button
                   type="button"
-                  className="dsh-panellist-settings-action"
+                  className="dsh-railist-settings-action"
                   data-action="memberMoveDown"
                   aria-label={t('settings.sequence.moveDown')}
                   title={t('settings.sequence.moveDown')}
@@ -269,7 +269,7 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
                 >↓</button>
                 <button
                   type="button"
-                  className="dsh-panellist-settings-action"
+                  className="dsh-railist-settings-action"
                   data-action="memberRemove"
                   aria-label={t('settings.sequence.removeFromGroup')}
                   title={t('settings.sequence.removeFromGroup')}
@@ -280,7 +280,7 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
                     "show it in the group's menu". */}
                 <button
                   type="button"
-                  className="dsh-panellist-settings-action"
+                  className="dsh-railist-settings-action"
                   data-action="memberToggleHidden"
                   aria-label={member.hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}
                   title={t('settings.appearance.hiddenHint')}
@@ -301,15 +301,15 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
   const currentIcon: IconRef | null = override?.icon === undefined || override.icon.kind === 'original' ? null : override.icon
 
   return (
-    <section className="dsh-panellist-settings-block" data-editor="panel" data-editor-id={panelId}>
-      <h3 className="dsh-panellist-settings-blockTitle">{t('settings.appearance.title')}</h3>
+    <section className="dsh-railist-settings-block" data-editor="panel" data-editor-id={panelId}>
+      <h3 className="dsh-railist-settings-blockTitle">{t('settings.appearance.title')}</h3>
 
-      <label className="dsh-panellist-settings-field">
-        <span className="dsh-panellist-settings-fieldLabel">{t('settings.appearance.name')}</span>
+      <label className="dsh-railist-settings-field">
+        <span className="dsh-railist-settings-fieldLabel">{t('settings.appearance.name')}</span>
         <input
           key={`panel-label:${panelId}`}
           type="text"
-          className="dsh-panellist-settings-input"
+          className="dsh-railist-settings-input"
           defaultValue={override?.label ?? ''}
           placeholder={t('settings.appearance.namePlaceholder')}
           maxLength={MAX_LABEL_LENGTH}
@@ -336,7 +336,7 @@ export function AppearanceEditor(props: AppearanceEditorProps): ReactNode {
         for the same write, with its own hint text to keep in sync.
       */}
       {panel.suppressed
-        ? <p className="dsh-panellist-settings-hint">{t('settings.appearance.groupedHint')}</p>
+        ? <p className="dsh-railist-settings-hint">{t('settings.appearance.groupedHint')}</p>
         : null}
     </section>
   )

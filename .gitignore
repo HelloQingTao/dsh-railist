@@ -4,3 +4,8 @@ lib/
 .tmp/
 .e2e-artifacts/
 .DS_Store
+
+# local verification artifacts
+.playwright-cli/
+.*.log
+

@@ -1,5 +1,5 @@
 /**
- * dsh-panellist, host half.
+ * dsh-railist, host half.
  *
  * `package.json#main` points at `lib/index.js`, which re-exports this module:
  * the host loader mounts the module's export surface as a cordis plugin, so
@@ -13,10 +13,10 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createApiHandler, ROUTE_REGISTRATION, type ApiHandlerOptions } from './routes.ts'
-import { PanellistStore } from './store.ts'
+import { RailistStore } from './store.ts'
 
 /** Plugin id the composition mounts this module as (`cordis.patch.yml`). */
-export const name = 'dsh-panellist'
+export const name = 'dsh-railist'
 
 /**
  * No hard service requirements.
@@ -30,7 +30,7 @@ export const name = 'dsh-panellist'
 export const inject: string[] = []
 
 /** Configuration the host may pass to {@link apply}. */
-export interface PanellistPluginConfig {
+export interface RailistPluginConfig {
   /** Override the harness home (defaults to `$DSH_HOME`, else `~/.dsh`). */
   home?: string
   /** Override the profile section this half reads and writes (defaults to `$DSH_PROFILE`, else `default`). */
@@ -39,7 +39,9 @@ export interface PanellistPluginConfig {
   routes?: ApiHandlerOptions
 }
 
-/** The slice of the webserver service this plugin registers through. */
+/**
+ * The slice of the webserver service this plugin registers through.
+ */
 interface WebServerLike {
   register(route: {
     kind: 'prefix'
@@ -58,15 +60,24 @@ interface WebServerLike {
  * @param ctx - cordis context of this plugin.
  * @param config - optional home/profile/route overrides.
  */
-export function apply(ctx: Context, config?: PanellistPluginConfig): void {
-  const store = new PanellistStore({ home: config?.home, profileId: config?.profileId })
+export function apply(ctx: Context, config?: RailistPluginConfig): void {
+  // The launcher publishes the running profile here (see
+  // `@deepseek-ai/dsh-app-boot`'s `ProfileContext`). Reading it is what keeps a
+  // host booted as `--profile web` from addressing a `default` section that was
+  // never its own — the failure that made every reload undo the user's drags.
+  const profileContext = (ctx as Context & { profileContext?: { name?: unknown } }).profileContext
+  const store = new RailistStore({
+    home: config?.home,
+    profileId: config?.profileId,
+    profileContext,
+  })
   const handler = createApiHandler(store, config?.routes)
 
   ctx.inject(['webServer'], (webCtx) => {
     const webServer = webCtx.reflect.get('webServer') as WebServerLike
     webCtx.effect(
       () => webServer.register({ ...ROUTE_REGISTRATION, handler }),
-      'dsh-panellist: loopback api route',
+      'dsh-railist: loopback api route',
     )
   })
 }

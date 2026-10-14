@@ -2,16 +2,17 @@
  * The host/browser wire contract: route paths and the JSON shapes crossing
  * them. Shared by both halves so a rename cannot drift.
  */
-import type { PanellistConfig, ProfileConfig } from './config.ts'
+import type { RailistConfig, ProfileConfig } from './config.ts'
 
 /** Loopback-only route prefix (README §4.3). */
-export const API_PREFIX = '/panellist/api'
+export const API_PREFIX = '/railist/api'
 
 export const API_ROUTES = {
   config: `${API_PREFIX}/config`,
   reset: `${API_PREFIX}/config/reset`,
   health: `${API_PREFIX}/health`,
   reveal: `${API_PREFIX}/reveal`,
+  plugins: `${API_PREFIX}/plugins`,
 } as const
 
 /** Storage/field-level self-check reported by `GET /health`. */
@@ -44,7 +45,7 @@ export interface HealthReport {
 /** `GET /config` response. */
 export interface ConfigResponse {
   /** The whole document, so the settings page can export it. */
-  document: PanellistConfig
+  document: RailistConfig
   /** The section this client writes back. */
   profile: ProfileConfig
   profileId: string
@@ -54,6 +55,36 @@ export interface ConfigResponse {
 /** `PUT /config` request body. */
 export interface PutConfigRequest {
   profile: ProfileConfig
+}
+
+/**
+ * What is known about the plugin that contributed one panel.
+ *
+ * Both fields are display-only decoration for the settings list: `package` is
+ * the npm name the profile installed, `version` the value its `package.json`
+ * records (already shortened when it was not a plain release). Either may be
+ * absent for a panel nothing maps to, and everything downstream must render
+ * nothing at all rather than a placeholder.
+ */
+export interface PluginInfo {
+  /** Package name the profile depends on, e.g. `@chengdb/capability-panel`. */
+  package?: string
+  /** Recorded dependency value, e.g. `1.1.0`; a git dependency keeps its short sha. */
+  version?: string
+}
+
+/**
+ * `GET /plugins` response.
+ *
+ * Keyed by panel id, so the settings page can decorate each row it already
+ * renders without a second lookup. The map is legitimately empty — a profile
+ * whose patch file or manifest is missing is not an error here, because this
+ * endpoint is decoration and a settings page that cannot be decorated must
+ * still open.
+ */
+export interface PluginsResponse {
+  /** Panel id → its contributor, for every id the profile actually resolves. */
+  plugins: Record<string, PluginInfo>
 }
 
 /** Any non-2xx body. */

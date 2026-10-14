@@ -7,13 +7,13 @@
  * full restoration on unload.
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { BUILTIN_ICON_NAMES, emptyProfileConfig, type PanellistConfig, type ProfileConfig } from '../src/shared/config.ts'
-import { createController, type PanellistController } from '../src/client/controller.ts'
+import { BUILTIN_ICON_NAMES, emptyProfileConfig, type RailistConfig, type ProfileConfig } from '../src/shared/config.ts'
+import { createController, type RailistController } from '../src/client/controller.ts'
 import { createTranslator } from '../src/client/i18n/index.ts'
 import { BuiltinGlyph, Glyph, glyphDataUri, sanitizeSvg } from '../src/client/icons/index.tsx'
 import { createStyleRegistry } from '../src/client/styles.ts'
 import type { HealthReport } from '../src/shared/protocol.ts'
-import type { PanellistStore, StoreSnapshot } from '../src/client/config/store.ts'
+import type { RailistStore, StoreSnapshot } from '../src/client/config/store.ts'
 import type { ClientContext } from '../src/client/ctx.ts'
 import { FakeLedger } from './helpers/fake-ledger.ts'
 import { enableHasSelectorSupport, disableHasSelectorSupport } from './setup.ts'
@@ -25,7 +25,7 @@ const SETTINGS = 'settings.section'
 const HEALTH: HealthReport = {
   ok: true,
   profileId: 'desktop',
-  configPath: 'C:\\x\\.dsh\\panellist.json',
+  configPath: 'C:\\x\\.dsh\\railist.json',
   schemaVersion: 2,
   storage: { writable: true, exists: true },
   corruption: { detected: false },
@@ -34,7 +34,7 @@ const HEALTH: HealthReport = {
 }
 
 /** An in-memory store with the same notify/optimistic semantics as the real one. */
-function fakeStore(initial: ProfileConfig = emptyProfileConfig()): PanellistStore & { profile: ProfileConfig; writes: number } {
+function fakeStore(initial: ProfileConfig = emptyProfileConfig()): RailistStore & { profile: ProfileConfig; writes: number } {
   const listeners = new Set<() => void>()
   let profile = initial
   let revision = 0
@@ -42,9 +42,10 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): PanellistStor
     status: 'ready',
     profileId: 'desktop',
     profile,
-    document: { schemaVersion: 2, profiles: { desktop: profile } } satisfies PanellistConfig,
+    document: { schemaVersion: 2, profiles: { desktop: profile } } satisfies RailistConfig,
     health: HEALTH,
     error: null,
+    movedRow: null,
     revision,
   }
   const publish = (): void => {
@@ -52,7 +53,7 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): PanellistStor
     snapshot = { ...snapshot, profile, revision, document: { schemaVersion: 2, profiles: { desktop: profile } } }
     for (const listener of listeners) listener()
   }
-  const store: PanellistStore & { profile: ProfileConfig; writes: number } = {
+  const store: RailistStore & { profile: ProfileConfig; writes: number } = {
     profile: initial,
     writes: 0,
     getSnapshot: () => snapshot,
@@ -83,7 +84,7 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): PanellistStor
 }
 
 interface Harness {
-  controller: PanellistController
+  controller: RailistController
   ledger: FakeLedger
   store: ReturnType<typeof fakeStore>
   styles: ReturnType<typeof createStyleRegistry>
@@ -202,7 +203,7 @@ describe('controller: wiring', () => {
   it('registers the settings section under the plugin id', () => {
     const h = build()
     h.controller.refresh()
-    const section = h.ledger.entries(SETTINGS).find(candidate => candidate.options.id === 'dsh-panellist')
+    const section = h.ledger.entries(SETTINGS).find(candidate => candidate.options.id === 'dsh-railist')
     expect(section).toBeDefined()
     expect(section?.options.order).toBe(100)
     expect(typeof section?.options.label === 'function' ? (section.options.label as () => string)() : section?.options.label).toBe('面板列表')
@@ -212,15 +213,15 @@ describe('controller: wiring', () => {
     const h = build({ profile: { sequence: [{ type: 'group', id: 'group:w', members: ['schedules', 'skills'] }], entries: {} } })
     h.controller.refresh()
     await h.settle()
-    expect(h.ledger.entries(RAIL).some(candidate => candidate.options.id === 'dsh-panellist:group:w')).toBe(true)
-    expect(h.ledger.entries(MAIN).some(candidate => candidate.options.key === 'dsh-panellist:group:w')).toBe(true)
+    expect(h.ledger.entries(RAIL).some(candidate => candidate.options.id === 'dsh-railist:group:w')).toBe(true)
+    expect(h.ledger.entries(MAIN).some(candidate => candidate.options.key === 'dsh-railist:group:w')).toBe(true)
     expect(h.controller.plan().panels.get('schedules')?.suppressed).toBe(true)
 
     // Dissolve the group through the store: the row must disappear again.
     await h.store.update(profile => ({ ...profile, sequence: [{ type: 'entry', id: 'schedules' }] }))
     await h.settle()
-    expect(h.ledger.entries(RAIL).some(candidate => candidate.options.id === 'dsh-panellist:group:w')).toBe(false)
-    expect(h.ledger.entries(MAIN).some(candidate => candidate.options.key === 'dsh-panellist:group:w')).toBe(false)
+    expect(h.ledger.entries(RAIL).some(candidate => candidate.options.id === 'dsh-railist:group:w')).toBe(false)
+    expect(h.ledger.entries(MAIN).some(candidate => candidate.options.key === 'dsh-railist:group:w')).toBe(false)
   })
 
   it('re-projects when a new panel registers', async () => {
@@ -310,11 +311,11 @@ describe('controller: teardown', () => {
     h.controller.dispose()
     expect(entry(h.ledger, 'schedules').options.label).toBe(originalLabel)
     expect(entry(h.ledger, 'skills').component).toBe(originalComponent)
-    expect(h.ledger.entries(RAIL).some(candidate => candidate.options.id === 'dsh-panellist:group:w')).toBe(false)
-    expect(h.ledger.entries(SETTINGS).some(candidate => candidate.options.id === 'dsh-panellist')).toBe(false)
+    expect(h.ledger.entries(RAIL).some(candidate => candidate.options.id === 'dsh-railist:group:w')).toBe(false)
+    expect(h.ledger.entries(SETTINGS).some(candidate => candidate.options.id === 'dsh-railist')).toBe(false)
     // The injected stylesheet is gone, not merely detached: the id it adopts by
     // is the one the next mount would look for.
-    expect(document.getElementById('dsh-panellist-styles')).toBeNull()
+    expect(document.getElementById('dsh-railist-styles')).toBeNull()
   })
 })
 

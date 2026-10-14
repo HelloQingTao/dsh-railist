@@ -16,18 +16,20 @@ import {
   MIN_SVG_LENGTH,
   SCHEMA_VERSION,
   emptyConfig,
+  isManagedSeat,
   type BuiltinIconName,
+  type EntryItem,
   type EntryOverride,
   type GroupItem,
   type IconRef,
-  type PanellistConfig,
+  type RailistConfig,
   type ProfileConfig,
   type SequenceItem,
 } from './config.ts'
 
 /** Outcome of a lenient read. */
 export type NormalizeResult =
-  | { ok: true; config: PanellistConfig; repaired: boolean }
+  | { ok: true; config: RailistConfig; repaired: boolean }
   | { ok: false; errors: string[] }
 
 const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
@@ -141,7 +143,13 @@ function normalizeSequenceItem(raw: unknown, seen: Set<string>): SequenceItem | 
   if (raw['type'] === 'entry') {
     const id = asPanelId(raw['id'])
     if (id === null || seen.has(id)) return null
-    return { type: 'entry', id }
+    const item: EntryItem = { type: 'entry', id }
+    // A seat is only ever written by a cross-seat drag, so it is one of the
+    // seats this plugin manages. Anything else — a retired seat name, a typo,
+    // a value from a newer version — is dropped rather than rejected, and the
+    // row falls back to its contributor's own seat (the pre-seat behaviour).
+    if (isManagedSeat(raw['seat'])) item.seat = raw['seat']
+    return item
   }
   if (raw['type'] === 'group') {
     const id = typeof raw['id'] === 'string' && GROUP_ID_RE.test(raw['id']) ? raw['id'] : null

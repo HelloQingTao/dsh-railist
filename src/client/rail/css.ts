@@ -18,7 +18,7 @@
  */
 
 /** Marker attribute for the settings navigation row (see {@link createSettingsNavMarker}). */
-export const SETTINGS_NAV_ATTR = 'data-dsh-panellist-settings-nav'
+export const SETTINGS_NAV_ATTR = 'data-dsh-railist-settings-nav'
 
 /**
  * The selector for one rail row, in the ONE place.
@@ -39,8 +39,8 @@ export const PANEL_ROW_SELECTOR = 'nav[class*="_panelList"] > button[class*="_pa
  * rule also carries the row's theme token (`groups/groups.css.ts`).
  */
 export const HIDE_CSS = `
-${PANEL_ROW_SELECTOR}:has([data-dsh-panellist-hidden]),
-${PANEL_ROW_SELECTOR}:has([data-dsh-panellist-suppressed]) {
+${PANEL_ROW_SELECTOR}:has([data-dsh-railist-hidden]),
+${PANEL_ROW_SELECTOR}:has([data-dsh-railist-suppressed]) {
   display: none;
 }
 `

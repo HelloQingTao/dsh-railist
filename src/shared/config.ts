@@ -63,6 +63,54 @@ export type IconRef =
   | { kind: 'builtin'; name: BuiltinIconName }
   | { kind: 'custom'; svg: string }
 
+/**
+ * Which of the left column's three seats a row lives in.
+ *
+ * The shell builds the left column out of three separate slots that are siblings
+ * under one root; a row's seat is therefore a fact of the DOM, not of the
+ * registry. The sequence places rows across all three, so every row carries the
+ * seat it is meant to occupy.
+ *
+ * - `top` — `sidebar.panellist`, the "global panels" nav (plugins, usage stats…).
+ * - `footer` — `sidebar.footer.action`, the row of action cards above Settings.
+ * - `settings` — `sidebar.settings`, the shell's single Settings seat.
+ */
+export const CONTAINERS = ['top', 'footer', 'settings'] as const
+
+export type Container = (typeof CONTAINERS)[number]
+
+/** Whether a value is one of {@link CONTAINERS}. */
+export function isContainer(value: unknown): value is Container {
+  return typeof value === 'string' && (CONTAINERS as readonly string[]).includes(value)
+}
+
+/**
+ * The seats this plugin moves rows between.
+ *
+ * `settings` is deliberately absent: it is a real {@link Container} in the config
+ * model (the sequence can express a seat for the shell's Settings row) but the
+ * plugin never *places* rows there — that row declares `settings.section` through
+ * its own children table, and taking it over breaks that declaration chain for
+ * every plugin with a settings page.
+ */
+export const MANAGED_SEATS = ['top', 'footer'] as const satisfies readonly Container[]
+
+export type ManagedSeat = (typeof MANAGED_SEATS)[number]
+
+/** Whether a value names a seat this plugin manages. */
+export function isManagedSeat(value: unknown): value is ManagedSeat {
+  return typeof value === 'string' && (MANAGED_SEATS as readonly string[]).includes(value)
+}
+
+/**
+ * The id of the shell's own Settings row.
+ *
+ * It lives in `sidebar.settings`, which this plugin never takes over, so the row
+ * is listed as a read-only entry pinned to the bottom of the bottom-left seat
+ * rather than a draggable row.
+ */
+export const SETTINGS_ROW_ID = 'settings'
+
 /** Per-panel display overrides. Absent keys mean "no opinion". */
 export interface EntryOverride {
   /** Display-name override: rail row text, collapsed tooltip, accessible name. */
@@ -75,6 +123,20 @@ export interface EntryOverride {
 export interface EntryItem {
   type: 'entry'
   id: string
+  /**
+   * The seat this row was last dragged into, or absent for "no opinion".
+   *
+   * A cross-seat drag is the ONLY thing that writes it: the row the user dragged
+   * takes the seat of the row it landed on, and that decision has to outlive the
+   * gesture. It used to live in the store snapshot as `movedRow`, which is memory
+   * only — a reload put every row back on its contributor's seat and the user
+   * watched their arrangement undo itself.
+   *
+   * Only a *managed* seat is ever stored. An entry that names anything else (or
+   * a value no seat answers any more) is treated as absent, so the model falls
+   * back to the contributor's own seat exactly as before.
+   */
+  seat?: Container
 }
 
 /**
@@ -113,7 +175,7 @@ export interface ProfileConfig {
 }
 
 /** The whole document: one section per DSH profile. */
-export interface PanellistConfig {
+export interface RailistConfig {
   schemaVersion: typeof SCHEMA_VERSION
   profiles: Record<string, ProfileConfig>
 }
@@ -123,7 +185,7 @@ export const GROUP_ID_PREFIX = 'group:'
 
 /** Rail ids this plugin registers stay in its own namespace, so a group row can
  *  never collide with a panel id contributed by another plugin. */
-export const RAIL_ID_PREFIX = 'dsh-panellist:'
+export const RAIL_ID_PREFIX = 'dsh-railist:'
 
 /** The rail id (and `main` key) of one group row. */
 export function groupRailId(groupId: string): string {
@@ -166,7 +228,7 @@ export function emptyProfileConfig(): ProfileConfig {
 }
 
 /** An empty document holding no profile sections. */
-export function emptyConfig(): PanellistConfig {
+export function emptyConfig(): RailistConfig {
   return { schemaVersion: SCHEMA_VERSION, profiles: {} }
 }
 

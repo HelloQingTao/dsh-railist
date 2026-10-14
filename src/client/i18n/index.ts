@@ -26,16 +26,39 @@ export const en = {
   'settings.subtitle': 'Order, rename, re-icon, hide and group the entries of the left rail. Changes apply immediately.',
 
   'settings.sequence.title': 'Sequence',
-  'settings.sequence.hint': 'Drag to reorder, or drop one row onto another to create a group. Move-up / move-down and “Group with next” are the keyboard-accessible fallbacks.',
+  'settings.sequence.hint': 'Drag the handle to reorder, or drop one row onto another to create a group. Focus a handle and use ↑ / ↓ to move it; “Group with next” stays a button.',
   'settings.sequence.empty': 'No panel is registered on this profile yet.',
   'settings.sequence.groupWithNext': 'Group with next',
   'settings.sequence.moveUp': 'Move up',
   'settings.sequence.moveDown': 'Move down',
+  'settings.sequence.handle': 'Reorder {name}',
+  'settings.sequence.handleHint': 'Drag to reorder, or press the arrow keys to move this row one step.',
   'settings.sequence.ungroup': 'Ungroup',
   'settings.sequence.removeFromGroup': 'Take out of group',
   'settings.sequence.members': '{count} panels',
   'settings.sequence.show': 'Show',
   'settings.sequence.hide': 'Hide',
+  // The contributor label: package and version, next to the row. Kept as two
+  // keys because a panel can resolve its package without resolving a version
+  // (a git dependency names no release), and the separator must not survive
+  // that case as a dangling dot.
+  'settings.sequence.source': '{name} · v{version}',
+  'settings.sequence.sourceNoVersion': '{name}',
+  // The two physical seats the sequence spans. The list is one sequence, but its
+  // rows land in two separate parts of the rail, so the editor groups them under
+  // these headings — otherwise a row carries no visible clue about which part of
+  // the sidebar it will occupy.
+  'settings.sequence.seat.top': 'Top left · global panels',
+  'settings.sequence.seat.footer': 'Bottom left · actions',
+  'settings.sequence.seatHint.top': 'These rows sit in the panel list under the logo.',
+  'settings.sequence.seatHint.footer': 'These rows sit in the action row below the panel list.',
+  // The shell's own settings row is shown, never dragged: it lives in a slot this
+  // plugin does not take over, so it is pinned to the bottom of the bottom-left
+  // seat and rendered as a fixed row there.
+  'settings.sequence.seat.pinned': 'Bottom left · fixed',
+  'settings.sequence.seatHint.pinned': 'The shell’s own settings row always sits at the very bottom.',
+  'settings.sequence.pinned': 'Always last',
+  'settings.sequence.pinnedHint': 'This row belongs to the shell itself, so it always sits at the bottom of the bottom-left seat.',
 
   'settings.group.rename': 'Group name',
   'settings.group.icon': 'Group icon',
@@ -92,6 +115,8 @@ export const en = {
   'probe.active.impact': 'A hidden panel that is active no longer shows its row.',
   'probe.settingsNav': 'Settings navigation row is locatable',
   'probe.settingsNav.impact': 'The settings tab keeps the default gear icon.',
+  'probe.seats': 'Left-column seats are locatable',
+  'probe.seats.impact': 'Rows cannot be moved between the panel list and the footer; ordering inside a seat still applies.',
   'probe.ok': 'ok',
   'probe.failed': 'failed',
 
@@ -106,6 +131,8 @@ export const en = {
   'rail.group.emptyMenu': 'No panel is shown in this group.',
   'rail.group.overviewTitle': 'Group “{name}”',
   'rail.group.overviewIntro': 'This page lists the panels collected in this group.',
+  'rail.group.unrendered': 'not shown',
+  'rail.group.unrenderedHint': 'This panel is registered but its own component renders nothing on the rail right now, so no row appears. It is kept in the list so you can still reach it; its setting is usually what turns it on.',
 
   'error.load': 'Could not read the configuration: {reason}',
   'error.save': 'Could not save: {reason}',
@@ -128,16 +155,34 @@ export const zh: Record<I18nKey, string> = {
   'settings.subtitle': '管理左侧轨道上的页签：排序、改名、换图标、显示或隐藏、收进分组。改动即时生效。',
 
   'settings.sequence.title': '序列',
-  'settings.sequence.hint': '拖拽排序；把一行拖到另一行上即可建组。上下移动与「与下一项合并为分组」是键盘可达的兜底操作。',
+  'settings.sequence.hint': '拖动把手排序；把一行拖到另一行上即可建组。把手聚焦后按 ↑ / ↓ 可让该行上下移动，「与下一项合并为分组」仍是按钮。',
   'settings.sequence.empty': '这个 profile 还没有注册任何面板。',
   'settings.sequence.groupWithNext': '与下一项合并为分组',
   'settings.sequence.moveUp': '上移',
   'settings.sequence.moveDown': '下移',
+  'settings.sequence.handle': '拖动排序：{name}',
+  'settings.sequence.handleHint': '拖动可排序；或按方向键让这一行上下移动一格。',
   'settings.sequence.ungroup': '解散分组',
   'settings.sequence.removeFromGroup': '移出分组',
   'settings.sequence.members': '{count} 个面板',
   'settings.sequence.show': '显示',
   'settings.sequence.hide': '隐藏',
+  'settings.sequence.source': '{name} · v{version}',
+  'settings.sequence.sourceNoVersion': '{name}',
+  // The two physical seats the sequence spans. The list is one sequence, but its
+  // rows land in two separate parts of the rail, so the editor groups them under
+  // these headings — otherwise a row carries no visible clue about which part of
+  // the sidebar it will occupy.
+  'settings.sequence.seat.top': '左上角 · 全局面板',
+  'settings.sequence.seat.footer': '左下角 · 动作区',
+  'settings.sequence.seatHint.top': '这些行位于 Logo 下方的面板列表里。',
+  'settings.sequence.seatHint.footer': '这些行位于面板列表下方的动作区里。',
+  // 外壳自带的设置行只展示、不可拖动：它属于本插件不接管的槽位，因此固定在
+  // 左下角分区最底部，并作为只读行渲染在那里。
+  'settings.sequence.seat.pinned': '左下角 · 固定',
+  'settings.sequence.seatHint.pinned': '外壳自带的设置行始终位于最底部。',
+  'settings.sequence.pinned': '永远最后',
+  'settings.sequence.pinnedHint': '这一行属于外壳本身，因此它始终排在左下角分区的最底部。',
 
   'settings.group.rename': '分组名称',
   'settings.group.icon': '分组图标',
@@ -194,6 +239,8 @@ export const zh: Record<I18nKey, string> = {
   'probe.active.impact': '隐藏中的激活页签不再临时显示。',
   'probe.settingsNav': '设置导航行可定位',
   'probe.settingsNav.impact': '设置页签保留原生齿轮图标。',
+  'probe.seats': '左侧栏三段容器可定位',
+  'probe.seats.impact': '条目无法在面板区与底部区之间移动；同区内的排序仍然生效。',
   'probe.ok': '通过',
   'probe.failed': '失败',
 
@@ -208,6 +255,8 @@ export const zh: Record<I18nKey, string> = {
   'rail.group.emptyMenu': '该分组内没有显示的页签。',
   'rail.group.overviewTitle': '分组「{name}」',
   'rail.group.overviewIntro': '这个页面列出收进该分组的面板。',
+  'rail.group.unrendered': '当前未显示',
+  'rail.group.unrenderedHint': '这个面板已注册，但它的组件当前没有在轨道上渲染出任何东西，所以看不到对应的行。它仍保留在列表里，以便你还能找到它；通常要打开它自己的设置才会显示出来。',
 
   'error.load': '读取配置失败：{reason}',
   'error.save': '保存失败：{reason}',
@@ -259,7 +308,24 @@ export function createTranslator(locale: LocaleLike | undefined): Translator {
   const listeners = new Set<() => void>()
   let source = locale
   let unsubscribe: (() => void) | undefined
-  const notify = (): void => { for (const listener of listeners) listener() }
+  /**
+   * The language the last notification went out for.
+   *
+   * The shell's locale service publishes on every `register`, not only when the
+   * LANGUAGE changes — so a page whose language never moves still wakes every
+   * subscriber, and a subscriber that recomputes work ends up looping: the
+   * recompute writes rows, the shell registers another locale contribution,
+   * which publishes again. Comparing the resolved language here is what makes a
+   * notification mean "the language moved", which is the only thing a listener
+   * can act on.
+   */
+  let announced = langOf(locale?.getLocale().active)
+  const notify = (): void => {
+    const next = source === undefined ? browserLang() : langOf(source.getLocale().active)
+    if (next === announced) return
+    announced = next
+    for (const listener of listeners) listener()
+  }
   const bind = (service: LocaleLike | undefined): void => {
     unsubscribe?.()
     unsubscribe = undefined

@@ -9,12 +9,13 @@
  * Type-only module: nothing here runs.
  */
 import type { ReactNode } from 'react'
-import type { BuiltinIconName, IconRef } from '../shared/config.ts'
+import type { BuiltinIconName, Container, IconRef } from '../shared/config.ts'
 import type { Plan, RegisteredPanel } from '../shared/model.ts'
 import type { HealthReport } from '../shared/protocol.ts'
 import type { ClientContext } from './ctx.ts'
-import type { PanellistStore, StoreSnapshot } from './config/store.ts'
+import type { RailistStore, StoreSnapshot } from './config/store.ts'
 import type { Translator } from './i18n/index.ts'
+import type { PluginInfoStore } from './settings/pluginInfo.ts'
 import type { StyleRegistry } from './styles.ts'
 
 /* ------------------------------------------------------------------ glyphs */
@@ -73,7 +74,7 @@ export interface IconModule {
 
 /** One row this plugin contributes to the sidebar (a group row). */
 export interface RailRowRegistration {
-  /** Rail id and `main` key: `dsh-panellist:<groupId>`. */
+  /** Rail id and `main` key: `dsh-railist:<groupId>`. */
   railId: string
   /** Rail order (already computed by the plan). */
   order: number
@@ -83,6 +84,8 @@ export interface RailRowRegistration {
   glyph: GlyphComponent
   /** Attributes the glyph stamps on its own row button (aria-haspopup etc.). */
   rowAttributes?: Readonly<Record<string, string>>
+  /** Seat this row is registered into; defaults to `top`. */
+  container?: Container
 }
 
 /** The rail surface the groups unit is allowed to use. */
@@ -103,9 +106,9 @@ export interface RailHost {
 
 /* ------------------------------------------------------------- self-check */
 
-/** One of the four startup probes (README §5). */
+/** One of the five startup probes. */
 export interface ProbeResult {
-  id: 'registry' | 'rail' | 'active' | 'settingsNav'
+  id: 'registry' | 'rail' | 'active' | 'settingsNav' | 'seats'
   ok: boolean
   /** Raw measurement detail, shown verbatim in the settings page. */
   detail?: string
@@ -142,7 +145,7 @@ export interface SelfCheckController {
 /** Everything the settings page is handed. */
 export interface SettingsUnitDeps {
   ctx: ClientContext
-  store: PanellistStore
+  store: RailistStore
   /** Current plan (recomputed by the controller on every change). */
   plan: () => Plan
   /** Native rail registrations, as the discovery pass sees them. */
@@ -169,6 +172,12 @@ export interface SettingsUnitDeps {
   sanitizeSvg: (source: string) => SanitizeResult
   /** Host-reported storage health, for the diagnostics block. */
   health: () => HealthReport | null
+  /**
+   * Which plugin contributed each panel, for the row subtitle. Only ever
+   * decoration: an empty mapping is the normal state on a host that predates
+   * `/plugins`, and the page must render identically to the version without it.
+   */
+  plugins: PluginInfoStore
   /** Aggregated plugin stylesheet: register the page's CSS chunk once. */
   styles: StyleRegistry
 }

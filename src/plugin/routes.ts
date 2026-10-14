@@ -1,7 +1,7 @@
 /**
  * The loopback HTTP surface of the host half.
  *
- * One prefix route (`/panellist/api`) is registered through the optional
+ * One prefix route (`/railist/api`) is registered through the optional
  * `webServer` service; everything under it is answered here. The endpoints are
  * the only way the browser half reaches the disk, so each one is fenced twice:
  *
@@ -25,9 +25,11 @@ import {
   API_ROUTES,
   type ApiFailure,
   type ConfigResponse,
+  type PluginsResponse,
   type PutConfigRequest,
 } from '../shared/protocol.ts'
-import { InvalidConfigError, type PanellistStore } from './store.ts'
+import { resolvePlugins } from './plugins.ts'
+import { InvalidConfigError, type RailistStore } from './store.ts'
 
 /** Largest accepted request body (README §4.3 route contract). */
 export const MAX_BODY_BYTES = 2 * 1024 * 1024
@@ -52,6 +54,7 @@ const ENDPOINTS: readonly Endpoint[] = [
   { path: API_ROUTES.reset, methods: ['POST'] },
   { path: API_ROUTES.health, methods: ['GET'] },
   { path: API_ROUTES.reveal, methods: ['POST'] },
+  { path: API_ROUTES.plugins, methods: ['GET'] },
 ]
 
 /** Options a test (or an unusual host) can use to replace the side effects. */
@@ -181,7 +184,7 @@ function readBody(req: IncomingMessage, cap: number): Promise<string | null> {
  * @returns the profile id, or the failure status/message to answer with.
  */
 async function resolveProfile(
-  store: PanellistStore,
+  store: RailistStore,
   searchParams: URLSearchParams,
 ): Promise<{ profileId: string } | { error: string; details?: string[] }> {
   const requested = searchParams.get('profile')
@@ -199,7 +202,7 @@ async function resolveProfile(
 }
 
 /** Build the response every config endpoint answers with. */
-async function configResponse(store: PanellistStore, profileId: string): Promise<ConfigResponse> {
+async function configResponse(store: RailistStore, profileId: string): Promise<ConfigResponse> {
   const document = await store.readDocument()
   return {
     document,
@@ -216,6 +219,23 @@ async function fileExists(path: string): Promise<boolean> {
     return true
   } catch {
     return false
+  }
+}
+
+/**
+ * The contributor labels for one profile's panels.
+ *
+ * Deliberately total: `resolvePlugins` already swallows a missing file, a
+ * malformed one and a manifest without `dependencies`, but the settings list
+ * must not depend on that promise holding. A read that somehow does throw is
+ * answered as "nothing is known about any panel", which renders exactly like a
+ * profile that declares no inserts — the rows stay, only their subtitles go.
+ */
+async function pluginsResponse(store: RailistStore, profileId: string): Promise<PluginsResponse> {
+  try {
+    return await resolvePlugins(store.home, profileId)
+  } catch {
+    return { plugins: {} }
   }
 }
 
@@ -250,13 +270,13 @@ async function revealInFileManager(configPath: string): Promise<void> {
 }
 
 /**
- * Create the handler for the `/panellist/api` prefix route.
+ * Create the handler for the `/railist/api` prefix route.
  * @param store - the configuration store every endpoint works through.
  * @param options - side-effect overrides (tests).
  * @returns a handler owning the whole response lifecycle.
  */
 export function createApiHandler(
-  store: PanellistStore,
+  store: RailistStore,
   options: ApiHandlerOptions = {},
 ): (req: IncomingMessage, res: ServerResponse) => Promise<void> {
   const reveal = options.reveal ?? revealInFileManager
@@ -366,6 +386,19 @@ export function createApiHandler(
         }
         res.writeHead(204, { 'cache-control': 'no-store' })
         res.end()
+        return
+      }
+
+      case API_ROUTES.plugins: {
+        // Profile-scoped like `/config` (the patch layer and the manifest are
+        // per-profile files), but decoration like `/reveal`: it has no failure
+        // mode of its own, so it never answers anything but 200.
+        const chosen = await resolveProfile(store, url.searchParams)
+        if ('error' in chosen) {
+          fail(res, 400, chosen.error, chosen.details)
+          return
+        }
+        respondJson(res, 200, await pluginsResponse(store, chosen.profileId))
         return
       }
 

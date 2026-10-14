@@ -9,7 +9,7 @@
  * controlled component, so any plan/store change re-renders the page without
  * remounting it.
  */
-import { useCallback, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import type { ProfileConfig } from '../../shared/config.ts'
 import { materializeSequence } from '../../shared/edit.ts'
 import type { SelfCheckState, SettingsUnitDeps } from '../contracts.ts'
@@ -17,6 +17,8 @@ import type { I18nKey, Translator } from '../i18n/index.ts'
 import { AppearanceEditor } from './AppearanceEditor.tsx'
 import { ConfigBlock } from './ConfigBlock.tsx'
 import { SequenceEditor, type SequenceSelection } from './SequenceEditor.tsx'
+import type { PluginInfoStore } from './pluginInfo.ts'
+import { sourceLabel } from './sourceLabel.ts'
 
 export interface SectionProps {
   deps: SettingsUnitDeps
@@ -64,6 +66,49 @@ function useSelfCheckState(deps: SettingsUnitDeps): SelfCheckState {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
+/**
+ * The row subtitles, as already-rendered nodes keyed by panel id.
+ *
+ * Two things make this a hook rather than an inline read. It subscribes to the
+ * plugin store through `useSyncExternalStore`, so the labels appear when the
+ * `/plugins` answer lands without the page re-rendering for any other reason;
+ * and it renders the text HERE, so the list component receives finished elements
+ * and stays free of any knowledge of packages, versions or copy keys.
+ *
+ * A panel the store knows nothing about is simply absent from the map — the row
+ * then renders exactly what it rendered before this feature existed. The `title`
+ * carries the untruncated text, because the visible label may have been cut to
+ * fit and a hover is where the full value belongs.
+ */
+function usePluginSources(deps: SettingsUnitDeps, t: Translator['t']): Record<string, ReactNode> {
+  const store: PluginInfoStore = deps.plugins
+  const subscribe = useCallback((onChange: () => void) => store.subscribe(onChange), [store])
+  const getSnapshot = useCallback(() => store.get(), [store])
+  const info = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
+
+  // One read per mount: a profile's installed plugins do not change while the
+  // settings dialog is open, and the store makes the request unrefusable.
+  useEffect(() => {
+    void store.load()
+  }, [store])
+
+  const result: Record<string, ReactNode> = {}
+  for (const [panelId, entry] of Object.entries(info)) {
+    const resolved = sourceLabel(entry)
+    if (resolved === null) continue
+    const text = t(resolved.key, resolved.params)
+    result[panelId] = (
+      <span
+        key={panelId}
+        className="dsh-panellist-settings-source"
+        data-source={panelId}
+        title={text}
+      >{text}</span>
+    )
+  }
+  return result
+}
+
 export function Section({ deps }: SectionProps): ReactNode {
   useControllerSubscription(deps)
   const t = useTranslate(deps)
@@ -79,13 +124,21 @@ export function Section({ deps }: SectionProps): ReactNode {
     void deps.store.update(edit)
   }, [deps])
 
-  /** Structural edits materialize the live rail order the user is looking at. */
-  const applyStructural = useCallback((edit: (profile: ProfileConfig) => ProfileConfig): void => {
-    const rows = deps.plan().rows.map(row => ({ kind: row.kind, id: row.id }))
-    void deps.store.update(profile => edit(materializeSequence(profile, rows)))
+  /**
+   * Structural edits materialize the live rail order the user is looking at.
+   *
+   * `rows` carries each row's resolved container, so a cross-seat drag is stored
+   * as that row's seat in the new sequence — without it the drag would only live
+   * in the store's `movedRow` and vanish on the next reload.
+   */
+  const applyStructural = useCallback((edit: (profile: ProfileConfig) => ProfileConfig, moved?: string | null): void => {
+    const rows = deps.plan().rows.map(row => ({ kind: row.kind, id: row.id, container: row.container }))
+    void deps.store.update(profile => edit(materializeSequence(profile, rows)), moved ?? null)
   }, [deps])
 
   const rerun = useCallback(() => deps.selfCheck.rerun(), [deps])
+
+  const pluginSources = usePluginSources(deps, t)
 
   const selection = selected !== null && (selected.kind === 'group'
     ? plan.groups.has(selected.id)
@@ -94,18 +147,18 @@ export function Section({ deps }: SectionProps): ReactNode {
     : null
 
   return (
-    <section className="dsh-panellist-settings" aria-label={t('settings.title')}>
+    <section className="dsh-railist-settings" aria-label={t('settings.title')}>
       {/* The header is text only: the settings dialog already owns the close
           affordance (its X, next to this text), and a second button for the same
           action was one more thing to keep in sync with it. */}
-      <header className="dsh-panellist-settings-header">
-        <div className="dsh-panellist-settings-headerText">
-          <h2 className="dsh-panellist-settings-title">{t('settings.title')}</h2>
-          <p className="dsh-panellist-settings-subtitle">{t('settings.subtitle')}</p>
+      <header className="dsh-railist-settings-header">
+        <div className="dsh-railist-settings-headerText">
+          <h2 className="dsh-railist-settings-title">{t('settings.title')}</h2>
+          <p className="dsh-railist-settings-subtitle">{t('settings.subtitle')}</p>
         </div>
       </header>
 
-      {snapshot.status === 'loading' ? <p className="dsh-panellist-settings-hint">{t('common.loading')}</p> : null}
+      {snapshot.status === 'loading' ? <p className="dsh-railist-settings-hint">{t('common.loading')}</p> : null}
 
       <SequenceEditor
         plan={plan}
@@ -117,6 +170,7 @@ export function Section({ deps }: SectionProps): ReactNode {
         onSelect={setSelected}
         apply={apply}
         applyStructural={applyStructural}
+        pluginInfo={pluginSources}
       />
 
       {selection === null

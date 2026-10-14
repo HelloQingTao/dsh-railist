@@ -128,7 +128,7 @@ describe('configuration block', () => {
     const harness = createHarness({ profile: profileWith(['plugins']) })
     renderPage(harness)
 
-    expect(screen.getByText('File: C:/Users/test/.dsh/panellist.json')).toBeTruthy()
+    expect(screen.getByText('File: C:/Users/test/.dsh/railist.json')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Open config file' }))
     await waitFor(() => { expect(harness.reveals).toBe(1) })
   })
@@ -214,11 +214,11 @@ describe('createSettingsUnit', () => {
     expect(harness.sections).toHaveLength(1)
     const section = harness.sections[0]
     expect(section?.name).toBe('settings.section')
-    expect(section?.id).toBe('dsh-panellist')
+    expect(section?.id).toBe('dsh-railist')
     expect(section?.order).toBe(100)
     expect(section?.label?.()).toBe('Panel list')
     expect(harness.cssChunks.get('settings')).toBe(SETTINGS_CSS)
-    expect(harness.cssChunks.get('settings')).toContain('dsh-panellist-settings')
+    expect(harness.cssChunks.get('settings')).toContain('dsh-railist-settings')
 
     const Component = section?.component as (() => ReactNode) | undefined
     if (Component === undefined) throw new Error('expected the section component')

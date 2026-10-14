@@ -204,7 +204,7 @@ describe('probe: the rail selector', () => {
       // Probe 3 did park a row in the DOM during its two-frame wait, and it is
       // gone from the ledger again afterwards: the rail verdict must not depend
       // on the order the probes run in.
-      expect(ledger.entries(RAIL).some(entry => entry.options.id === 'dsh-panellist:probe-active')).toBe(false)
+      expect(ledger.entries(RAIL).some(entry => entry.options.id === 'dsh-railist:probe-active')).toBe(false)
     } finally {
       nav.remove()
       disableHasSelectorSupport()
@@ -221,10 +221,10 @@ describe('probe: the active prop', () => {
     // The probe chain now starts with an `await` (the rail probe is async), so
     // the throwaway row appears a tick later: poll briefly instead of assuming
     // the registration happened before `rerun()` returned.
-    let entry = ledger.entries(RAIL).find(candidate => candidate.options.id === 'dsh-panellist:probe-active')
+    let entry = ledger.entries(RAIL).find(candidate => candidate.options.id === 'dsh-railist:probe-active')
     for (let tick = 0; entry === undefined && tick < 20; tick += 1) {
       await new Promise(resolve => { setTimeout(resolve, 1) })
-      entry = ledger.entries(RAIL).find(candidate => candidate.options.id === 'dsh-panellist:probe-active')
+      entry = ledger.entries(RAIL).find(candidate => candidate.options.id === 'dsh-railist:probe-active')
     }
     expect(entry).toBeDefined()
     const Probe = entry?.component as (props: { size: number; active: boolean }) => null
@@ -236,7 +236,7 @@ describe('probe: the active prop', () => {
     expect(result?.detail).toContain('active=false')
     expect(check.getState().activeRuleDisabled).toBe(false)
     // The throwaway row is gone again.
-    expect(ledger.entries(RAIL).some(candidate => candidate.options.id === 'dsh-panellist:probe-active')).toBe(false)
+    expect(ledger.entries(RAIL).some(candidate => candidate.options.id === 'dsh-railist:probe-active')).toBe(false)
   })
 
   it('fails, and drops the hidden-but-active rule, when the glyph is never rendered', async () => {
@@ -315,7 +315,8 @@ describe('self-check aggregation', () => {
     const unsubscribe = check.subscribe(() => { notifications += 1 })
     await check.rerun()
     expect(notifications).toBe(1)
-    expect(check.getState().results).toHaveLength(4)
+    // One result per probe: registry, rail, active, settings nav, seats.
+    expect(check.getState().results).toHaveLength(5)
     expect(check.getState().version.length >= 0).toBe(true)
     // A second run while the first is in flight is the same promise.
     const first = check.rerun()

@@ -1,7 +1,7 @@
 /**
  * The settings page's CSS chunk (README §3).
  *
- * Every class is namespaced `dsh-panellist-settings-`. Colour comes from the
+ * Every class is namespaced `dsh-railist-settings-`. Colour comes from the
  * shell's own alias tokens (`--dsw-alias-*`, the names the shipped settings
  * sections use), each read through a `var(…, <theme-neutral fallback>)` so the
  * page still reads correctly when the tokens are absent (tests, a shell that
@@ -11,16 +11,16 @@
  * Registered once by `settings/index.tsx` through `deps.styles.register`.
  */
 export const SETTINGS_CSS = `
-.dsh-panellist-settings {
-  --dsh-panellist-line: var(--dsw-alias-border-l2, color-mix(in srgb, currentColor 16%, transparent));
-  --dsh-panellist-hairline: var(--dsw-alias-hairline, color-mix(in srgb, currentColor 10%, transparent));
-  --dsh-panellist-fill: color-mix(in srgb, currentColor 5%, transparent);
-  --dsh-panellist-fill-strong: color-mix(in srgb, currentColor 11%, transparent);
-  --dsh-panellist-muted: var(--dsw-alias-label-tertiary, color-mix(in srgb, currentColor 62%, transparent));
-  --dsh-panellist-secondary: var(--dsw-alias-label-secondary, currentColor);
-  --dsh-panellist-accent: var(--dsw-alias-accent, currentColor);
-  --dsh-panellist-danger: var(--dsw-alias-state-error-primary, currentColor);
-  --dsh-panellist-warn: var(--dsw-alias-state-warn-primary, currentColor);
+.dsh-railist-settings {
+  --dsh-railist-line: var(--dsw-alias-border-l2, color-mix(in srgb, currentColor 16%, transparent));
+  --dsh-railist-hairline: var(--dsw-alias-hairline, color-mix(in srgb, currentColor 10%, transparent));
+  --dsh-railist-fill: color-mix(in srgb, currentColor 5%, transparent);
+  --dsh-railist-fill-strong: color-mix(in srgb, currentColor 11%, transparent);
+  --dsh-railist-muted: var(--dsw-alias-label-tertiary, color-mix(in srgb, currentColor 62%, transparent));
+  --dsh-railist-secondary: var(--dsw-alias-label-secondary, currentColor);
+  --dsh-railist-accent: var(--dsw-alias-accent, currentColor);
+  --dsh-railist-danger: var(--dsw-alias-state-error-primary, currentColor);
+  --dsh-railist-warn: var(--dsw-alias-state-warn-primary, currentColor);
 
   display: flex;
   flex-direction: column;
@@ -33,76 +33,76 @@ export const SETTINGS_CSS = `
   line-height: 1.5;
 }
 
-.dsh-panellist-settings *,
-.dsh-panellist-settings *::before,
-.dsh-panellist-settings *::after {
+.dsh-railist-settings *,
+.dsh-railist-settings *::before,
+.dsh-railist-settings *::after {
   box-sizing: border-box;
 }
 
-.dsh-panellist-settings-header {
+.dsh-railist-settings-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
 }
 
-.dsh-panellist-settings-headerText {
+.dsh-railist-settings-headerText {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
 }
 
-.dsh-panellist-settings-title {
+.dsh-railist-settings-title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   line-height: 24px;
 }
 
-.dsh-panellist-settings-subtitle {
+.dsh-railist-settings-subtitle {
   margin: 0;
-  color: var(--dsh-panellist-muted);
+  color: var(--dsh-railist-muted);
 }
 
-.dsh-panellist-settings-block {
+.dsh-railist-settings-block {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 16px;
-  border: 1px solid var(--dsh-panellist-line);
+  border: 1px solid var(--dsh-railist-line);
   border-radius: 16px;
   background: var(--dsw-alias-bg-layer-3, transparent);
 }
 
-.dsh-panellist-settings-blockTitle {
+.dsh-railist-settings-blockTitle {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
 }
 
-.dsh-panellist-settings-hint {
+.dsh-railist-settings-hint {
   margin: 0;
-  color: var(--dsh-panellist-muted);
+  color: var(--dsh-railist-muted);
 }
 
-.dsh-panellist-settings-banner {
+.dsh-railist-settings-banner {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin: 0;
   padding: 10px 12px;
-  border: 1px solid var(--dsh-panellist-line);
+  border: 1px solid var(--dsh-railist-line);
   border-left-width: 3px;
   border-radius: 10px;
-  background: var(--dsh-panellist-fill);
+  background: var(--dsh-railist-fill);
 }
 
-.dsh-panellist-settings-banner-warn {
-  border-left-color: var(--dsh-panellist-warn);
+.dsh-railist-settings-banner-warn {
+  border-left-color: var(--dsh-railist-warn);
 }
 
-.dsh-panellist-settings-action {
+.dsh-railist-settings-action {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -110,7 +110,7 @@ export const SETTINGS_CSS = `
   gap: 4px;
   min-height: 28px;
   padding: 0 10px;
-  border: 1px solid var(--dsh-panellist-line);
+  border: 1px solid var(--dsh-railist-line);
   border-radius: 8px;
   background: transparent;
   color: inherit;
@@ -118,24 +118,24 @@ export const SETTINGS_CSS = `
   cursor: pointer;
 }
 
-.dsh-panellist-settings-action:hover:not(:disabled) {
-  background: var(--dsw-alias-interactive-bg-hover, var(--dsh-panellist-fill-strong));
+.dsh-railist-settings-action:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover, var(--dsh-railist-fill-strong));
 }
 
-.dsh-panellist-settings-action:disabled {
-  color: var(--dsh-panellist-muted);
+.dsh-railist-settings-action:disabled {
+  color: var(--dsh-railist-muted);
   cursor: default;
   opacity: 0.6;
 }
 
-.dsh-panellist-settings-actionRow {
+.dsh-railist-settings-actionRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
 
-.dsh-panellist-settings-rows {
+.dsh-railist-settings-rows {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -144,35 +144,89 @@ export const SETTINGS_CSS = `
   list-style: none;
 }
 
-.dsh-panellist-settings-dropZone {
+/* A seat heading inside the sequence list. It is a list item so the list keeps
+   one flat DOM order (drag positions are read from that order), but it is not a
+   row: no border, no handle, and it must never be a drop target. */
+.dsh-railist-settings-seat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0 2px;
+  border: none;
+  background: none;
+  list-style: none;
+  pointer-events: none;
+}
+
+.dsh-railist-settings-seat:first-child {
+  margin-top: 0;
+}
+
+.dsh-railist-settings-seatTitle {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--dsh-railist-secondary);
+  text-transform: none;
+}
+
+.dsh-railist-settings-seatHint {
+  font-size: 11px;
+  color: var(--dsh-railist-muted);
+}
+
+/* The rule that makes the heading read as a divider between seats rather than a
+   label on the first row of one. */
+.dsh-railist-settings-seat::after {
+  content: '';
+  flex: 1 1 100%;
+  height: 1px;
+  background: var(--dsh-railist-hairline);
+}
+
+/* The pinned seat (the shell's own settings row) reads as the end of the list:
+   no divider below it, because nothing follows. */
+.dsh-railist-settings-seat[data-seat='pinned']::after {
+  display: none;
+}
+
+/* A pinned row carries no controls, so it must not look like an empty one. */
+.dsh-railist-settings-row[data-pinned='true'] {
+  border-style: dashed;
+  background: none;
+}
+
+.dsh-railist-settings-dropZone {
   min-height: 8px;
 }
 
-.dsh-panellist-settings-row {
+.dsh-railist-settings-row {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px;
-  border: 1px solid var(--dsh-panellist-hairline);
+  border: 1px solid var(--dsh-railist-hairline);
   border-radius: 10px;
-  background: var(--dsh-panellist-fill);
+  background: var(--dsh-railist-fill);
 }
 
-.dsh-panellist-settings-row[data-dragging='true'] {
+.dsh-railist-settings-row[data-dragging='true'] {
   opacity: 0.5;
 }
 
-.dsh-panellist-settings-row[data-selected='true'] {
-  border-color: var(--dsh-panellist-accent);
+.dsh-railist-settings-row[data-selected='true'] {
+  border-color: var(--dsh-railist-accent);
 }
 
-.dsh-panellist-settings-rowMain {
+.dsh-railist-settings-rowMain {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.dsh-panellist-settings-rowSelect {
+.dsh-railist-settings-rowSelect {
   flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
@@ -188,11 +242,11 @@ export const SETTINGS_CSS = `
   cursor: pointer;
 }
 
-.dsh-panellist-settings-rowSelect:hover {
-  background: var(--dsw-alias-interactive-bg-hover, var(--dsh-panellist-fill-strong));
+.dsh-railist-settings-rowSelect:hover {
+  background: var(--dsw-alias-interactive-bg-hover, var(--dsh-railist-fill-strong));
 }
 
-.dsh-panellist-settings-rowGlyph {
+.dsh-railist-settings-rowGlyph {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -201,44 +255,44 @@ export const SETTINGS_CSS = `
   height: 20px;
 }
 
-.dsh-panellist-settings-rowName {
+.dsh-railist-settings-rowName {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.dsh-panellist-settings-badges {
+.dsh-railist-settings-badges {
   flex: none;
   display: inline-flex;
   flex-wrap: wrap;
   gap: 4px;
 }
 
-.dsh-panellist-settings-badge {
+.dsh-railist-settings-badge {
   padding: 0 6px;
-  border: 1px solid var(--dsh-panellist-hairline);
+  border: 1px solid var(--dsh-railist-hairline);
   border-radius: 999px;
   background: transparent;
-  color: var(--dsh-panellist-muted);
+  color: var(--dsh-railist-muted);
   font-size: 11px;
   line-height: 16px;
 }
 
-.dsh-panellist-settings-badge[data-badge='missing'] {
-  border-color: var(--dsh-panellist-danger);
-  color: var(--dsh-panellist-danger);
+.dsh-railist-settings-badge[data-badge='missing'] {
+  border-color: var(--dsh-railist-danger);
+  color: var(--dsh-railist-danger);
 }
 
-.dsh-panellist-settings-badge[data-badge='locked'] {
-  border-color: var(--dsh-panellist-warn);
-  color: var(--dsh-panellist-warn);
+.dsh-railist-settings-badge[data-badge='locked'] {
+  border-color: var(--dsh-railist-warn);
+  color: var(--dsh-railist-warn);
 }
 
-.dsh-panellist-settings-actions {
+.dsh-railist-settings-actions {
   flex: none;
 }
 
-.dsh-panellist-settings-members {
+.dsh-railist-settings-members {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -247,7 +301,7 @@ export const SETTINGS_CSS = `
   list-style: none;
 }
 
-.dsh-panellist-settings-member {
+.dsh-railist-settings-member {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -255,16 +309,16 @@ export const SETTINGS_CSS = `
   border-radius: 8px;
 }
 
-.dsh-panellist-settings-member:hover {
-  background: var(--dsh-panellist-fill-strong);
+.dsh-railist-settings-member:hover {
+  background: var(--dsh-railist-fill-strong);
 }
 
-.dsh-panellist-settings-member[data-selected='true'] {
-  background: var(--dsh-panellist-fill-strong);
-  box-shadow: inset 0 0 0 1px var(--dsh-panellist-accent);
+.dsh-railist-settings-member[data-selected='true'] {
+  background: var(--dsh-railist-fill-strong);
+  box-shadow: inset 0 0 0 1px var(--dsh-railist-accent);
 }
 
-.dsh-panellist-settings-memberName {
+.dsh-railist-settings-memberName {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -272,94 +326,94 @@ export const SETTINGS_CSS = `
   white-space: nowrap;
 }
 
-.dsh-panellist-settings-field {
+.dsh-railist-settings-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.dsh-panellist-settings-fieldLabel {
-  color: var(--dsh-panellist-secondary);
+.dsh-railist-settings-fieldLabel {
+  color: var(--dsh-railist-secondary);
   font-weight: 600;
 }
 
-.dsh-panellist-settings-input,
-.dsh-panellist-settings-textarea {
+.dsh-railist-settings-input,
+.dsh-railist-settings-textarea {
   width: 100%;
   padding: 6px 8px;
-  border: 1px solid var(--dsh-panellist-line);
+  border: 1px solid var(--dsh-railist-line);
   border-radius: 8px;
   background: transparent;
   color: inherit;
   font: inherit;
 }
 
-.dsh-panellist-settings-textarea {
+.dsh-railist-settings-textarea {
   min-height: 64px;
   resize: vertical;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.dsh-panellist-settings-radioRow {
+.dsh-railist-settings-radioRow {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.dsh-panellist-settings-radio {
+.dsh-railist-settings-radio {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   cursor: pointer;
 }
 
-.dsh-panellist-settings-iconGrid {
+.dsh-railist-settings-iconGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
   gap: 4px;
 }
 
-.dsh-panellist-settings-iconCell {
+.dsh-railist-settings-iconCell {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px solid var(--dsh-panellist-hairline);
+  border: 1px solid var(--dsh-railist-hairline);
   border-radius: 8px;
   background: transparent;
   color: inherit;
   cursor: pointer;
 }
 
-.dsh-panellist-settings-iconCell[aria-pressed='true'] {
-  border-color: var(--dsh-panellist-accent);
-  background: var(--dsh-panellist-fill-strong);
+.dsh-railist-settings-iconCell[aria-pressed='true'] {
+  border-color: var(--dsh-railist-accent);
+  background: var(--dsh-railist-fill-strong);
 }
 
-.dsh-panellist-settings-preview {
+.dsh-railist-settings-preview {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
-.dsh-panellist-settings-error {
+.dsh-railist-settings-error {
   margin: 0;
-  color: var(--dsh-panellist-danger);
+  color: var(--dsh-railist-danger);
 }
 
-.dsh-panellist-settings-confirm {
+.dsh-railist-settings-confirm {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 10px 12px;
-  border: 1px solid var(--dsh-panellist-line);
+  border: 1px solid var(--dsh-railist-line);
   border-radius: 10px;
-  background: var(--dsh-panellist-fill);
+  background: var(--dsh-railist-fill);
 }
 
-.dsh-panellist-settings-plainList {
+.dsh-railist-settings-plainList {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -374,22 +428,22 @@ export const SETTINGS_CSS = `
  * runs it into the name. Flex keeps both on one optical line at any glyph size,
  * and only the label may be truncated.
  */
-.dsh-panellist-settings-plainList li {
+.dsh-railist-settings-plainList li {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
   overflow: hidden;
-  color: var(--dsh-panellist-muted);
+  color: var(--dsh-railist-muted);
 }
 
-.dsh-panellist-settings-plainList li > * {
+.dsh-railist-settings-plainList li > * {
   flex: none;
   display: inline-flex;
   align-items: center;
 }
 
-.dsh-panellist-settings-probeList {
+.dsh-railist-settings-probeList {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -398,45 +452,45 @@ export const SETTINGS_CSS = `
   list-style: none;
 }
 
-.dsh-panellist-settings-probe {
+.dsh-railist-settings-probe {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.dsh-panellist-settings-probeHead {
+.dsh-railist-settings-probeHead {
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
 
-.dsh-panellist-settings-probeState {
-  color: var(--dsh-panellist-muted);
+.dsh-railist-settings-probeState {
+  color: var(--dsh-railist-muted);
   font-size: 11px;
 }
 
-.dsh-panellist-settings-probe[data-ok='false'] .dsh-panellist-settings-probeState {
-  color: var(--dsh-panellist-danger);
+.dsh-railist-settings-probe[data-ok='false'] .dsh-railist-settings-probeState {
+  color: var(--dsh-railist-danger);
 }
 
-.dsh-panellist-settings-probeImpact {
+.dsh-railist-settings-probeImpact {
   margin: 0;
-  color: var(--dsh-panellist-muted);
+  color: var(--dsh-railist-muted);
 }
 
-.dsh-panellist-settings-probeDetail {
-  color: var(--dsh-panellist-muted);
+.dsh-railist-settings-probeDetail {
+  color: var(--dsh-railist-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
 }
 
-.dsh-panellist-settings-warnings {
+.dsh-railist-settings-warnings {
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
-  color: var(--dsh-panellist-muted);
+  color: var(--dsh-railist-muted);
 }
 `.trim()

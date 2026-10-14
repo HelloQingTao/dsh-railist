@@ -24,7 +24,7 @@ import type { PlanGroup } from '../../shared/model.ts'
 import type { GroupUnitRuntime } from './index.ts'
 
 /** Attribute on the portal target appended to `document.body`. */
-const PORTAL_CONTAINER_ATTRIBUTE = 'data-dsh-panellist-portal'
+const PORTAL_CONTAINER_ATTRIBUTE = 'data-dsh-railist-portal'
 
 /** Gap between the anchor row and the card. */
 const ANCHOR_GAP = 8
@@ -76,7 +76,7 @@ export interface FlyoutProps {
 
 /** Stable id used by `aria-activedescendant`. */
 function itemId(groupId: string, index: number): string {
-  return `dsh-panellist-flyout-${groupId}-${index}`
+  return `dsh-railist-flyout-${groupId}-${index}`
 }
 
 /** Keep a portal event from reaching the row that React-wise contains it. */
@@ -204,13 +204,13 @@ export function Flyout(props: FlyoutProps): ReactElement {
         role="menuitem"
         id={itemId(group.id, index)}
         aria-current={current ? 'true' : undefined}
-        data-dsh-panellist-flyout-item=""
-        {...(current ? { 'data-dsh-panellist-flyout-current': '' } : {})}
-        {...(index === activeIndex ? { 'data-dsh-panellist-flyout-highlighted': '' } : {})}
+        data-dsh-railist-flyout-item=""
+        {...(current ? { 'data-dsh-railist-flyout-current': '' } : {})}
+        {...(index === activeIndex ? { 'data-dsh-railist-flyout-highlighted': '' } : {})}
         onMouseEnter={() => { setActiveIndex(index) }}
         onClick={() => { onSelect(member.id) }}
       >
-        <span data-dsh-panellist-flyout-glyph="">
+        <span data-dsh-railist-flyout-glyph="">
           {deps.glyph({
             icon: member.icon,
             native: deps.rail.nativeGlyph(member.id),
@@ -218,7 +218,7 @@ export function Flyout(props: FlyoutProps): ReactElement {
             active: current,
           })}
         </span>
-        <span data-dsh-panellist-flyout-label="">{member.label}</span>
+        <span data-dsh-railist-flyout-label="">{member.label}</span>
       </button>
     )
   })
@@ -226,7 +226,7 @@ export function Flyout(props: FlyoutProps): ReactElement {
   return createPortal(
     <div
       ref={rootRef}
-      data-dsh-panellist-flyout={group.id}
+      data-dsh-railist-flyout={group.id}
       // A portal keeps its place in the REACT tree (inside the row button), so
       // without this a click or a keypress inside the card would also reach the
       // shell row's own handlers — selecting a member would then be overwritten
@@ -248,8 +248,8 @@ export function Flyout(props: FlyoutProps): ReactElement {
       {/* Title only: the menu's job is the members, so an "Overview" link to the
           group's own page sat in the header as a second, unrelated destination
           (that page remains registered as the group's `main` fallback). */}
-      <div data-dsh-panellist-flyout-header="">
-        <span data-dsh-panellist-flyout-title="">
+      <div data-dsh-railist-flyout-header="">
+        <span data-dsh-railist-flyout-title="">
           {translate.t('rail.group.menuTitle', { name: group.label })}
         </span>
       </div>
@@ -257,13 +257,13 @@ export function Flyout(props: FlyoutProps): ReactElement {
         ref={menuRef}
         role="menu"
         tabIndex={-1}
-        data-dsh-panellist-flyout-menu=""
+        data-dsh-railist-flyout-menu=""
         aria-label={translate.t('rail.group.open', { name: group.label })}
         aria-activedescendant={activeIndex >= 0 ? itemId(group.id, activeIndex) : undefined}
         onKeyDown={onKeyDown}
       >
         {items.length === 0
-          ? <p data-dsh-panellist-flyout-empty="">{translate.t('rail.group.emptyMenu')}</p>
+          ? <p data-dsh-railist-flyout-empty="">{translate.t('rail.group.emptyMenu')}</p>
           : items}
       </div>
     </div>,

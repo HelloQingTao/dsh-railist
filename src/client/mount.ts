@@ -16,7 +16,7 @@
  */
 
 /** Page-global slot holding the live mount. */
-const ACTIVE_MOUNT_KEY = '__dshPanellistActiveMount'
+const ACTIVE_MOUNT_KEY = '__dshRailistActiveMount'
 
 interface Mount {
   /** The owner's teardown, called at most once. */

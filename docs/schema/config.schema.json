@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/qwq1999/dsh-panellist/main/docs/schema/config.schema.json",
-  "title": "dsh-panellist configuration",
-  "description": "Shape of $DSH_HOME/panellist.json. One document holds one profile section per DSH profile id, because different profiles mount different plugins.",
+  "$id": "https://raw.githubusercontent.com/qwq1999/dsh-railist/main/docs/schema/config.schema.json",
+  "title": "dsh-railist configuration",
+  "description": "Shape of $DSH_HOME/railist.json. One document holds one profile section per DSH profile id, because different profiles mount different plugins.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "profiles"],
@@ -25,6 +25,11 @@
       "description": "A panel entry id as registered into the rail, discovered at runtime. Never hardcoded.",
       "minLength": 1,
       "maxLength": 200
+    },
+    "seat": {
+      "type": "string",
+      "description": "One of the left column's seats this plugin manages: `top` (the panel list under the logo) or `footer` (the action row below it). The shell's own Settings seat is never stored, because it is never taken over.",
+      "enum": ["top", "footer"]
     },
     "groupId": {
       "type": "string",
@@ -61,7 +66,11 @@
       "required": ["type", "id"],
       "properties": {
         "type": { "const": "entry" },
-        "id": { "$ref": "#/$defs/panelId" }
+        "id": { "$ref": "#/$defs/panelId" },
+        "seat": {
+          "$ref": "#/$defs/seat",
+          "description": "The seat this row was last dragged into, written by a cross-seat drag only. Absent means \"no opinion\": the row keeps the seat its contributor registered it into. A value naming a seat this plugin no longer manages is ignored."
+        }
       }
     },
     "groupItem": {

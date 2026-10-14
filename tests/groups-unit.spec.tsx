@@ -19,15 +19,15 @@ import type { ProfileConfig, SequenceItem } from '../src/shared/config.ts'
 
 afterEach(() => {
   cleanup()
-  for (const node of document.querySelectorAll('[data-dsh-panellist-portal]')) node.remove()
+  for (const node of document.querySelectorAll('[data-dsh-railist-portal]')) node.remove()
 })
 
-const RAIL_ID = 'dsh-panellist:group:more'
+const RAIL_ID = 'dsh-railist:group:more'
 
 const PANELS: RegisteredPanel[] = [
-  { id: 'alpha', label: 'Alpha', order: 0 },
-  { id: 'beta', label: 'Beta', order: 10 },
-  { id: 'gamma', label: 'Gamma', order: 20 },
+  { id: 'alpha', label: 'Alpha', order: 0 , container: 'top'},
+  { id: 'beta', label: 'Beta', order: 10 , container: 'top'},
+  { id: 'gamma', label: 'Gamma', order: 20 , container: 'top'},
 ]
 
 function profile(sequence: SequenceItem[]): ProfileConfig {
@@ -220,7 +220,7 @@ describe('groups unit — registration', () => {
     if (page === undefined) return
 
     const view = render(<>{page()}</>)
-    const root = view.container.querySelector('[data-dsh-panellist-overview="group:more"]')
+    const root = view.container.querySelector('[data-dsh-railist-overview="group:more"]')
     expect(root?.textContent).toContain('Beta')
     expect(root?.textContent).toContain('Gamma')
   })
@@ -235,7 +235,7 @@ describe('groups unit — trigger glyph', () => {
     const view = render(<ShellRow glyph={registration.glyph} onClick={rowClick} />)
     const button = screen.getByRole('button', { name: 'More' })
 
-    expect(view.container.querySelector('[data-dsh-panellist-group="group:more"]')).not.toBeNull()
+    expect(view.container.querySelector('[data-dsh-railist-group="group:more"]')).not.toBeNull()
     expect(button.getAttribute('aria-haspopup')).toBe('menu')
 
     const click = createEvent.click(button)
@@ -272,7 +272,7 @@ describe('groups unit — trigger glyph', () => {
     const registration = harness.registered.get(RAIL_ID)
     if (registration === undefined) throw new Error('group row was not registered')
     const view = render(<ShellRow glyph={registration.glyph} />)
-    const marker = (): Element | null => view.container.querySelector('[data-dsh-panellist-group-active]')
+    const marker = (): Element | null => view.container.querySelector('[data-dsh-railist-group-active]')
 
     expect(marker()).toBeNull()
     act(() => { harness.setActive('gamma') })
@@ -289,7 +289,7 @@ describe('groups unit — trigger glyph', () => {
     const registration = harness.registered.get(RAIL_ID)
     if (registration === undefined) throw new Error('group row was not registered')
     const view = render(<ShellRow glyph={registration.glyph} />)
-    const hiddenMarker = (): Element | null => view.container.querySelector('[data-dsh-panellist-hidden]')
+    const hiddenMarker = (): Element | null => view.container.querySelector('[data-dsh-railist-hidden]')
 
     expect(hiddenMarker()).toBeNull()
     expect(view.container.querySelector('[data-testid="effective-glyph"]')).not.toBeNull()
@@ -315,13 +315,13 @@ describe('groups unit — trigger glyph', () => {
     render(<ShellRow glyph={registration.glyph} />)
     fireEvent.click(screen.getByRole('button', { name: 'More' }))
     expect(screen.getByRole('menu')).not.toBeNull()
-    expect(document.querySelector('[data-dsh-panellist-portal]')).not.toBeNull()
+    expect(document.querySelector('[data-dsh-railist-portal]')).not.toBeNull()
 
     act(() => { harness.unit.dispose() })
 
     expect(harness.disposeCalls).toEqual([RAIL_ID])
     expect(screen.queryByRole('menu')).toBeNull()
-    expect(document.querySelector('[data-dsh-panellist-portal]')).toBeNull()
+    expect(document.querySelector('[data-dsh-railist-portal]')).toBeNull()
   })
 
   it('stops reacting to rail changes after dispose()', () => {

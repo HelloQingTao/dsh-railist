@@ -68,11 +68,18 @@ describe('package manifest', () => {
 
   it('ships every file the two halves read from the tarball at runtime', () => {
     // The host reads the schema next to its own module; the loader reads the
-    // patch layer; the README pair is the documented behaviour contract.
+    // patch layer; the README is the documented behaviour contract.
     expect(manifest.dsh.bundle.patch).toBe('./cordis.patch.yml')
-    for (const required of ['lib/types', 'cordis.patch.yml', 'docs/schema/config.schema.json', 'README.md', 'README.zh-CN.md']) {
+    for (const required of ['lib/types', 'cordis.patch.yml', 'docs/schema/config.schema.json', 'README.md']) {
       expect(manifest.files, `files must include ${required}`).toContain(required)
     }
+    // ONE README, bilingual. GitHub and the npm page only ever render README.md,
+    // so a second file would never be shown and would drift out of sync; the
+    // language switch is an in-page anchor instead.
+    expect(manifest.files, 'the README must not be split into a second file').not.toContain('README.zh-CN.md')
+    const readme = readFileSync(resolve(root, 'README.md'), 'utf8')
+    expect(readme).toContain('## English')
+    expect(readme).toContain('## 中文')
     // The README screenshots are rendered both by GitHub and by the npm page,
     // so they have to be inside the tarball as well.
     expect(manifest.files, 'files must include docs/images').toContain('docs/images')
@@ -87,9 +94,9 @@ describe('package manifest', () => {
     expect(patchRows).toHaveLength(1)
     const row = patchRows[0]
     expect(row?.name).toBe(manifest.name)
-    // `panellist` is the composition-level row id (the docs and the health
+    // `railist` is the composition-level row id (the docs and the health
     // report both refer to it); the plugin's own name stays the package name.
-    expect(row?.id).toBe('panellist')
+    expect(row?.id).toBe('railist')
     expect(row?.disabled).toBeUndefined()
   })
 
@@ -128,7 +135,7 @@ describe('runtime file contracts', () => {
     const schema: { properties: { schemaVersion: { const: number } } } =
       JSON.parse(readFileSync(resolve(root, 'docs', 'schema', 'config.schema.json'), 'utf8'))
     expect(schema.properties.schemaVersion.const).toBe(SCHEMA_VERSION)
-    expect(API_PREFIX).toBe('/panellist/api')
+    expect(API_PREFIX).toBe('/railist/api')
     // The prefix the browser half calls, the registration the host half makes and
     // the description `plugin/index.ts` gives the loader are one value.
     expect(ROUTE_REGISTRATION.path).toBe(API_PREFIX)

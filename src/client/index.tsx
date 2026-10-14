@@ -1,17 +1,17 @@
 /**
- * dsh-panellist, browser half.
+ * dsh-railist, browser half.
  *
  * Boot order matters exactly once: the stylesheet and the first plan
  * computation must exist before the self-check registers its throwaway probe
  * rows, otherwise the probe row (which the stylesheet hides) would be visible
  * for a frame and probe 2 would count a row the plan does not know about.
  *
- * @module dsh-panellist/client
+ * @module dsh-railist/client
  */
 import { BUILTIN_ICON_NAMES } from '../shared/config.ts'
 import type { ClientContext } from './ctx.ts'
-import { createPanellistStore } from './config/store.ts'
-import { createController, type PanellistController } from './controller.ts'
+import { createRailistStore } from './config/store.ts'
+import { createController, type RailistController } from './controller.ts'
 import { createTranslator, type LocaleLike, type Translator } from './i18n/index.ts'
 import { BuiltinGlyph, Glyph, glyphDataUri, sanitizeSvg } from './icons/index.tsx'
 import { beginExclusiveMount } from './mount.ts'
@@ -50,8 +50,8 @@ export function apply(ctx: ClientContext): () => void {
   const log = loggerOf(ctx)
   const translate: Translator = createTranslator(optionalService<LocaleLike>(ctx, 'locale'))
   const styles = createStyleRegistry()
-  const store = createPanellistStore()
-  const controller: PanellistController = createController({
+  const store = createRailistStore()
+  const controller: RailistController = createController({
     ctx,
     store,
     translate,
@@ -62,7 +62,7 @@ export function apply(ctx: ClientContext): () => void {
   })
   styles.refresh()
   controller.refresh()
-  log.info('[dsh-panellist] client active')
+  log.info('[dsh-railist] client active')
 
   // The locale service may be provided by a bundle that mounts after this one.
   // Declaring it in `inject` would park this fiber until it exists (a shell
@@ -77,7 +77,7 @@ export function apply(ctx: ClientContext): () => void {
     controller.refresh()
     const snapshot = store.getSnapshot()
     if (snapshot.status === 'error') {
-      log.warn(`[dsh-panellist] configuration is unavailable: ${snapshot.error ?? 'unknown reason'}`)
+      log.warn(`[dsh-railist] configuration is unavailable: ${snapshot.error ?? 'unknown reason'}`)
     }
   })
 
@@ -88,7 +88,7 @@ export function apply(ctx: ClientContext): () => void {
     const state = controller.selfCheck.getState()
     if (state.degraded) {
       const failed = state.results.filter(result => !result.ok).map(result => result.id).join(', ')
-      log.warn(`[dsh-panellist] degraded (failed checks: ${failed}); DSH ${state.version || 'unknown'}`)
+      log.warn(`[dsh-railist] degraded (failed checks: ${failed}); DSH ${state.version || 'unknown'}`)
     }
   })
 

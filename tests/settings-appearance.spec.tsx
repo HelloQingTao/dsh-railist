@@ -123,14 +123,14 @@ describe('AppearanceEditor (panel row)', () => {
   it('previews the rail icon itself while nothing is overridden', () => {
     renderPage(profileWith(['plugins']))
     selectRow('plugins')
-    const preview = document.querySelector('.dsh-panellist-settings-preview')
+    const preview = document.querySelector('.dsh-railist-settings-preview')
     expect(preview?.querySelector('[data-native-panel="plugins"]')).not.toBeNull()
   })
 
   it('previews a group trigger with its first member\'s glyph', () => {
     renderPage(GROUPED)
     selectRow('group:g1')
-    const preview = document.querySelector('.dsh-panellist-settings-preview')
+    const preview = document.querySelector('.dsh-railist-settings-preview')
     // README §2.6: an icon-less trigger borrows the first live member's glyph,
     // exactly as the rail row does.
     expect(preview?.querySelector('[data-native-panel="plugins"]')).not.toBeNull()

@@ -15,7 +15,7 @@ import { cleanOrphans } from '../../shared/edit.ts'
 import type { Plan, PlanWarning } from '../../shared/model.ts'
 import type { HealthReport } from '../../shared/protocol.ts'
 import type { SelfCheckState } from '../contracts.ts'
-import type { PanellistStore, StoreSnapshot } from '../config/store.ts'
+import type { RailistStore, StoreSnapshot } from '../config/store.ts'
 import type { Translator } from '../i18n/index.ts'
 
 export interface ConfigBlockProps {
@@ -26,7 +26,7 @@ export interface ConfigBlockProps {
   /** Ids of every live rail registration (the orphan clean-up allow-list). */
   registeredIds: readonly string[]
   t: Translator['t']
-  store: PanellistStore
+  store: RailistStore
   rerun: () => Promise<void>
   apply: (edit: (profile: ProfileConfig) => ProfileConfig) => void
 }
@@ -48,24 +48,24 @@ function ConfirmButton(props: ConfirmButtonProps): ReactNode {
     return (
       <button
         type="button"
-        className="dsh-panellist-settings-action"
+        className="dsh-railist-settings-action"
         disabled={disabled === true}
         onClick={() => setOpen(true)}
       >{label}</button>
     )
   }
   return (
-    <div className="dsh-panellist-settings-confirm" role="group" aria-label={label}>
-      <p className="dsh-panellist-settings-hint">{message}</p>
-      <span className="dsh-panellist-settings-actionRow">
+    <div className="dsh-railist-settings-confirm" role="group" aria-label={label}>
+      <p className="dsh-railist-settings-hint">{message}</p>
+      <span className="dsh-railist-settings-actionRow">
         <button
           type="button"
-          className="dsh-panellist-settings-action"
+          className="dsh-railist-settings-action"
           onClick={() => { setOpen(false); onConfirm() }}
         >{confirmLabel}</button>
         <button
           type="button"
-          className="dsh-panellist-settings-action"
+          className="dsh-railist-settings-action"
           onClick={() => setOpen(false)}
         >{cancelLabel}</button>
       </span>
@@ -125,15 +125,15 @@ export function OrphansBlock(props: OrphansBlockProps): ReactNode {
   const { plan, t, registeredIds, apply } = props
   const count = plan.orphans.length
   return (
-    <section className="dsh-panellist-settings-block">
-      <h3 className="dsh-panellist-settings-blockTitle">{t('settings.orphans.title')}</h3>
-      <p className="dsh-panellist-settings-hint">
+    <section className="dsh-railist-settings-block">
+      <h3 className="dsh-railist-settings-blockTitle">{t('settings.orphans.title')}</h3>
+      <p className="dsh-railist-settings-hint">
         {count === 0 ? t('settings.orphans.none') : t('settings.orphans.body', { count })}
       </p>
       {count === 0
         ? null
-        : <ul className="dsh-panellist-settings-plainList">{plan.orphans.map(id => <li key={id}>{id}</li>)}</ul>}
-      <span className="dsh-panellist-settings-actionRow">
+        : <ul className="dsh-railist-settings-plainList">{plan.orphans.map(id => <li key={id}>{id}</li>)}</ul>}
+      <span className="dsh-railist-settings-actionRow">
         <ConfirmButton
           label={t('settings.orphans.clean')}
           message={t('settings.orphans.cleanConfirm')}
@@ -174,35 +174,35 @@ export function IoBlock(props: ConfigBlockProps): ReactNode {
   }
 
   return (
-    <section className="dsh-panellist-settings-block">
-      <h3 className="dsh-panellist-settings-blockTitle">{t('settings.io.title')}</h3>
+    <section className="dsh-railist-settings-block">
+      <h3 className="dsh-railist-settings-blockTitle">{t('settings.io.title')}</h3>
 
-      {snapshot.status === 'loading' ? <p className="dsh-panellist-settings-hint">{t('common.loading')}</p> : null}
+      {snapshot.status === 'loading' ? <p className="dsh-railist-settings-hint">{t('common.loading')}</p> : null}
       {snapshot.error === null
         ? null
         : (
-          <p className="dsh-panellist-settings-error" role="alert">
+          <p className="dsh-railist-settings-error" role="alert">
             {snapshot.status === 'error'
               ? t('error.load', { reason: snapshot.error })
               : t('error.save', { reason: snapshot.error })}
           </p>
         )}
 
-      <span className="dsh-panellist-settings-actionRow">
-        <button type="button" className="dsh-panellist-settings-action" onClick={exportJson}>
+      <span className="dsh-railist-settings-actionRow">
+        <button type="button" className="dsh-railist-settings-action" onClick={exportJson}>
           {t('settings.io.export')}
         </button>
         {exported === 'idle' ? null : (
-          <span className="dsh-panellist-settings-hint" role="status" data-state="export">
+          <span className="dsh-railist-settings-hint" role="status" data-state="export">
             {exported === 'ok' ? t('common.done') : t('common.failed')}
           </span>
         )}
       </span>
 
-      <label className="dsh-panellist-settings-field">
-        <span className="dsh-panellist-settings-fieldLabel">{t('settings.io.import')}</span>
+      <label className="dsh-railist-settings-field">
+        <span className="dsh-railist-settings-fieldLabel">{t('settings.io.import')}</span>
         <textarea
-          className="dsh-panellist-settings-textarea"
+          className="dsh-railist-settings-textarea"
           aria-label={t('settings.io.import')}
           placeholder={t('settings.io.importPlaceholder')}
           value={importText}
@@ -210,31 +210,31 @@ export function IoBlock(props: ConfigBlockProps): ReactNode {
           onChange={event => setImportText(event.currentTarget.value)}
         />
       </label>
-      <span className="dsh-panellist-settings-actionRow">
-        <button type="button" className="dsh-panellist-settings-action" onClick={importJson}>
+      <span className="dsh-railist-settings-actionRow">
+        <button type="button" className="dsh-railist-settings-action" onClick={importJson}>
           {t('settings.io.import')}
         </button>
         {imported && importError === null
-          ? <span className="dsh-panellist-settings-hint" role="status" data-state="import">{t('settings.io.imported')}</span>
+          ? <span className="dsh-railist-settings-hint" role="status" data-state="import">{t('settings.io.imported')}</span>
           : null}
       </span>
       {importError === null
         ? null
-        : <p className="dsh-panellist-settings-error" role="alert">{t('settings.io.importInvalid', { reason: importError })}</p>}
+        : <p className="dsh-railist-settings-error" role="alert">{t('settings.io.importInvalid', { reason: importError })}</p>}
 
-      <span className="dsh-panellist-settings-actionRow">
+      <span className="dsh-railist-settings-actionRow">
         <button
           type="button"
-          className="dsh-panellist-settings-action"
+          className="dsh-railist-settings-action"
           onClick={() => { void store.reveal().then(ok => { setRevealed(ok) }) }}
         >{t('settings.io.openFile')}</button>
         {health === null
           ? null
-          : <span className="dsh-panellist-settings-hint">{t('settings.io.filePath', { path: health.configPath })}</span>}
-        {revealed ? <span className="dsh-panellist-settings-hint" role="status" data-state="reveal">{t('common.done')}</span> : null}
+          : <span className="dsh-railist-settings-hint">{t('settings.io.filePath', { path: health.configPath })}</span>}
+        {revealed ? <span className="dsh-railist-settings-hint" role="status" data-state="reveal">{t('common.done')}</span> : null}
       </span>
 
-      <span className="dsh-panellist-settings-actionRow">
+      <span className="dsh-railist-settings-actionRow">
         <ConfirmButton
           label={t('settings.io.reset')}
           message={t('settings.io.resetConfirm')}
@@ -242,7 +242,7 @@ export function IoBlock(props: ConfigBlockProps): ReactNode {
           cancelLabel={t('common.cancel')}
           onConfirm={() => { void store.reset().then(ok => { setResetDone(ok) }) }}
         />
-        {resetDone ? <span className="dsh-panellist-settings-hint" role="status" data-state="reset">{t('settings.io.resetDone')}</span> : null}
+        {resetDone ? <span className="dsh-railist-settings-hint" role="status" data-state="reset">{t('settings.io.resetDone')}</span> : null}
       </span>
     </section>
   )
@@ -268,20 +268,20 @@ export function CompatibilityBlock(props: ConfigBlockProps): ReactNode {
   }
 
   return (
-    <section className="dsh-panellist-settings-block">
-      <h3 className="dsh-panellist-settings-blockTitle">{t('settings.selfcheck.title')}</h3>
+    <section className="dsh-railist-settings-block">
+      <h3 className="dsh-railist-settings-blockTitle">{t('settings.selfcheck.title')}</h3>
 
       {selfCheck.degraded
         ? (
-          <p className="dsh-panellist-settings-banner dsh-panellist-settings-banner-warn" role="status" data-state="degraded">
+          <p className="dsh-railist-settings-banner dsh-railist-settings-banner-warn" role="status" data-state="degraded">
             {t('settings.selfcheck.degraded', { count: failed })}
           </p>
         )
-        : <p className="dsh-panellist-settings-hint">{t('settings.selfcheck.ok')}</p>}
+        : <p className="dsh-railist-settings-hint">{t('settings.selfcheck.ok')}</p>}
 
       {selfCheck.readOnly
         ? (
-          <p className="dsh-panellist-settings-banner dsh-panellist-settings-banner-warn" data-state="readOnly">
+          <p className="dsh-railist-settings-banner dsh-railist-settings-banner-warn" data-state="readOnly">
             {t('settings.selfcheck.readOnly')}
           </p>
         )
@@ -290,7 +290,7 @@ export function CompatibilityBlock(props: ConfigBlockProps): ReactNode {
       {plan.warnings.length === 0
         ? null
         : (
-          <ul className="dsh-panellist-settings-warnings">
+          <ul className="dsh-railist-settings-warnings">
             {plan.warnings.map((warning, index) => (
               <li key={`${warning.code}:${index}`} data-warning={warning.code}>
                 {t(`warning.${warning.code}`, warningParams(warning))}
@@ -299,31 +299,31 @@ export function CompatibilityBlock(props: ConfigBlockProps): ReactNode {
           </ul>
         )}
 
-      <ul className="dsh-panellist-settings-probeList">
+      <ul className="dsh-railist-settings-probeList">
         {selfCheck.results.map(result => (
-          <li key={result.id} className="dsh-panellist-settings-probe" data-probe={result.id} data-ok={result.ok ? 'true' : 'false'}>
-            <span className="dsh-panellist-settings-probeHead">
+          <li key={result.id} className="dsh-railist-settings-probe" data-probe={result.id} data-ok={result.ok ? 'true' : 'false'}>
+            <span className="dsh-railist-settings-probeHead">
               <span>{t(`probe.${result.id}`)}</span>
-              <span className="dsh-panellist-settings-probeState">
+              <span className="dsh-railist-settings-probeState">
                 {result.ok ? t('probe.ok') : t('probe.failed')}
               </span>
             </span>
-            {result.detail === undefined ? null : <code className="dsh-panellist-settings-probeDetail">{result.detail}</code>}
-            {result.ok ? null : <p className="dsh-panellist-settings-probeImpact">{t(`probe.${result.id}.impact`)}</p>}
+            {result.detail === undefined ? null : <code className="dsh-railist-settings-probeDetail">{result.detail}</code>}
+            {result.ok ? null : <p className="dsh-railist-settings-probeImpact">{t(`probe.${result.id}.impact`)}</p>}
           </li>
         ))}
       </ul>
 
       {selfCheck.version === '' ? null : (
-        <p className="dsh-panellist-settings-hint" data-state="version">
+        <p className="dsh-railist-settings-hint" data-state="version">
           {t('settings.selfcheck.version', { version: selfCheck.version })}
         </p>
       )}
 
-      <span className="dsh-panellist-settings-actionRow">
+      <span className="dsh-railist-settings-actionRow">
         <button
           type="button"
-          className="dsh-panellist-settings-action"
+          className="dsh-railist-settings-action"
           disabled={running}
           onClick={rerunNow}
         >{t('settings.selfcheck.rerun')}</button>

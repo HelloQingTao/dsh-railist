@@ -25,9 +25,9 @@ export function GroupOverview(props: { runtime: GroupUnitRuntime; groupId: strin
   useGroupVersion(runtime)
   const group = deps.plan().groups.get(groupId)
   const translate = deps.translate
-  if (group === undefined) return <div data-dsh-panellist-overview={groupId} />
+  if (group === undefined) return <div data-dsh-railist-overview={groupId} />
   return (
-    <div data-dsh-panellist-overview={groupId}>
+    <div data-dsh-railist-overview={groupId}>
       <h2>{translate.t('rail.group.overviewTitle', { name: group.label })}</h2>
       <p>{translate.t('rail.group.overviewIntro')}</p>
       <ul>

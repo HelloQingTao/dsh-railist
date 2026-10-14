@@ -23,13 +23,61 @@
 import type { ReactNode } from 'react'
 import type { StoredEntry, SlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import type { Plan, PlanPanel, RegisteredPanel } from '../../shared/model.ts'
+import type { Container } from '../../shared/config.ts'
 import { RAIL_ID_PREFIX, isOwnRailId } from '../../shared/config.ts'
 import type { ClientContext } from '../ctx.ts'
 import type { GlyphComponent, GlyphProps, GlyphRequest, RailRowRegistration } from '../contracts.ts'
 import { optionalService } from '../service.ts'
+import { createGhost, type AnyComponent } from './Ghost.tsx'
 
 /** The rail slot every sidebar row lives in. */
 export const RAIL_SLOT = 'sidebar.panellist'
+
+/**
+ * The slots whose rows this plugin rewrites and moves.
+ *
+ * The shell builds the left column from separate seats rather than one list, so
+ * "the rail" spans more than one slot. A row's seat is carried through the plan
+ * (`PlanPanel.container` / `PlanRow.container`) and the registry half only ever
+ * writes a row's order WITHIN its own seat; carrying a row between seats is the
+ * DOM half's job (`rail/dom.ts`), because the shell sorts one slot at a time.
+ *
+ * `top` is `sidebar.panellist` with its historically hardcoded name kept in
+ * {@link RAIL_SLOT}, because the nudge and the older call sites address it by
+ * that constant.
+ *
+ * The shell's own Settings seat is read too — but only to LIST its row in the
+ * settings page as a read-only landmark (README §2.12). Nothing there is ever
+ * rewritten, and the seat's entries are not part of {@link allEntries}, which
+ * feeds the rewrite pass.
+ */
+export const SEAT_SLOTS = {
+  top: RAIL_SLOT,
+  footer: 'sidebar.footer.action',
+} as const
+
+/**
+ * The Settings seat is deliberately NOT taken over.
+ *
+ * `sidebar.settings` holds the shell's Settings row — and that row is what
+ * DECLARES `settings.section` (the settings dialog's content slot) through its own
+ * `children` table. Managing it as just another movable row breaks that
+ * declaration: the slot becomes "not declared", every plugin's settings page fails
+ * to register, and the dialog's whole content column renders empty.
+ *
+ * The model still carries a `settings` container so a plan can express "the
+ * settings row belongs here" — it is simply never rewritten or moved.
+ */
+export const SETTINGS_SLOT = 'sidebar.settings' as const
+
+/** The seat names this plugin actually manages (the Settings seat is excluded). */
+export type ManagedSeat = keyof typeof SEAT_SLOTS
+
+/** The slot names this plugin manages, as the shell's slot map declares them. */
+export type SeatSlotName = (typeof SEAT_SLOTS)[ManagedSeat]
+
+/** The seats this plugin manages, in the order the left column stacks them. */
+export const MANAGED_SEATS = ['top', 'footer'] as const satisfies readonly ManagedSeat[]
 
 /** The keyed slot that addresses each rail row's page. */
 export const MAIN_SLOT = 'main'
@@ -67,7 +115,7 @@ function resolveLabel(label: SlotLabel | undefined): string | undefined {
  * the entries it wrapped are still installed, and a module-local map would not
  * recognise the previous evaluation's wrapper.
  */
-const WRAPPER_REGISTRY_KEY = '__dshPanellistGlyphWrappers'
+const WRAPPER_REGISTRY_KEY = '__dshRailistGlyphWrappers'
 
 /** Tells one of our wrappers apart from a contributor's component, and unwraps it. */
 interface WrapperRegistry extends WeakMap<GlyphComponent, () => unknown> {}
@@ -167,6 +215,8 @@ export interface RailAdapter {
 
 interface Capture {
   entry: StoredEntry
+  /** The seat the captured registration lives in. */
+  container: Container
   order: number | undefined
   label: SlotLabel | undefined
   component: unknown
@@ -176,6 +226,12 @@ interface Capture {
   touchedComponent: boolean
   /** Built lazily, once per captured registration. */
   wrapper?: GlyphComponent
+  /**
+   * Built lazily, once per captured FOOTER registration that the plan moves
+   * into the panel list. Replaces `entry.component` outright (see the footer
+   * ghost pass); `touchedComponent` covers putting the original back.
+   */
+  ghost?: AnyComponent
   /**
    * Built lazily, once per captured registration. It MUST be cached: a fresh
    * closure on every pass would never compare equal, so the pass would report a
@@ -229,15 +285,122 @@ export function createRailAdapter(
   const registerKeyed = (options: { name: string; key: string }, component: unknown): (() => void) =>
     slots.register(options as never, component as never)
 
-  const entriesFor = (): readonly StoredEntry[] => {
+  /**
+   * The footer seat's ghost components, one per captured footer row.
+   *
+   * A footer row the plan moves into the panel list cannot be carried there by
+   * moving its element: the footer slot is `kind: 'list'`, so React owns every
+   * node it rendered and holds a reference to it. Taking such a node away with
+   * `appendChild` (what the DOM half used to do) leaves that reference stale,
+   * and the next footer re-render — opening the power menu is enough — throws
+   * `NotFoundError` from `insertBefore`, trips the slot's error boundary
+   * (`slot entry crashed in 'sidebar.footer.action'`), abdicates the entry,
+   * bumps the version and re-renders: an error loop that saturates the main
+   * thread and freezes the page. Verified live; see `Ghost.tsx` for the full
+   * mechanism.
+   *
+   * The fix is to REPLACE the row's slot entry with a ghost that renders
+   * nothing in place, and to render the contributor's own component through a
+   * portal into a slot element the ghost owns. React's footer bookkeeping then
+   * holds one entry that produces no host node, so there is nothing to go
+   * stale; the slot element is this module's, so placing it among the panel
+   * list's rows is an ordinary DOM write no bookkeeping can desynchronise; and
+   * the contributor still gets the footer seat's props and its own hooks.
+   */
+  const ghosts = new Map<string, AnyComponent>()
+
+  /** The ghost for one footer row, built once and cached for the entry's life. */
+  const ghostFor = (captured: Capture, id: string): AnyComponent => {
+    const existing = ghosts.get(id)
+    if (existing !== undefined) return existing
+    const built = createGhost({
+      id,
+      component: captured.component,
+      read: () => {
+        const panel = plan().panels.get(id)
+        if (panel === undefined) return null
+        return { hidden: panel.hidden === true, suppressed: panel.suppressed === true }
+      },
+      subscribe: subscribeGhosts,
+      version: ghostVersion,
+    })
+    // Registered against the CAPTURE, exactly like the glyph wrapper: a second
+    // evaluation of this bundle must recognise the ghost an earlier one wrote
+    // into `entry.component`, or the capture would adopt it as the
+    // contributor's component and render the ghost inside a portal forever.
+    wrapperRegistry().set(built as unknown as GlyphComponent, () => captured.component)
+    ghosts.set(id, built)
+    return built
+  }
+  /**
+   * Plan-generation plumbing the ghosts subscribe to.
+   *
+   * The adapter already has a natural generation counter — the rewrite pass
+   * runs on every plan change — so the ghosts reuse it rather than keeping a
+   * second one that could drift.
+   */
+  let ghostGeneration = 0
+  const ghostVersion = (): number => ghostGeneration
+  const ghostSubscribers = new Set<() => void>()
+  // `useSyncExternalStore` wants the React contract — a function that returns
+  // the unsubscribe — so the raw set is adapted here rather than in the ghost.
+  const subscribeGhosts = (listener: () => void): (() => void) => {
+    ghostSubscribers.add(listener)
+    return () => {
+      ghostSubscribers.delete(listener)
+    }
+  }
+  const notifyGhosts = (): void => {
+    ghostGeneration += 1
+    for (const listener of [...ghostSubscribers]) listener()
+  }
+
+  const entriesOf = (slot: SeatSlotName | typeof SETTINGS_SLOT): readonly StoredEntry[] => {
     try {
-      return slots.entriesOfSlot(RAIL_SLOT)
+      return slots.entriesOfSlot(slot)
     } catch {
       return []
     }
   }
 
-  const capture = (entry: StoredEntry, id: string): Capture => {
+  /**
+   * Every registration across the managed seats, each paired with its seat.
+   *
+   * A slot the shell does not declare contributes nothing instead of throwing —
+   * the self-check reports the missing seat, and the other keeps working.
+   */
+  const allEntries = (): Array<{ entry: StoredEntry; container: ManagedSeat }> => {
+    const found: Array<{ entry: StoredEntry; container: ManagedSeat }> = []
+    for (const container of MANAGED_SEATS) {
+      for (const entry of entriesOf(SEAT_SLOTS[container])) found.push({ entry, container })
+    }
+    return found
+  }
+
+  /**
+   * The shell's own Settings row, if the shell registers one.
+   *
+   * READ-ONLY discovery: the entry is projected into a `RegisteredPanel` so the
+   * settings page can list it (README §2.12), and is never captured, rewritten,
+   * wrapped or moved. Its `container` is `settings`, which the model pins to the
+   * bottom of the bottom-left seat, and which the DOM half skips.
+   */
+  const settingsRow = (): RegisteredPanel | null => {
+    for (const entry of entriesOf(SETTINGS_SLOT)) {
+      const id = entry.options.id
+      if (typeof id !== 'string' || isOwnRailId(id)) continue
+      const label = resolveLabel(entry.options.label)
+      return {
+        id,
+        label: label ?? id,
+        order: entry.options.order ?? 0,
+        container: 'settings',
+      }
+    }
+    return null
+  }
+
+  const capture = (entry: StoredEntry, id: string, container: Container): Capture => {
     const existing = captures.get(id)
     if (existing !== undefined && existing.entry === entry) return existing
     // The entry may still hold OUR wrapper from an earlier controller over this
@@ -249,6 +412,7 @@ export function createRailAdapter(
     const origin = unwrap(entry.component)
     const fresh: Capture = {
       entry,
+      container,
       order: entry.options.order,
       label: entry.options.label,
       component: origin ?? entry.component,
@@ -286,8 +450,8 @@ export function createRailAdapter(
       // The marker span carries the two state hooks HIDE_CSS matches on, and
       // nothing else: an extra identity attribute would be a hook with no reader.
       const marker: Record<string, string> = {}
-      if (suppressed) marker['data-dsh-panellist-suppressed'] = ''
-      else if (hidden) marker['data-dsh-panellist-hidden'] = ''
+      if (suppressed) marker['data-dsh-railist-suppressed'] = ''
+      else if (hidden) marker['data-dsh-railist-hidden'] = ''
       const size = typeof props['size'] === 'number' ? props['size'] : 0
       const active = props['active'] === true
       // A hidden row renders no visual at all: the CSS layer removes the row,
@@ -335,11 +499,11 @@ export function createRailAdapter(
     lastDigest = digest
     let changed = false
     const live = new Set<string>()
-    for (const entry of entriesFor()) {
+    for (const { entry, container } of allEntries()) {
       const id = entry.options.id
       if (typeof id !== 'string' || isOwnRailId(id)) continue
       live.add(id)
-      const captureOf = (): Capture => capture(entry, id)
+      const captureOf = (): Capture => capture(entry, id, container)
       const captured = captureOf()
       const panel = currentPlan.panels.get(id)
 
@@ -399,6 +563,34 @@ export function createRailAdapter(
         captured.touchedComponent = false
         changed = true
       }
+
+      // --- footer ghost ----------------------------------------------------
+      /**
+       * A FOOTER row the plan moves into the top seat gets a ghost entry
+       * instead of a glyph wrapper, and that replacement is unconditional —
+       * the footer seat passes no glyph props, so a wrapper installed here
+       * would render nothing at all and the row would vanish.
+       *
+       * A footer row that STAYS in the footer keeps its own component (and its
+       * glyph wrapper, when it has one): the shell renders it where it was, and
+       * nothing has to be moved.
+       */
+      const wantsGhost = container === 'footer' && panel.container !== 'footer'
+      if (wantsGhost) {
+        captured.ghost ??= ghostFor(captured, id)
+        if (entry.component !== captured.ghost) {
+          entry.component = captured.ghost
+          captured.touchedComponent = true
+          changed = true
+        }
+      } else if (captured.ghost !== undefined && entry.component === captured.ghost) {
+        // The row went back to the footer: put the contributor's own component
+        // (or its glyph wrapper) back so the shell renders it in place again.
+        const fallback = needsWrapper ? (captured.wrapper ??= wrapperFor(captured, id)) : captured.component
+        entry.component = fallback
+        captured.touchedComponent = fallback !== captured.component
+        changed = true
+      }
     }
     // Drop captures for entries that left the ledger, so a later reinstall
     // starts from the fresh registration's own values.
@@ -408,6 +600,10 @@ export function createRailAdapter(
     // reason. Everything after it re-projects as soon as the rail would look
     // different, whether or not this pass had a field to write.
     if (changed || appearanceChanged) nudge()
+    // The ghosts read the plan on every render but only re-render on a
+    // generation bump, so a pass that changed nothing still has to tell them
+    // when the appearance did change — that is exactly the digest's job.
+    if (appearanceChanged) notifyGhosts()
   }
 
   const restore = (captured: Capture): boolean => {
@@ -424,6 +620,9 @@ export function createRailAdapter(
       changed = true
     }
     if (captured.touchedComponent) {
+      // A ghost stands in for the contributor's component, so restoring it also
+      // takes the ghost out of the footer slot: React unmounts the portal, and
+      // the ghost's own cleanup removes the slot element from the panel list.
       captured.entry.component = captured.component
       captured.touchedComponent = false
       changed = true
@@ -432,29 +631,64 @@ export function createRailAdapter(
   }
 
   const adapter: RailAdapter = {
-    panels: () => entriesFor()
-      .filter(entry => typeof entry.options.id === 'string' && !isOwnRailId(entry.options.id as string))
-      .map(entry => {
-        const id = entry.options.id as string
-        const captured = captures.get(id)
-        const order = captured !== undefined && captured.entry === entry ? captured.order : entry.options.order
-        const label = captured !== undefined && captured.entry === entry ? captured.label : entry.options.label
-        return { id, label: resolveLabel(label) ?? id, order: order ?? 0 }
-      }),
+    panels: () => [
+      ...allEntries()
+        .filter(({ entry }) => typeof entry.options.id === 'string' && !isOwnRailId(entry.options.id as string))
+        .map(({ entry, container }) => {
+          const id = entry.options.id as string
+          const captured = captures.get(id)
+          const order = captured !== undefined && captured.entry === entry ? captured.order : entry.options.order
+          const label = captured !== undefined && captured.entry === entry ? captured.label : entry.options.label
+          return { id, label: resolveLabel(label) ?? id, order: order ?? 0, container }
+        }),
+      // Last, so it reads as the end of the rail; the settings page pins it
+      // anyway (README §2.12).
+      ...(settingsRow() === null ? [] : [settingsRow() as RegisteredPanel]),
+    ],
     subscribe: (listener) => {
-      try {
-        return slots.subscribe(RAIL_SLOT, listener)
-      } catch {
-        return () => {}
+      const disposers: Array<() => void> = []
+      // The Settings seat is watched too — never rewritten — so the row the
+      // settings page lists as read-only appears and disappears with the shell.
+      for (const slot of [...Object.values(SEAT_SLOTS), SETTINGS_SLOT]) {
+        try {
+          disposers.push(slots.subscribe(slot, listener))
+        } catch {
+          // Seat not declared on this shell: nothing to subscribe to.
+        }
+      }
+      return () => {
+        for (const dispose of disposers) {
+          try {
+            dispose()
+          } catch {
+            // Idempotent disposal.
+          }
+        }
       }
     },
     nativeGlyph: (panelId) => {
-      const captured = captures.get(panelId)
+      /**
+       * ONLY the top seat contributes glyphs, and only if it still registers this
+       * id there.
+       *
+       * A `sidebar.panellist` entry's component IS a glyph: the shell renders it
+       * with `{size, active}` and nothing else. A `sidebar.footer.action` entry's
+       * component is a whole button that expects the footer's own props (a
+       * translator among them), so handing one back as an icon makes the settings
+       * page render that button with glyph props and it throws — the
+       * `t is not a function` this used to produce.
+       *
+       * The seat check comes FIRST, before the capture map: a capture is keyed by
+       * panel id alone, so a footer row's capture would otherwise be handed back
+       * for an id that only ever meant a footer row.
+       */
+      const live = entriesOf(SEAT_SLOTS.top).find(entry => entry.options.id === panelId)
+      if (live === undefined) return null
       // Prefer the captured original: once we wrap an entry, `entry.component`
       // is OUR wrapper, and handing that back would recurse.
+      const captured = captures.get(panelId)
       if (captured !== undefined && captured.touchedComponent) return captured.component as GlyphComponent | null
-      const live = entriesFor().find(entry => entry.options.id === panelId)
-      const component = live?.component ?? captured?.component ?? null
+      const component = live.component ?? captured?.component ?? null
       // An entry another instance wrapped (or this one wrapped while its captures
       // were dropped) still holds a wrapper: unwrap it rather than hand a
       // marker-rendering function to the caller that asked for an icon.
@@ -494,10 +728,17 @@ export function createRailAdapter(
     applyOverrides,
     registerRow: (registration, page) => {
       const disposers: Array<() => void> = []
+      // A row we contribute goes into the seat the plan placed it in (a group the
+      // user dragged into the footer belongs there); the top seat is the default
+      // because that is where the shell's panel list lives. A registration aimed
+      // at the Settings seat is refused: that seat is the shell's own and is never
+      // taken over (see SETTINGS_SLOT).
+      const seat = registration.container === 'footer' ? 'footer' : 'top'
+      const slot = SEAT_SLOTS[seat]
       try {
-        disposers.push(slots.inject(RAIL_SLOT, () => registerList(
+        disposers.push(slots.inject(slot, () => registerList(
           {
-            name: RAIL_SLOT,
+            name: slot,
             id: registration.railId,
             order: registration.order,
             label: registration.label,
@@ -532,6 +773,8 @@ export function createRailAdapter(
       let changed = false
       for (const captured of captures.values()) changed = restore(captured) || changed
       captures.clear()
+      ghosts.clear()
+      ghostSubscribers.clear()
       if (changed) {
         // The restorations are raw field writes like any other: the shell still
         // needs one ledger mutation to re-read them.

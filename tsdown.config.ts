@@ -1,5 +1,5 @@
 /**
- * dsh-panellist build.
+ * dsh-railist build.
  *
  * Two artefacts:
  * - `lib/index.js`   — the node half (config store, migration, loopback route),
@@ -16,7 +16,7 @@
  */
 import type { UserConfig } from 'tsdown'
 
-const ID = 'dsh-panellist'
+const ID = 'dsh-railist'
 
 /** Module-table entries this bundle may leave external: platform seed rows
  *  (react family, cordis, ui-primitives) answered by the loader's require. */

@@ -48,7 +48,7 @@ describe('createRailAdapter: discovery', () => {
   it('projects native facts and ignores this plugin’s own rows', () => {
     const ledger = new FakeLedger()
     seed(ledger)
-    ledger.register({ name: 'sidebar.panellist', id: 'dsh-panellist:group:g1', order: 5, label: 'More' }, Native)
+    ledger.register({ name: 'sidebar.panellist', id: 'dsh-railist:group:g1', order: 5, label: 'More' }, Native)
     const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => buildPlan([], emptyProfileConfig()), glyph)
     expect(adapter.panels().map(panel => [panel.id, panel.label, panel.order])).toEqual([
       ['a', 'Alpha', 0],
@@ -56,7 +56,7 @@ describe('createRailAdapter: discovery', () => {
       ['c', 'Gamma', 2],
     ])
     expect(adapter.hasPage('a')).toBe(true)
-    expect(adapter.hasPage('dsh-panellist:group:g1')).toBe(false)
+    expect(adapter.hasPage('dsh-railist:group:g1')).toBe(false)
   })
 
   it('resolves a label thunk at read time', () => {
@@ -76,9 +76,9 @@ describe('createRailAdapter: rewriting', () => {
       entries: { a: { label: 'Aye', icon: { kind: 'builtin', name: 'star' } }, b: { hidden: true } },
     })
     const plan: Plan = buildPlan([
-      { id: 'a', label: 'Alpha', order: 0 },
-      { id: 'b', label: 'Beta', order: 1 },
-      { id: 'c', label: 'Gamma', order: 2 },
+      { id: 'a', label: 'Alpha', order: 0 , container: 'top'},
+      { id: 'b', label: 'Beta', order: 1 , container: 'top'},
+      { id: 'c', label: 'Gamma', order: 2 , container: 'top'},
     ], profile)
     const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => plan, glyph)
     const before = entryOf(ledger, 'c').component
@@ -104,21 +104,21 @@ describe('createRailAdapter: rewriting', () => {
     const ledger = new FakeLedger()
     seed(ledger)
     const plan = buildPlan([
-      { id: 'a', label: 'Alpha', order: 0 },
-      { id: 'b', label: 'Beta', order: 1 },
+      { id: 'a', label: 'Alpha', order: 0 , container: 'top'},
+      { id: 'b', label: 'Beta', order: 1 , container: 'top'},
     ], profileWith({ entries: { b: { hidden: true } } }))
     const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => plan, glyph)
     adapter.applyOverrides()
     const Wrapper = entryOf(ledger, 'b').component as (props: { size: number; active?: boolean }) => React.ReactElement
 
     const hidden = render(<Wrapper size={20} active={false} />)
-    expect(hidden.container.querySelector('[data-dsh-panellist-hidden]')).not.toBeNull()
+    expect(hidden.container.querySelector('[data-dsh-railist-hidden]')).not.toBeNull()
     expect(screen.queryByTestId('native')).toBeNull()
     hidden.unmount()
 
     // README §2.3: a hidden panel that is active keeps its row.
     const shown = render(<Wrapper size={20} active />)
-    expect(shown.container.querySelector('[data-dsh-panellist-hidden]')).toBeNull()
+    expect(shown.container.querySelector('[data-dsh-railist-hidden]')).toBeNull()
     expect(screen.getByTestId('native')).toBeTruthy()
     shown.unmount()
     adapter.dispose()
@@ -128,9 +128,9 @@ describe('createRailAdapter: rewriting', () => {
     const ledger = new FakeLedger()
     seed(ledger)
     const plan = buildPlan([
-      { id: 'a', label: 'Alpha', order: 0 },
-      { id: 'b', label: 'Beta', order: 1 },
-      { id: 'c', label: 'Gamma', order: 2 },
+      { id: 'a', label: 'Alpha', order: 0 , container: 'top'},
+      { id: 'b', label: 'Beta', order: 1 , container: 'top'},
+      { id: 'c', label: 'Gamma', order: 2 , container: 'top'},
     ], profileWith({
       sequence: [{ type: 'group', id: 'group:g1', members: ['b', 'c'] }],
       entries: { b: { icon: { kind: 'builtin', name: 'star' } } },
@@ -141,8 +141,8 @@ describe('createRailAdapter: rewriting', () => {
     // The marker is unconditional, even for the active panel: the member is
     // shown inside its group, and its icon reaches the flyout through the plan.
     const rendered = render(<Wrapper size={20} active />)
-    expect(rendered.container.querySelector('[data-dsh-panellist-suppressed]')).not.toBeNull()
-    expect(rendered.container.querySelector('[data-dsh-panellist-hidden]')).toBeNull()
+    expect(rendered.container.querySelector('[data-dsh-railist-suppressed]')).not.toBeNull()
+    expect(rendered.container.querySelector('[data-dsh-railist-hidden]')).toBeNull()
     expect(rendered.container.querySelector('svg')).toBeNull()
     rendered.unmount()
     adapter.dispose()
@@ -151,7 +151,7 @@ describe('createRailAdapter: rewriting', () => {
   it('nudges the ledger so the shell re-reads the rewritten fields', async () => {
     const ledger = new FakeLedger()
     seed(ledger)
-    const plan = buildPlan([{ id: 'a', label: 'Alpha', order: 0 }], profileWith({ sequence: [{ type: 'entry', id: 'a' }] }))
+    const plan = buildPlan([{ id: 'a', label: 'Alpha', order: 0 , container: 'top'}], profileWith({ sequence: [{ type: 'entry', id: 'a' }] }))
     const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => plan, glyph)
     const versionBefore = ledger.currentVersion
     adapter.applyOverrides()
@@ -172,7 +172,7 @@ describe('createRailAdapter: rewriting', () => {
     const ledger = new FakeLedger()
     seed(ledger)
     let profile = profileWith({ entries: { a: { icon: { kind: 'builtin', name: 'star' } } } })
-    const plan = (): Plan => buildPlan([{ id: 'a', label: 'Alpha', order: 0 }], profile)
+    const plan = (): Plan => buildPlan([{ id: 'a', label: 'Alpha', order: 0 , container: 'top'}], profile)
     const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, plan, glyph)
     adapter.applyOverrides()
     await Promise.resolve()
@@ -202,7 +202,7 @@ describe('createRailAdapter: rewriting', () => {
     const ledger = new FakeLedger()
     seed(ledger)
     let profile = profileWith({ entries: { b: { label: 'First' } } })
-    const plan = (): Plan => buildPlan([{ id: 'b', label: 'Beta', order: 1 }], profile)
+    const plan = (): Plan => buildPlan([{ id: 'b', label: 'Beta', order: 1 , container: 'top'}], profile)
     const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, plan, glyph)
     adapter.applyOverrides()
     await Promise.resolve()
@@ -233,10 +233,10 @@ describe('createRailAdapter: rewriting', () => {
     seed(ledger)
     ledger.register({ name: 'sidebar.panellist', id: 'bare' }, Native)
     const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => buildPlan([
-      { id: 'a', label: 'Alpha', order: 0 },
-      { id: 'b', label: 'Beta', order: 1 },
-      { id: 'c', label: 'Gamma', order: 2 },
-      { id: 'bare', label: 'bare', order: 3 },
+      { id: 'a', label: 'Alpha', order: 0 , container: 'top'},
+      { id: 'b', label: 'Beta', order: 1 , container: 'top'},
+      { id: 'c', label: 'Gamma', order: 2 , container: 'top'},
+      { id: 'bare', label: 'bare', order: 3 , container: 'top'},
     ], emptyProfileConfig()), glyph)
     const before = ledger.currentVersion
     const bare = entryOf(ledger, 'bare')
@@ -260,7 +260,7 @@ describe('createRailAdapter: rewriting', () => {
     const originalComponent = entryOf(ledger, 'a').component
     let profile = profileWith({ entries: { a: { label: 'Aye', hidden: true } } })
     const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => buildPlan([
-      { id: 'a', label: 'Alpha', order: 0 },
+      { id: 'a', label: 'Alpha', order: 0 , container: 'top'},
     ], profile), glyph)
     adapter.applyOverrides()
     expect(entryOf(ledger, 'a').component).not.toBe(originalComponent)
@@ -285,16 +285,16 @@ describe('createRailAdapter: our own rows', () => {
     seed(ledger)
     const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => buildPlan([], emptyProfileConfig()), glyph)
     const dispose = adapter.registerRow({
-      railId: 'dsh-panellist:group:g1',
+      railId: 'dsh-railist:group:g1',
       order: 10,
       label: () => 'More',
       glyph: Native as never,
     }, () => null)
-    expect(ledger.entries('sidebar.panellist').some(entry => entry.options.id === 'dsh-panellist:group:g1')).toBe(true)
-    expect(adapter.hasPage('dsh-panellist:group:g1')).toBe(true)
+    expect(ledger.entries('sidebar.panellist').some(entry => entry.options.id === 'dsh-railist:group:g1')).toBe(true)
+    expect(adapter.hasPage('dsh-railist:group:g1')).toBe(true)
     dispose()
-    expect(ledger.entries('sidebar.panellist').some(entry => entry.options.id === 'dsh-panellist:group:g1')).toBe(false)
-    expect(adapter.hasPage('dsh-panellist:group:g1')).toBe(false)
+    expect(ledger.entries('sidebar.panellist').some(entry => entry.options.id === 'dsh-railist:group:g1')).toBe(false)
+    expect(adapter.hasPage('dsh-railist:group:g1')).toBe(false)
     adapter.dispose()
   })
 
@@ -328,7 +328,7 @@ describe('createRailAdapter: glyph fallback', () => {
     const ledger = new FakeLedger()
     seed(ledger)
     const icons: IconRef[] = [{ kind: 'original' }]
-    const plan = buildPlan([{ id: 'a', label: 'Alpha', order: 0 }], profileWith({
+    const plan = buildPlan([{ id: 'a', label: 'Alpha', order: 0 , container: 'top'}], profileWith({
       entries: { a: { icon: icons[0], label: 'Aye' } },
     }))
     const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => plan, glyph)
@@ -356,9 +356,9 @@ describe('createRailAdapter: glyph provenance', () => {
     const ledger = new FakeLedger()
     seed(ledger)
     const plan = (): Plan => buildPlan([
-      { id: 'a', label: 'Alpha', order: 0 },
-      { id: 'b', label: 'Beta', order: 1 },
-      { id: 'c', label: 'Gamma', order: 2 },
+      { id: 'a', label: 'Alpha', order: 0 , container: 'top'},
+      { id: 'b', label: 'Beta', order: 1 , container: 'top'},
+      { id: 'c', label: 'Gamma', order: 2 , container: 'top'},
     ], profileWith({
       sequence: [{ type: 'group', id: 'group:g1', members: ['b', 'c'] }],
       entries: { a: { hidden: true } },
@@ -378,8 +378,8 @@ describe('createRailAdapter: glyph provenance', () => {
       const preview = render(<>{realGlyph({ icon: null, native: second.nativeGlyph(id), size: 16 })}</>)
       // The contributor's own icon, never the marker span the rail hides on.
       expect(preview.container.querySelector('[data-testid="native"]')).not.toBeNull()
-      expect(preview.container.querySelector('[data-dsh-panellist-suppressed]')).toBeNull()
-      expect(preview.container.querySelector('[data-dsh-panellist-hidden]')).toBeNull()
+      expect(preview.container.querySelector('[data-dsh-railist-suppressed]')).toBeNull()
+      expect(preview.container.querySelector('[data-dsh-railist-hidden]')).toBeNull()
       preview.unmount()
     }
 
@@ -399,7 +399,7 @@ describe('createRailAdapter: glyph provenance', () => {
     let profile = profileWith({ entries: { a: { hidden: true } } })
     const adapter = createRailAdapter(
       fakeContext(ledger) as ClientContext,
-      () => buildPlan([{ id: 'a', label: 'Alpha', order: 0 }], profile),
+      () => buildPlan([{ id: 'a', label: 'Alpha', order: 0 , container: 'top'}], profile),
       realGlyph,
     )
     adapter.applyOverrides()
@@ -410,7 +410,7 @@ describe('createRailAdapter: glyph provenance', () => {
     // stops needing one.
     const second = createRailAdapter(
       fakeContext(ledger) as ClientContext,
-      () => buildPlan([{ id: 'a', label: 'Alpha', order: 0 }], profile),
+      () => buildPlan([{ id: 'a', label: 'Alpha', order: 0 , container: 'top'}], profile),
       realGlyph,
     )
     second.applyOverrides()
