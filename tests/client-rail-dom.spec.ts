@@ -136,45 +136,36 @@ describe('rail DOM: seat placement', () => {
     expect(rowsIn('footer')).toEqual(['电源'])
   })
 
-  it('moves a row from the footer into the panel list', () => {
+  it('leaves a footer row where the shell put it when the plan keeps it there', () => {
+    // The plan is the only authority on a row's seat. A footer row the plan has
+    // NOT moved up stays in the footer: physically moving it is what crashed the
+    // footer slot on a real shell (the power-button freeze), and the plan no
+    // longer asks for it.
+    document.body.append(
+      buildSeat('top', []),
+      buildSeat('footer', [{ id: 'power', text: '电源' }]),
+    )
+    dom = createRailDom()
+    dom.apply([{ id: 'power', container: 'footer', order: 0, hidden: false }])
+    expect(rowsIn('footer')).toEqual(['电源'])
+    expect(rowsIn('top')).toEqual([])
+  })
+
+  it('does not physically move a footer row the plan moved into the panel list', () => {
+    // The regression this file exists for, from the other side. The ghost owns
+    // that row now: its slot is the element the plan sees, and the footer host
+    // node React rendered stays exactly where React put it. Moving it by hand
+    // is the `NotFoundError` that froze the page when the power menu opened.
     document.body.append(
       buildSeat('top', [{ id: 'plugins', text: '插件' }]),
       buildSeat('footer', [{ id: 'power', text: '电源' }]),
     )
     dom = createRailDom()
-    // The confirmed example: power is dragged above Settings, i.e. into the seat
-    // the row above it lives in.
     dom.apply([
       { id: 'plugins', container: 'top', order: 0, hidden: false },
       { id: 'power', container: 'top', order: 1, hidden: false },
     ])
-    expect(rowsIn('top')).toEqual(['插件', '电源'])
-    expect(rowsIn('footer')).toEqual([])
-  })
-
-  it('appends a moved row and leaves in-seat ordering to the registry', () => {
-    // The shell sorts a slot by the `order` the rewrite pass writes, and re-asserts
-    // it on every render; a node moved between siblings of one container therefore
-    // fights the shell and feeds this module's own observer. So the DOM half only
-    // ever changes containers — position within the seat is the registry's job, and
-    // the sequence's order reaches the shell through `PlanPanel.order`.
-    document.body.append(
-      buildSeat('top', [{ id: 'plugins', text: '插件' }, { id: 'usage', text: '使用统计' }]),
-      buildSeat('footer', [{ id: 'capability', text: '能力面板' }]),
-    )
-    dom = createRailDom()
-    dom.apply([
-      { id: 'plugins', container: 'top', order: 0, hidden: false },
-      { id: 'capability', container: 'top', order: 1, hidden: false },
-      { id: 'usage', container: 'top', order: 2, hidden: false },
-    ])
-    // The row crossed into the top seat; where it sits among its new siblings is
-    // whatever the shell's `order` decides.
-    const moved = rowsIn('top')
-    expect(moved).toContain('能力面板')
-    expect(moved).toContain('插件')
-    expect(moved).toContain('使用统计')
-    expect(rowsIn('footer')).toEqual([])
+    expect(rowsIn('footer')).toEqual(['电源'])
   })
 
   it('positions a ghost slot by the plan order among the panel list rows', () => {
@@ -205,35 +196,87 @@ describe('rail DOM: seat placement', () => {
     expect(rowsIn('footer')).toEqual([])
   })
 
-  it('leaves a hidden row where the shell put it', () => {
+  it('stamps the plan order on every top-seat row it can see', () => {
+    // The order stamp is what lets a ghost slot find its place among the rows
+    // that bracket it. A top row the shell renders through React carries it too
+    // — ownership is about WHERE a node lives, not whether React built it, and
+    // reading "React built it" as "footer owns it" skipped the whole top seat,
+    // which is why the ghost sat at the end of the list forever.
     document.body.append(
-      buildSeat('top', []),
-      buildSeat('footer', [{ id: 'power', text: '电源' }]),
+      buildSeat('top', [{ id: 'plugins', text: '插件' }, { id: 'usage', text: '使用统计' }]),
+      buildSeat('footer', []),
     )
     dom = createRailDom()
-    dom.apply([{ id: 'power', container: 'top', order: 0, hidden: true }])
-    expect(rowsIn('footer')).toEqual(['电源'])
+    dom.apply([
+      { id: 'plugins', container: 'top', order: 0, hidden: false },
+      { id: 'usage', container: 'top', order: 1, hidden: false },
+    ])
+    const nav = document.querySelector('nav')
+    expect(nav?.children[0]?.getAttribute('data-dsh-railist-order')).toBe('0')
+    expect(nav?.children[1]?.getAttribute('data-dsh-railist-order')).toBe('1')
   })
 
-  it('puts every moved row back on dispose', () => {
+  it('puts a moved row back on dispose', () => {
+    // Only a row this module actually moved is restored: a ghost row's home is
+    // the ghost itself, and the footer host node never left React's care.
     document.body.append(
       buildSeat('top', [{ id: 'plugins', text: '插件' }]),
-      buildSeat('footer', [{ id: 'power', text: '电源' }]),
+      buildSeat('footer', [{ id: 'stray', text: '流浪' }]),
     )
     const instance = createRailDom()
-    instance.apply([{ id: 'power', container: 'top', order: 1, hidden: false }])
-    expect(rowsIn('top')).toEqual(['插件', '电源'])
+    instance.apply([
+      { id: 'plugins', container: 'top', order: 0, hidden: false },
+      { id: 'stray', container: 'top', order: 1, hidden: false },
+    ])
+    // The plan asked for the row in the top seat, but the DOM half no longer
+    // moves a footer row: it is the ghost's slot that travels, not React's node.
+    expect(rowsIn('footer')).toEqual(['流浪'])
     instance.dispose()
     // Uninstalling must leave the shell exactly as it was found.
     expect(rowsIn('top')).toEqual(['插件'])
-    expect(rowsIn('footer')).toEqual(['电源'])
+    expect(rowsIn('footer')).toEqual(['流浪'])
+  })
+
+  it('restores a row it moved itself', () => {
+    // A row this module DID move — a ghost slot, which is this module's own node
+    // and therefore safe to move — goes home on dispose, so uninstalling leaves
+    // no orphan behind. Its home is where the ghost's own effect first put it:
+    // the footer slot React renders the ghost component into.
+    document.body.append(
+      buildSeat('top', [{ id: 'plugins', text: '插件' }]),
+      buildSeat('footer', [{ id: 'capability', text: '能力面板' }]),
+    )
+    const footer = document.querySelector(`[data-slot="${SEAT_SLOT_ATTR.footer}"]`)
+    const ghost = document.createElement('div')
+    ghost.setAttribute(GHOST_ATTR, '')
+    ghost.setAttribute(ROW_ATTR, 'capability')
+    footer?.append(ghost)
+    const instance = createRailDom()
+    instance.apply([
+      { id: 'plugins', container: 'top', order: 0, hidden: false },
+      { id: 'capability', container: 'top', order: 1, hidden: false },
+    ])
+    // The ghost slot travelled into the panel list; the footer host node stayed.
+    expect(rowsIn('top')).toContain('capability')
+    instance.dispose()
+    expect(rowsIn('top')).toEqual(['插件'])
   })
 })
 
 describe('rail DOM: the observer does not feed on itself', () => {
   it('does not re-run for mutations of its own making', async () => {
-    document.body.append(buildSeat('top', []), buildSeat('footer', [{ id: 'power', text: '电源' }]))
+    // A ghost slot is the element the plan moves: the footer host node React
+    // rendered stays put, and the slot is this module's own node.
+    document.body.append(
+      buildSeat('top', []),
+      buildSeat('footer', [{ id: 'power', text: '电源' }]),
+    )
     dom = createRailDom()
+    const nav = document.querySelector('nav')
+    const ghost = document.createElement('div')
+    ghost.setAttribute(GHOST_ATTR, '')
+    ghost.setAttribute(ROW_ATTR, 'power')
+    nav?.append(ghost)
     const pending = vi.spyOn(MutationObserver.prototype, 'observe')
     dom.apply([{ id: 'power', container: 'top', order: 0, hidden: false }])
     expect(pending).toHaveBeenCalled()
@@ -243,9 +286,15 @@ describe('rail DOM: the observer does not feed on itself', () => {
     const insertBefore = vi.spyOn(Node.prototype, 'insertBefore')
     await new Promise(resolve => setTimeout(resolve, 60))
     await new Promise(resolve => setTimeout(resolve, 60))
-    // The row sits in its new seat and no further moves were issued.
+    // No further moves were issued.
     expect(insertBefore).not.toHaveBeenCalled()
     const top = document.querySelector(`.hHd-Xa${SEAT_CONTAINER_SUFFIX.top}`)
-    expect(top?.textContent).toBe('电源')
+    // The nav holds the ghost slot. It also holds the empty slot anchor the
+    // fixture puts in a seat with no rows — that anchor is not a row, which is
+    // what `rowsIn` filters on.
+    expect(rowsIn('top')).toEqual(['power'])
+    expect(top?.querySelector(`[${GHOST_ATTR}]`)).not.toBeNull()
+    // And the footer host node React rendered is untouched.
+    expect(rowsIn('footer')).toEqual(['电源'])
   })
 })

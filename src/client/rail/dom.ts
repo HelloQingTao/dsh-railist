@@ -199,11 +199,20 @@ function readRowId(element: Element): string | null {
  * placed normally. The test is the attribute the ghost stamps, because a node
  * with no React owner has no fiber to consult and a node with one may have
  * been re-rendered since it was stamped.
+ *
+ * The fiber test alone was wrong, and the mistake was visible on a live shell:
+ * the shell renders EVERY top-seat row through React, so every panel-list
+ * button has a fiber too. Read that way, this guard skipped the whole top seat
+ * — which is why the reported "moved it in settings but the rail did not
+ * follow" persisted: the normal rows were never stamped with
+ * `data-dsh-railist-order`, so the ghost's own `placeByOrder` had no sibling
+ * order to compare against and appended it to the end of the list forever.
+ * Ownership is a question about WHERE the node lives, not whether React built
+ * it: a footer row sits inside the footer slot's own anchor.
  */
 function isFooterOwned(element: HTMLElement): boolean {
   if (element.hasAttribute(GHOST_ATTR)) return false
-  const fiber = fiberOf(element)
-  return fiber !== null
+  return element.closest(`[data-slot="${SEAT_SLOT_ATTR.footer}"]`) !== null
 }
 
 /**

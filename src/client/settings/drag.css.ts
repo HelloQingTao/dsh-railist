@@ -33,7 +33,7 @@ export const DRAG_CSS = `
   align-items: center;
   justify-content: center;
   width: 22px;
-  min-height: 28px;
+  min-height: 24px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -69,9 +69,9 @@ export const DRAG_CSS = `
 }
 
 /* A member's handle is narrower: the member row is a single line of controls. */
-.dsh-railist-settings-member .dsh-railist-settings-handle {
+.dsh-panellist-settings-member .dsh-railist-settings-handle {
   width: 18px;
-  min-height: 24px;
+  min-height: 22px;
 }
 
 .dsh-railist-settings-handleGlyph {

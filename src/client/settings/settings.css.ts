@@ -507,6 +507,17 @@ export const SETTINGS_CSS = `
  * the polish chunk covers. They duplicate rules above in intent, but they must
  * live here: a rule in the polish chunk would lose the cascade race against the
  * same-name rules in this file, because the polish chunk is registered third.
+ *
+ * The same two namespaces are also where the row's layout lives, and the reason
+ * the rows used to be twice as tall as they needed to be: the row's main line
+ * is a flex row whose children — handle, select button, contributor subtitle,
+ * badges, actions — all asked to be flex: 1 1 auto, so in the narrow settings
+ * column the subtitle pushed the buttons onto a second line and the row grew to
+ * fit it. That is the reported "one entry takes two rows, the list is too tall".
+ *
+ * The fix is the contract the rail itself uses: a row is ONE line, and whatever
+ * does not fit truncates. The select button owns the free space, the subtitle
+ * yields first, and the handle, the badges and the actions are pinned edges.
  */
 
 .dsh-panellist-settings-memberName {
@@ -519,8 +530,52 @@ export const SETTINGS_CSS = `
 
 .dsh-panellist-settings-actionRow {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
+  flex: none;
+}
+
+/*
+ * nowrap is the whole point: without it the actions fall under the name the
+ * moment the column gets narrow, which is what made every row two lines tall.
+ * min-height is 24px — one line of text plus the row's own padding — not the
+ * 28px of the drag handle, so a row is one line in every seat.
+ */
+.dsh-panellist-settings-rowMain {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 24px;
+}
+
+.dsh-panellist-settings-rowMain > * {
+  min-width: 0;
+}
+
+/* The row's fixed edges: the handle, the badges and the actions. */
+.dsh-railist-settings-handle,
+.dsh-panellist-settings-badges,
+.dsh-panellist-settings-actions,
+.dsh-panellist-settings-action {
+  flex: none;
+}
+
+/*
+ * The handle is the row's left edge and keeps its own 22px width at any row
+ * height: a 28px-tall handle next to a 24px row is what made the row taller
+ * than its own content. It stays 22x24 — the rail's own row height.
+ */
+.dsh-railist-settings-handle {
+  width: 22px;
+  min-height: 24px;
+}
+
+/* The same for a group member's handle, one step narrower. */
+.dsh-panellist-settings-member .dsh-railist-settings-handle {
+  width: 18px;
+  min-height: 22px;
 }
 `.trim()

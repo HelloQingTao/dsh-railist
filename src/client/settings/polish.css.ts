@@ -33,7 +33,7 @@ export const SETTINGS_POLISH_CSS = `
 
 .dsh-panellist-settings-row {
   gap: 2px;
-  padding: 10px 10px 10px 8px;
+  padding: 5px 10px 5px 8px;
   border-radius: var(--dsw-radius-lg, 12px);
   transition: border-color 120ms ease, background-color 120ms ease, opacity 120ms ease;
 }
@@ -90,13 +90,24 @@ export const SETTINGS_POLISH_CSS = `
  * the badges sit on the text baseline so a 11px badge and a 13px name are
  * optically aligned, which align-items: center cannot do once the glyph box
  * is taller than the text box.
+ *
+ * The row is ONE line: nowrap is what stops the actions from falling under
+ * the name, and a 24px min-height is what keeps it from growing to fit them
+ * if they ever do. Both live in the page chunk (the namespaced panellist
+ * side); this chunk only owns the rhythm — the gap and the alignment.
  */
 .dsh-panellist-settings-rowMain {
   gap: 10px;
   min-height: 24px;
 }
 
+/*
+ * The select button is the row's only growing child: it takes the space the
+ * subtitle gives up. The name inside it then truncates rather than pushing the
+ * badges and the actions out of the row.
+ */
 .dsh-panellist-settings-rowSelect {
+  flex: 1 1 auto;
   gap: 10px;
   padding: 2px 6px 2px 2px;
   border-radius: var(--dsw-radius-md, 8px);
@@ -119,23 +130,56 @@ export const SETTINGS_POLISH_CSS = `
   line-height: 22px;
 }
 
+/*
+ * The handle is a fixed-width edge of the row, never a flexible one: at 22px
+ * it is the same target size the rail's own rows use, so the drag affordance
+ * does not change height when the name wraps or truncates. Its min-height is
+ * set by the page chunk to the row's own line height (24px), not by this one.
+ */
+.dsh-railist-settings-handle {
+  flex: none;
+  width: 22px;
+}
+
 /* ------------------------------------------------------------- contributor */
 
 /*
  * The plugin name and version, right of the name and above the badges. It is
  * secondary text: the tertiary label colour and 11px are both one step below
  * the row's own 13px, so it is legible when looked for and invisible when not.
- * It never takes space from the name (it truncates first).
+ *
+ * It is the first thing to yield. A zero basis is what keeps it OFF the name's
+ * space at narrow widths: it collapses to nothing before the name is allowed to
+ * truncate, because a name that reads "Capabili…" is worse than a missing
+ * version number. The row stays one line.
  */
 .dsh-panellist-settings-source {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 30%;
   overflow: hidden;
   color: var(--dsw-alias-label-tertiary, color-mix(in srgb, currentColor 62%, transparent));
   font-size: 11px;
   line-height: 22px;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: none;
+}
+
+/*
+ * …and then it is not drawn at all until the row is hovered. A settings list
+ * of seven panels reads as seven names when the contributor is shown on every
+ * row; the question it answers — "which package is this row?" — is one the
+ * user asks about ONE row at a time. Hovering answers it without a click, and
+ * the name gets the full line the rest of the time.
+ *
+ * The keyboard path is covered by :focus-within: tabbing into a row's
+ * actions reveals the same line, so this is not pointer-only.
+ */
+.dsh-panellist-settings-row:hover .dsh-panellist-settings-source,
+.dsh-panellist-settings-row:focus-within .dsh-panellist-settings-source,
+.dsh-panellist-settings-member:hover .dsh-panellist-settings-source {
+  display: block;
 }
 
 /* ------------------------------------------------------------------ badges */
@@ -218,9 +262,46 @@ export const SETTINGS_POLISH_CSS = `
  */
 .dsh-panellist-settings-actions {
   gap: 4px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+/*
+ * The disclosure itself. The rule above leaves the buttons in the box model and
+ * withholds only their ink, so the row is one stable line whether or not the
+ * pointer is over it — the name never reflows as the pointer crosses the list.
+ *
+ * Focus is the keyboard half of the same promise: tabbing into a row's actions
+ * puts focus inside the row, which is what :focus-within matches, so a button
+ * is revealed before it can be read. Nothing is ever focusable-but-invisible.
+ */
+.dsh-panellist-settings-row:hover .dsh-panellist-settings-actions,
+.dsh-panellist-settings-row:focus-within .dsh-panellist-settings-actions,
+.dsh-panellist-settings-member:hover .dsh-panellist-settings-actions,
+.dsh-panellist-settings-member:focus-within .dsh-panellist-settings-actions {
+  opacity: 1;
+}
+
+/* A touch screen has no hover to reveal them with, so there they are always on. */
+@media (hover: none) {
+  .dsh-panellist-settings-actions {
+    opacity: 1;
+  }
+}
+
+/*
+ * The row's right-hand edge is a pinned one: it never wraps to a second line
+ * and never lets its buttons shrink. This is the rule that keeps a row ONE
+ * line tall when the settings column is narrow.
+ */
+.dsh-panellist-settings-actionRow {
+  flex-wrap: nowrap;
+  flex: none;
 }
 
 .dsh-panellist-settings-action {
+  flex: none;
+  white-space: nowrap;
   min-height: 24px;
   padding: 0 8px;
   border-radius: var(--dsw-radius-md, 8px);
@@ -431,6 +512,7 @@ export const SETTINGS_POLISH_CSS = `
   .dsh-panellist-settings-row,
   .dsh-panellist-settings-rowSelect,
   .dsh-panellist-settings-action,
+  .dsh-panellist-settings-actions,
   .dsh-panellist-settings-member,
   .dsh-panellist-settings-commitAction {
     transition: none;
