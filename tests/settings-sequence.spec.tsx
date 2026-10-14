@@ -4,6 +4,10 @@
  * Every structural assertion goes through `shared/edit.ts` so the spec pins the
  * *contract* — materialize first, then the edit — rather than a hand-rolled
  * expectation that could drift from the model.
+ *
+ * A structural edit is a *preview*: it lands in memory only, so the assertions
+ * read `harness.profile()` (what the page shows) and leave `harness.updates`
+ * (what was written) to the specs that exercise the write path itself.
  */
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -79,12 +83,14 @@ describe('SequenceEditor', () => {
     // gone: focus it and press the arrow key.
     fireEvent.keyDown(handleOf(rowOf('plugins')), { key: 'ArrowDown' })
 
-    expect(harness.updates).toHaveLength(1)
-    expect(harness.updates[0]).toEqual(moveRow(materializeSequence(profile, panelRows(['plugins', 'schedules', 'skills'])), 'plugins', 1))
-    expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
+    // A preview, not a write: the order lands in memory, the file is untouched
+    // until the save button commits it.
+    expect(harness.updates).toHaveLength(0)
+    expect(harness.profile()).toEqual(moveRow(materializeSequence(profile, panelRows(['plugins', 'schedules', 'skills'])), 'plugins', 1))
+    expect(harness.profile().sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
     // Every row is in the top seat, and materializing writes that seat down: a
     // same-seat reorder must not lose the seat the plan already resolved.
-    expect(harness.updates[0]?.sequence.every(item => item.type === 'entry' && item.seat === 'top')).toBe(true)
+    expect(harness.profile().sequence.every(item => item.type === 'entry' && item.seat === 'top')).toBe(true)
   })
 
   it('moves a row back up with the arrow keys, and stops at the ends', () => {
@@ -92,17 +98,17 @@ describe('SequenceEditor', () => {
     const harness = renderPage(profile)
 
     fireEvent.keyDown(handleOf(rowOf('schedules')), { key: 'ArrowUp' })
-    expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
+    expect(harness.profile().sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
 
     // The row that is now first has nowhere to go: the key is swallowed, not
     // applied, which is the behaviour the old disabled "Move up" button used to
     // express with a `disabled` attribute.
     fireEvent.keyDown(handleOf(rowOf('schedules')), { key: 'ArrowUp' })
-    expect(harness.updates).toHaveLength(1)
+    expect(harness.profile().sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
 
     // The same at the other end: the last row cannot step down.
     fireEvent.keyDown(handleOf(rowOf('skills')), { key: 'ArrowDown' })
-    expect(harness.updates).toHaveLength(1)
+    expect(harness.profile().sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
   })
 
   it('keeps the arrow keys free for other modifiers, and for scrolling otherwise', () => {
@@ -115,11 +121,11 @@ describe('SequenceEditor', () => {
       fireEvent.keyDown(handleOf(rowOf('plugins')), { key, altKey: true })
       fireEvent.keyDown(handleOf(rowOf('plugins')), { key, metaKey: true })
     }
-    expect(harness.updates).toEqual([])
+    expect(harness.profile()).toEqual(profileWith(['plugins', 'schedules']))
 
     // Any other key is left alone too.
     fireEvent.keyDown(handleOf(rowOf('plugins')), { key: 'Tab' })
-    expect(harness.updates).toEqual([])
+    expect(harness.profile()).toEqual(profileWith(['plugins', 'schedules']))
   })
 
   it('groups a row with the next row', () => {
@@ -127,9 +133,9 @@ describe('SequenceEditor', () => {
 
     fireEvent.click(within(rowOf('plugins')).getByRole('button', { name: 'Group with next' }))
 
-    const next = harness.updates[0]
-    expect(next?.sequence).toHaveLength(2)
-    const group = next?.sequence[0]
+    const next = harness.profile()
+    expect(next.sequence).toHaveLength(2)
+    const group = next.sequence[0]
     expect(group?.type).toBe('group')
     if (group?.type !== 'group') throw new Error('expected the first item to be a group')
     expect(group.members).toEqual(['plugins', 'schedules'])
@@ -140,7 +146,7 @@ describe('SequenceEditor', () => {
     // `skills` keeps the seat the plan resolved for it, so the seat survives the
     // group edit too — only `plugins` and `schedules` lose theirs by joining a
     // group, which renders in one seat as a unit.
-    expect(next?.sequence[1]).toEqual({ type: 'entry', id: 'skills', seat: 'top' })
+    expect(next.sequence[1]).toEqual({ type: 'entry', id: 'skills', seat: 'top' })
   })
 
   it('dissolves a group back into bare rows', () => {
@@ -152,7 +158,7 @@ describe('SequenceEditor', () => {
 
     fireEvent.click(within(rowOf('group:g1')).getByRole('button', { name: 'Ungroup' }))
 
-    expect(harness.updates[0]?.sequence).toEqual([
+    expect(harness.profile().sequence).toEqual([
       // A dissolved group leaves its members bare. Only `skills` was a bare row
       // already, so only it carries the seat the plan resolved for it; the two that
       // were folded inside the group had no seat of their own while suppressed, and
@@ -183,9 +189,9 @@ describe('SequenceEditor', () => {
     fireEvent.dragOver(target)
     fireEvent.drop(target)
 
-    const next = harness.updates[0]
-    expect(next?.sequence).toHaveLength(1)
-    const group = next?.sequence[0]
+    const next = harness.profile()
+    expect(next.sequence).toHaveLength(1)
+    const group = next.sequence[0]
     if (group?.type !== 'group') throw new Error('expected one group to remain')
     expect(group.members).toEqual(['schedules', 'skills', 'plugins'])
   })
@@ -204,16 +210,16 @@ describe('SequenceEditor', () => {
     fireEvent.dragStart(handleOf(member as HTMLElement))
     fireEvent.drop(screen.getByTestId('dsh-panellist-settings-dropZone'))
 
-    const next = harness.updates[0]
-    expect(next?.sequence.map(item => item.type)).toEqual(['group', 'entry', 'entry'])
-    const group = next?.sequence[0]
+    const next = harness.profile()
+    expect(next.sequence.map(item => item.type)).toEqual(['group', 'entry', 'entry'])
+    const group = next.sequence[0]
     if (group?.type !== 'group') throw new Error('expected the group to survive')
     expect(group.members).toEqual(['schedules'])
     // `plugins` left the group, so it carries the seat the plan resolved for it
     // again — the seat is a property of the row, not of the group. (`skills`, the
     // row that was already bare, is the one that proves the seat is written.)
-    expect(next?.sequence[1]).toEqual({ type: 'entry', id: 'plugins' })
-    expect(next?.sequence[2]).toEqual({ type: 'entry', id: 'skills', seat: 'top' })
+    expect(next.sequence[1]).toEqual({ type: 'entry', id: 'plugins' })
+    expect(next.sequence[2]).toEqual({ type: 'entry', id: 'skills', seat: 'top' })
   })
 
   it('opens a member’s own editor from the member list of its group', () => {
@@ -293,15 +299,15 @@ describe('SequenceEditor', () => {
     // is reachable from the first frame: the handle carries it, with no button
     // pair and no "materialize first" step in front of it.
     fireEvent.keyDown(handleOf(rowOf('plugins')), { key: 'ArrowDown' })
-    expect(harness.updates[0]?.sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
+    expect(harness.profile().sequence.map(item => item.id)).toEqual(['schedules', 'plugins', 'skills'])
   })
 
   it('hides and shows a row straight from the list', () => {
     const initial = profileWith(['plugins', 'schedules'])
     const harness = renderPage(initial)
 
-    // The button is a command whose name is the action ("Hide" / "Show"), so the
-    // label flips with the state instead of an aria-pressed toggle.
+    // A hide is a command, not a gesture: it commits the moment it is chosen, so
+    // the assertion reads the write path.
     fireEvent.click(within(rowOf('plugins')).getByRole('button', { name: 'Hide' }))
     expect(harness.updates[0]).toEqual(setPanelHidden(initial, 'plugins', true))
 

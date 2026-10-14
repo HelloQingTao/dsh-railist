@@ -41,6 +41,7 @@ const HEALTH: HealthReport = {
 function fakeStore(initial: ProfileConfig = emptyProfileConfig()): RailistStore {
   const listeners = new Set<() => void>()
   let profile = initial
+  let saved = initial
   let revision = 0
   let snapshot: StoreSnapshot = {
     status: 'ready',
@@ -50,6 +51,7 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): RailistStore 
     health: HEALTH,
     error: null,
     movedRow: null,
+    saved,
     revision,
   }
   return {
@@ -61,8 +63,25 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): RailistStore 
     load: () => Promise.resolve(),
     update: async (mutator) => {
       profile = mutator({ ...profile })
+      saved = profile
       revision += 1
-      snapshot = { ...snapshot, profile, revision, document: { schemaVersion: 2, profiles: { desktop: profile } } }
+      snapshot = { ...snapshot, profile, saved, revision, document: { schemaVersion: 2, profiles: { desktop: profile } } }
+      for (const listener of listeners) listener()
+      return true
+    },
+    preview: (mutator) => {
+      const next = mutator({ ...profile })
+      if (JSON.stringify(next) === JSON.stringify(profile)) return false
+      profile = next
+      revision += 1
+      snapshot = { ...snapshot, profile, revision }
+      for (const listener of listeners) listener()
+      return true
+    },
+    commit: async () => {
+      saved = profile
+      revision += 1
+      snapshot = { ...snapshot, saved, revision }
       for (const listener of listeners) listener()
       return true
     },

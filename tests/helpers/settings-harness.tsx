@@ -46,6 +46,8 @@ export interface Harness {
   /** Every profile the store accepted, in order. */
   updates: ProfileConfig[]
   profile(): ProfileConfig
+  /** The section the last write confirmed — what the page calls `saved`. */
+  saved(): ProfileConfig
   setProfile(next: ProfileConfig): void
   /** The live plan the deps report. */
   plan(): Plan
@@ -59,6 +61,8 @@ export interface Harness {
   /** Ids/chunks handed to `styles.register`. */
   cssChunks: Map<string, string>
   resets: number
+  /** Simulate a rejected write, so a spec can check what the page keeps. */
+  failWrites: boolean
   reveals: number
   imports: ProfileConfig[]
   /** Notify every `deps.subscribe` listener without changing the profile. */
@@ -140,6 +144,7 @@ export function createHarness(options: HarnessOptions = {}): Harness {
   const t = options.translate ?? createTranslator(undefined)
 
   let current = cloneProfileConfig(options.profile ?? emptyProfileConfig())
+  let savedProfile = cloneProfileConfig(current)
   let status: StoreSnapshot['status'] = 'ready'
   let error: string | null = null
   let revision = 0
@@ -152,6 +157,9 @@ export function createHarness(options: HarnessOptions = {}): Harness {
   const cssChunks = new Map<string, string>()
   let resets = 0
   let reveals = 0
+  // When set, `commit` reports a failure the way the real store does on a
+  // rejected PUT, so a spec can check what the page keeps on screen.
+  let failWrites = false
 
   const configDocument = (): RailistConfig => ({
     schemaVersion: SCHEMA_VERSION,
@@ -166,6 +174,10 @@ export function createHarness(options: HarnessOptions = {}): Harness {
     health,
     error,
     movedRow: lastMoved,
+    // Mirrors the real store: the section the last write confirmed. A preview
+    // edit leaves it alone, which is how the settings page tells pending edits
+    // from persisted ones.
+    saved: cloneProfileConfig(savedProfile),
     revision,
   })
 
@@ -192,6 +204,29 @@ export function createHarness(options: HarnessOptions = {}): Harness {
       current = mutator(cloneProfileConfig(current))
       lastMoved = moved ?? null
       updates.push(cloneProfileConfig(current))
+      savedProfile = current
+      bump()
+      return true
+    },
+    preview: (mutator) => {
+      const next = mutator(cloneProfileConfig(current))
+      if (JSON.stringify(next) === JSON.stringify(current)) return false
+      current = next
+      bump()
+      return true
+    },
+    commit: async (mutator) => {
+      if (failWrites) {
+        error = 'HTTP 500'
+        bump()
+        return false
+      }
+      // Mirrors the real store: a commit is a write, so it lands in `updates`
+      // (the list of profiles the store accepted) and becomes the baseline the
+      // page compares against.
+      if (mutator !== undefined) current = mutator(cloneProfileConfig(current))
+      savedProfile = current
+      updates.push(cloneProfileConfig(current))
       bump()
       return true
     },
@@ -206,6 +241,7 @@ export function createHarness(options: HarnessOptions = {}): Harness {
       const chosen = profiles === undefined ? undefined : profiles['desktop']
       if (chosen === undefined) return { ok: false, error: 'document has no section for profile "desktop"' }
       current = cloneProfileConfig(chosen)
+      savedProfile = current
       imports.push(cloneProfileConfig(current))
       bump()
       return { ok: true }
@@ -213,6 +249,7 @@ export function createHarness(options: HarnessOptions = {}): Harness {
     exportDocument: () => `${JSON.stringify(configDocument(), null, 2)}\n`,
     reset: async () => {
       current = emptyProfileConfig()
+      savedProfile = current
       resets += 1
       bump()
       return true
@@ -312,6 +349,8 @@ export function createHarness(options: HarnessOptions = {}): Harness {
     deps,
     updates,
     profile: () => current,
+    /** The section the last write confirmed — what the settings page calls `saved`. */
+    saved: () => savedProfile,
     setProfile: (next) => {
       current = cloneProfileConfig(next)
       bump()
@@ -325,6 +364,7 @@ export function createHarness(options: HarnessOptions = {}): Harness {
     cssChunks,
     get resets() { return resets },
     get reveals() { return reveals },
+    set failWrites(value: boolean) { failWrites = value },
     imports,
     notify,
     document: configDocument,

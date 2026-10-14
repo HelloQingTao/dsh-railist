@@ -56,6 +56,14 @@ export interface StoreSnapshot {
    * changes seat" without the pure model having to guess which row that was.
    */
   movedRow: string | null
+  /**
+   * The section as the host last confirmed it, or `null` before the first read.
+   *
+   * A `preview` edit changes `profile` without touching this, which is what
+   * makes "unsaved changes" answerable without the page keeping its own copy:
+   * the two differ exactly when the user has edits the file does not have.
+   */
+  saved: ProfileConfig | null
   /** Increments on every accepted local change (rail re-projection trigger). */
   revision: number
 }
@@ -76,6 +84,24 @@ export interface RailistStore {
    * never disturbs a seat.
    */
   update(mutator: (profile: ProfileConfig) => ProfileConfig, moved?: string | null): Promise<boolean>
+  /**
+   * Apply one pure edit to memory only, and report whether anything changed.
+   *
+   * No request, no rollback: the drag path uses this so a reorder can be shown
+   * on every pointer move without a `PUT` per move. `commit` persists the result
+   * when the user asks for it.
+   */
+  preview(mutator: (profile: ProfileConfig) => ProfileConfig): boolean
+  /**
+   * Persist the section as it stands, after previewed edits.
+   *
+   * Called with no argument in the ordinary case: the section in memory already
+   * carries every previewed edit, so a commit writes what the user has been
+   * looking at — one request, however many moves led here. The optional mutator
+   * exists so a caller that also has an edit to apply can do it in the same
+   * write instead of previewing first.
+   */
+  commit: (mutator?: (profile: ProfileConfig) => ProfileConfig) => Promise<boolean>
   /** Replace the section from an imported document's text. */
   importDocument(text: string): Promise<{ ok: true } | { ok: false; error: string }>
   /** Serialize the whole document (what "Export JSON" copies). */
@@ -97,6 +123,7 @@ function emptySnapshot(): StoreSnapshot {
     error: null,
     revision: 0,
     movedRow: null,
+    saved: null,
   }
 }
 
@@ -168,6 +195,7 @@ export function createRailistStore(options: { profileId?: string; fetch?: FetchL
       status: 'ready',
       profileId: body.profileId,
       profile: cloneProfileConfig(body.profile),
+      saved: cloneProfileConfig(body.profile),
       document: body.document,
       health: body.health,
       error: null,
@@ -192,6 +220,7 @@ export function createRailistStore(options: { profileId?: string; fetch?: FetchL
         status: 'ready',
         profileId: parsed.profileId,
         profile: cloneProfileConfig(parsed.profile),
+        saved: cloneProfileConfig(parsed.profile),
         document: parsed.document,
         health: parsed.health,
         error: null,
@@ -208,6 +237,28 @@ export function createRailistStore(options: { profileId?: string; fetch?: FetchL
     subscribe: (listener) => {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
+    },
+    /**
+     * Apply an edit to memory only, and report whether the result differs.
+     *
+     * This is the drag path: a reorder fires on every pointer move, and each one
+     * used to be a `PUT` round-trip plus a full broadcast to every listener —
+     * the rail, the ghost hosts, the settings page. On a real instance the list
+     * visibly stutters while dragging. Writing memory only makes the same edit
+     * instant, and `commit` persists the accumulated result when the user asks.
+     *
+     * `saved` is left alone on purpose: it is the file's own bytes, so the
+     * difference between it and `profile` is exactly the pending edit.
+     *
+     * @returns `false` when the edit was a no-op, so a save control driven by
+     * this can stay disabled rather than offering to write the same bytes back.
+     */
+    preview: (mutator) => {
+      if (disposed) return false
+      const next = mutator(cloneProfileConfig(snapshot.profile))
+      if (JSON.stringify(next) === JSON.stringify(snapshot.profile)) return false
+      publish({ profile: next, revision: snapshot.revision + 1 })
+      return true
     },
     load: async () => {
       if (disposed) return
@@ -249,9 +300,29 @@ export function createRailistStore(options: { profileId?: string; fetch?: FetchL
       publish({ profile: next, movedRow: moved ?? null, revision: snapshot.revision + 1 })
       const ok = await put(next)
       if (!ok && !disposed) {
+        // `put` already restored `saved` to what the host confirmed, so the
+        // rollback only has to put the working copy back in step with it.
         publish({ profile: cloneProfileConfig(previous), revision: snapshot.revision + 1 })
       }
       return ok
+    },
+    /**
+     * Persist the section as it currently stands in memory.
+     *
+     * The counterpart of {@link RailistStore.preview}: the drag path edits memory
+     * only, and this is the single write that makes those edits real. It sends
+     * the live section rather than re-running a mutator, so whatever the user
+     * accumulated is what gets written — one request, however many moves.
+     */
+    commit: async (mutator) => {
+      if (disposed) return false
+      // No optimistic publish: the section in memory is already the one the user
+      // is looking at, so publishing it again would only re-render the rail for
+      // a state it is already showing. `put` handles the confirmed case (it
+      // stores the host's answer as `saved`), and the failure case (it restores
+      // `saved`), so the page can tell "kept" from "lost" without extra state.
+      const next = mutator === undefined ? snapshot.profile : mutator(cloneProfileConfig(snapshot.profile))
+      return put(next)
     },
     importDocument: async (text) => {
       let parsed: unknown

@@ -27,6 +27,9 @@ export const en = {
 
   'settings.sequence.title': 'Sequence',
   'settings.sequence.hint': 'Drag the handle to reorder, or drop one row onto another to create a group. Focus a handle and use ↑ / ↓ to move it; “Group with next” stays a button.',
+  'settings.sequence.pendingHint': 'Your order is only on screen for now — save it to keep it after a reload.',
+  'settings.sequence.save': 'Save changes',
+  'settings.sequence.discard': 'Discard',
   'settings.sequence.empty': 'No panel is registered on this profile yet.',
   'settings.sequence.groupWithNext': 'Group with next',
   'settings.sequence.moveUp': 'Move up',
@@ -156,7 +159,12 @@ export const zh: Record<I18nKey, string> = {
 
   'settings.sequence.title': '序列',
   'settings.sequence.hint': '拖动把手排序；把一行拖到另一行上即可建组。把手聚焦后按 ↑ / ↓ 可让该行上下移动，「与下一项合并为分组」仍是按钮。',
+  'settings.sequence.pendingHint': '当前顺序只是预览，保存后才会在刷新后保留。',
+  'settings.sequence.save': '保存更改',
+  'settings.sequence.discard': '放弃更改',
   'settings.sequence.empty': '这个 profile 还没有注册任何面板。',
+  // 待保存提示条。拖动现在只改界面显示，所以必须告知用户「界面比配置文件快一步」，
+  // 并给出两条出路：保存写入，或丢弃还原。
   'settings.sequence.groupWithNext': '与下一项合并为分组',
   'settings.sequence.moveUp': '上移',
   'settings.sequence.moveDown': '下移',

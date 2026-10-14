@@ -54,6 +54,10 @@ export interface AppearanceEditorProps {
   builtinNames: readonly BuiltinIconName[]
   sanitizeSvg: (source: string) => SanitizeResult
   apply: (edit: (profile: ProfileConfig) => ProfileConfig) => void
+  /**
+   * Apply a structural edit. Memory only: the caller decides when to persist,
+   * so a click never costs a write on its own (see `SequenceEditor`).
+   */
   applyStructural: (edit: (profile: ProfileConfig) => ProfileConfig) => void
 }
 

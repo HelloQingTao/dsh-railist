@@ -9,6 +9,12 @@
  * never a light-only or dark-only literal.
  *
  * Registered once by `settings/index.tsx` through `deps.styles.register`.
+ *
+ * The one exception to the namespace is at the bottom of this file: the sequence
+ * editor's rows render in `dsh-panellist-settings-*` (a name it has carried since
+ * before this plugin was forked, and one its tests assert on), so the two class
+ * names the editor uses but neither the page nor the polish chunk covers are
+ * defined here rather than renamed in thirty files.
  */
 export const SETTINGS_CSS = `
 .dsh-railist-settings {
@@ -492,5 +498,29 @@ export const SETTINGS_CSS = `
   padding: 0;
   list-style: none;
   color: var(--dsh-railist-muted);
+}
+
+/*
+ * The sequence editor renders in its own namespace: the class names it has
+ * carried since before this plugin was forked, and the ones its tests assert
+ * on. The page chunk therefore keeps the two of them that neither the page nor
+ * the polish chunk covers. They duplicate rules above in intent, but they must
+ * live here: a rule in the polish chunk would lose the cascade race against the
+ * same-name rules in this file, because the polish chunk is registered third.
+ */
+
+.dsh-panellist-settings-memberName {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsh-panellist-settings-actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 `.trim()

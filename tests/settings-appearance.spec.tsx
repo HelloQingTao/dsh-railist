@@ -195,16 +195,18 @@ describe('AppearanceEditor (group row)', () => {
     const harness = renderPage(GROUPED)
     selectRow('group:g1')
 
+    // Both member actions are structural, so both are previews: the profile
+    // changes on the spot and nothing is written until the save button.
     fireEvent.click(memberOf('plugins').querySelector('[data-action="memberMoveDown"]') as HTMLElement)
-    const reordered = harness.updates[0]
-    const firstGroup = reordered?.sequence[0]
+    const reordered = harness.profile()
+    const firstGroup = reordered.sequence[0]
     if (firstGroup?.type !== 'group') throw new Error('expected a group')
     expect(firstGroup.members).toEqual(['schedules', 'plugins'])
 
     fireEvent.click(memberOf('plugins').querySelector('[data-action="memberRemove"]') as HTMLElement)
-    const removed = harness.updates[1]
-    expect(removed?.sequence.map(item => item.type)).toEqual(['group', 'entry', 'entry'])
-    const group = removed?.sequence[0]
+    const removed = harness.profile()
+    expect(removed.sequence.map(item => item.type)).toEqual(['group', 'entry', 'entry'])
+    const group = removed.sequence[0]
     if (group?.type !== 'group') throw new Error('expected the group to survive')
     expect(group.members).toEqual(['schedules'])
   })

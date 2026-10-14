@@ -45,6 +45,28 @@ ${PANEL_ROW_SELECTOR}:has([data-dsh-railist-suppressed]) {
 }
 `
 
+/**
+ * Keep the shell's Settings seat at the very bottom of the sidebar's foot area.
+ *
+ * The foot area is a column holding two children: the footer action row first
+ * (shell `client.js:399-408`) and the Settings seat after it. The rail's own
+ * contract is the same — the settings row belongs after every action row — but
+ * another plugin that ships its own sidebar rules (dsh-power-xc injects
+ * `[class$="_settingsArea"]{order:1}` / `[class$="_footerActions"]{order:2}` to
+ * keep its restart button reachable when the row wraps) can invert the pair.
+ * Because both rules only set `order`, the LAST one in the document wins for
+ * equal values, so this one has to outrank it: a higher value plus `!important`
+ * (its `order` is not important) restores the intended arrangement regardless
+ * of which plugin registered its stylesheet later.
+ *
+ * Attribute suffixes rather than the shell's class names: the class prefix is
+ * re-hashed per build, and this plugin has to keep working across shells.
+ */
+export const SETTINGS_SEAT_ORDER_CSS = `
+[class*="_footArea"] [class$="_settingsArea"] { order: 999 !important; }
+[class*="_footArea"] [class$="_footerActions"] { order: 0 !important; }
+`
+
 /** The settings navigation row's own glyph, painted as a currentColor mask. */
 export function settingsNavCss(dataUri: string): string {
   return `

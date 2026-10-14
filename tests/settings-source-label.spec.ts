@@ -202,6 +202,11 @@ describe('sourceLabel', () => {
 
 describe('SETTINGS_POLISH_CSS', () => {
   it('styles the classes the settings page actually renders', () => {
+    // The sequence editor renders one namespace (`dsh-panellist-settings-*`)
+    // while the page's own chrome uses another (`dsh-railist-settings-*`). Both
+    // are load-bearing: the polish chunk has to cover the editor's classes, and
+    // the page chunk the rest. Listing them here is what stops either from
+    // drifting out of style coverage.
     for (const className of [
       'dsh-panellist-settings-source',
       'dsh-panellist-settings-rows',
@@ -211,6 +216,15 @@ describe('SETTINGS_POLISH_CSS', () => {
       'dsh-panellist-settings-members',
       'dsh-panellist-settings-member',
       'dsh-panellist-settings-dropZone',
+      'dsh-panellist-settings-block',
+      'dsh-panellist-settings-blockTitle',
+      'dsh-panellist-settings-hint',
+      'dsh-panellist-settings-rowMain',
+      'dsh-panellist-settings-rowSelect',
+      'dsh-panellist-settings-rowGlyph',
+      'dsh-panellist-settings-rowName',
+      'dsh-panellist-settings-badges',
+      'dsh-panellist-settings-actions',
     ]) {
       expect(SETTINGS_POLISH_CSS, className).toContain(`.${className}`)
     }

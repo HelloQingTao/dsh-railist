@@ -354,4 +354,86 @@ export const SETTINGS_POLISH_CSS = `
   font-size: 12px;
   line-height: 18px;
 }
+
+/*
+ * The pending-edit bar. It is rendered above the sequence list so the two ways
+ * out of a previewed reorder are the first thing the eye lands on, and it is
+ * the only element on the page that carries a brand-coloured fill — which is
+ * what makes "Save" the obvious choice when the bar appears.
+ */
+.dsh-panellist-settings-commitBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l2, color-mix(in srgb, currentColor 16%, transparent));
+  border-radius: var(--dsw-radius-lg, 12px);
+  background: var(--dsw-alias-bg-layer-3, var(--dsh-railist-fill, color-mix(in srgb, currentColor 5%, transparent)));
+}
+
+.dsh-panellist-settings-commitBar[hidden] { display: none; }
+
+.dsh-panellist-settings-commitHint {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsh-railist-secondary, var(--dsw-alias-label-secondary, currentColor));
+}
+
+.dsh-panellist-settings-commitActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.dsh-panellist-settings-commitAction {
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: var(--dsw-radius-md, 8px);
+  border: 1px solid var(--dsw-alias-border-l2, color-mix(in srgb, currentColor 16%, transparent));
+  background: transparent;
+  color: var(--dsh-railist-secondary, var(--dsw-alias-label-secondary, currentColor));
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.dsh-panellist-settings-commitAction:hover:not(:disabled) {
+  border-color: var(--dsw-alias-border-l3, color-mix(in srgb, currentColor 24%, transparent));
+  background: var(--dsw-alias-interactive-bg-hover, var(--dsh-railist-fill-strong, color-mix(in srgb, currentColor 11%, transparent)));
+  color: var(--dsw-alias-label-primary, currentColor);
+}
+
+.dsh-panellist-settings-commitSave {
+  border-color: transparent;
+  background: var(--dsw-alias-brand-primary, currentColor);
+  color: var(--dsw-alias-on-accent, var(--dsw-alias-label-primary, currentColor));
+}
+
+.dsh-panellist-settings-commitSave:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--dsw-alias-interactive-bg-active, var(--dsh-railist-fill-strong, color-mix(in srgb, currentColor 11%, transparent)));
+  color: var(--dsw-alias-on-accent, var(--dsw-alias-label-primary, currentColor));
+}
+
+.dsh-panellist-settings-commitAction:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary, currentColor);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-panellist-settings-row,
+  .dsh-panellist-settings-rowSelect,
+  .dsh-panellist-settings-action,
+  .dsh-panellist-settings-member,
+  .dsh-panellist-settings-commitAction {
+    transition: none;
+  }
+}
 `.trim()

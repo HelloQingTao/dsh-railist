@@ -10,7 +10,7 @@
  * remounting it.
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import type { ProfileConfig } from '../../shared/config.ts'
+import { cloneProfileConfig, type ProfileConfig } from '../../shared/config.ts'
 import { materializeSequence } from '../../shared/edit.ts'
 import type { SelfCheckState, SettingsUnitDeps } from '../contracts.ts'
 import type { I18nKey, Translator } from '../i18n/index.ts'
@@ -120,6 +120,17 @@ export function Section({ deps }: SectionProps): ReactNode {
   const registered = deps.registered()
   const health = deps.health()
 
+  /**
+   * Whether the file still needs writing.
+   *
+   * The store keeps the section the host last confirmed (`saved`) beside the
+   * working copy (`profile`), and a drag only touches the latter — so this is
+   * the exact "you have edits that are not on disk yet" question, answered
+   * without the page holding a copy of its own that could drift.
+   */
+  const dirty = snapshot.saved !== null
+    && JSON.stringify(snapshot.saved) !== JSON.stringify(snapshot.profile)
+
   const apply = useCallback((edit: (profile: ProfileConfig) => ProfileConfig): void => {
     void deps.store.update(edit)
   }, [deps])
@@ -130,11 +141,30 @@ export function Section({ deps }: SectionProps): ReactNode {
    * `rows` carries each row's resolved container, so a cross-seat drag is stored
    * as that row's seat in the new sequence — without it the drag would only live
    * in the store's `movedRow` and vanish on the next reload.
+   *
+   * Memory only: a drag fires on every pointer move, and one `PUT` per move made
+   * the list stutter. `commit` writes the accumulated result when the user asks.
+   *
+   * The seat is already materialized into the sequence by the edit below, so the
+   * `moved` the caller names is no longer needed here — the earlier design
+   * carried it only because the seat itself was not yet stored.
    */
-  const applyStructural = useCallback((edit: (profile: ProfileConfig) => ProfileConfig, moved?: string | null): void => {
+  const applyStructural = useCallback((edit: (profile: ProfileConfig) => ProfileConfig): void => {
     const rows = deps.plan().rows.map(row => ({ kind: row.kind, id: row.id, container: row.container }))
-    void deps.store.update(profile => edit(materializeSequence(profile, rows)), moved ?? null)
+    deps.store.preview(profile => edit(materializeSequence(profile, rows)))
   }, [deps])
+
+  /** Persist what the drags produced. One write, however many moves led here. */
+  const save = useCallback((): void => {
+    void deps.store.commit()
+  }, [deps])
+
+  /** Drop every unpersisted edit and go back to what the file says. */
+  const discard = useCallback((): void => {
+    const saved = snapshot.saved
+    if (saved === null) return
+    deps.store.preview(() => cloneProfileConfig(saved))
+  }, [deps, snapshot.saved])
 
   const rerun = useCallback(() => deps.selfCheck.rerun(), [deps])
 
@@ -159,6 +189,32 @@ export function Section({ deps }: SectionProps): ReactNode {
       </header>
 
       {snapshot.status === 'loading' ? <p className="dsh-railist-settings-hint">{t('common.loading')}</p> : null}
+
+      {/* The pending-edit bar. It stays out of the way until a drag actually
+          changed something, so the page reads the same as before for anyone who
+          never drags. `data-dirty` is the styling hook. */}
+      <div
+        className="dsh-panellist-settings-commitBar"
+        data-testid="dsh-railist-settings-commitBar"
+        data-dirty={dirty ? 'true' : 'false'}
+        hidden={!dirty}
+      >
+        <p className="dsh-panellist-settings-commitHint">{t('settings.sequence.pendingHint')}</p>
+        <div className="dsh-panellist-settings-commitActions">
+          <button
+            type="button"
+            className="dsh-panellist-settings-commitAction"
+            data-action="discard"
+            onClick={discard}
+          >{t('settings.sequence.discard')}</button>
+          <button
+            type="button"
+            className="dsh-panellist-settings-commitAction dsh-panellist-settings-commitSave"
+            data-action="save"
+            onClick={save}
+          >{t('settings.sequence.save')}</button>
+        </div>
+      </div>
 
       <SequenceEditor
         plan={plan}

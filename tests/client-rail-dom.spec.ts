@@ -13,7 +13,7 @@
  *    passes", which is the regression these specs exist for.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createRailDom, ROW_ATTR, SEAT_CONTAINER_SUFFIX, SEAT_SLOT_ATTR } from '../src/client/rail/dom.ts'
+import { createRailDom, GHOST_ATTR, ROW_ATTR, SEAT_CONTAINER_SUFFIX, SEAT_SLOT_ATTR } from '../src/client/rail/dom.ts'
 import type { ManagedSeat } from '../src/client/registry/rail.tsx'
 
 /**
@@ -68,7 +68,12 @@ function rowsIn(seat: ManagedSeat): string[] {
   if (scope === null) return []
   return [...scope.children]
     .filter(child => child.tagName !== 'STYLE' && !child.hasAttribute('data-slot'))
-    .map(child => (child.textContent ?? '').trim())
+    .map(child => {
+      // A ghost slot carries the contributor's text in a portal, which the
+      // fixture has not rendered; the row is still identified by its stamp.
+      if (child.hasAttribute(GHOST_ATTR)) return child.getAttribute(ROW_ATTR) ?? ''
+      return (child.textContent ?? '').trim()
+    })
 }
 
 let dom: ReturnType<typeof createRailDom> | null = null
@@ -169,6 +174,34 @@ describe('rail DOM: seat placement', () => {
     expect(moved).toContain('能力面板')
     expect(moved).toContain('插件')
     expect(moved).toContain('使用统计')
+    expect(rowsIn('footer')).toEqual([])
+  })
+
+  it('positions a ghost slot by the plan order among the panel list rows', () => {
+    // A footer row moved up is rendered by the ghost, whose slot is a DIV (not a
+    // BUTTON) that the ghost appends to the end of the nav. Recognising only
+    // BUTTONs left it glued there regardless of the sequence — the reported
+    // "moved it in settings but the rail did not follow".
+    // The footer seat is empty: the ghost replaced the entry, so React renders
+    // no host node there any more — only the slot element exists.
+    document.body.append(
+      buildSeat('top', [{ id: 'plugins', text: '插件' }, { id: 'usage', text: '使用统计' }]),
+      buildSeat('footer', []),
+    )
+    dom = createRailDom()
+    const nav = document.querySelector('nav')
+    const ghost = document.createElement('div')
+    ghost.setAttribute(GHOST_ATTR, '')
+    ghost.setAttribute(ROW_ATTR, 'capability')
+    nav?.append(ghost)
+    dom.apply([
+      { id: 'plugins', container: 'top', order: 0, hidden: false },
+      { id: 'capability', container: 'top', order: 1, hidden: false },
+      { id: 'usage', container: 'top', order: 2, hidden: false },
+    ])
+    // The slot is stamped and sits between the rows that bracket its order.
+    expect(ghost.getAttribute('data-dsh-railist-order')).toBe('1')
+    expect(rowsIn('top')).toEqual(['插件', 'capability', '使用统计'])
     expect(rowsIn('footer')).toEqual([])
   })
 

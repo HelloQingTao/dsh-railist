@@ -224,11 +224,12 @@ function isPlacedByOrder(element: HTMLElement): boolean {
  * Position a ghost slot at `order` among `host`'s children, and report whether
  * the move happened.
  *
- * The rows around it carry their order as {@link ROW_ATTR} siblings; this module
- * stamped those attributes on its own passes, and the shell renders its rows in
- * the order the rewrite pass wrote, so the sibling sequence IS the seat's order.
- * The slot goes after the last sibling whose order is at or below its own, which
- * keeps it stable across re-renders instead of oscillating between two rows.
+ * The rows around it carry their order as `data-dsh-railist-order` siblings; this
+ * module stamped those attributes on its own passes, and the shell renders its
+ * rows in the order the rewrite pass wrote, so the sibling sequence IS the seat's
+ * order. The slot goes BEFORE the first sibling whose order is strictly greater
+ * than its own, which keeps it stable across re-renders instead of oscillating
+ * between two rows.
  *
  * A `hidden` ghost is not here: the pass skips it, and the ghost hides its own
  * slot with `display: none`, so the visible sequence never has a hole in it.
@@ -237,8 +238,10 @@ function placeByOrder(host: HTMLElement, element: HTMLElement, order: number): b
   const rows = [...host.children].filter(
     (child): child is HTMLElement =>
       child instanceof HTMLElement && child !== element && child.hasAttribute(ROW_ATTR))
-  const before = rows.find(row => Number(row.getAttribute(ROW_ATTR) === null ? 0 : orderOf(row)) > order)
+  const before = rows.find(row => orderOf(row) > order)
   if (before === undefined) {
+    // No sibling claims a later position: the slot belongs at the end. That is
+    // also where the ghost's own effect put it, so the common case is a no-op.
     if (element.parentNode === host && host.lastElementChild === element) return false
     host.appendChild(element)
     return true
@@ -283,14 +286,6 @@ export function rowHost(seat: ManagedSeat): HTMLElement | null {
 /**
  * Every row element the shell currently renders in one seat.
  *
- * `top` puts its anchors INSIDE each row button (`button > … > [data-slot]`), so
- * the rows are the nav's own `button` children. The other two seats put the
- * anchors around their rows, so the rows are the anchor's element children minus
- * the stylesheet a contributor may inject alongside.
- */
-/**
- * Every row element the shell currently renders in one seat.
- *
  * The two shapes differ, and the difference is load-bearing — it was read off a
  * live shell rather than assumed:
  *
@@ -311,7 +306,20 @@ function rowElements(seat: ManagedSeat): HTMLElement[] {
   if (seat === 'top') {
     const nav = host.tagName === 'NAV' ? host : host.querySelector('nav')
     if (nav === null) return []
-    return [...nav.children].filter((child): child is HTMLElement => child.tagName === 'BUTTON')
+    // A contributor's top row is a BUTTON the shell renders. A footer row moved
+    // up here is not: it is rendered by the ghost host, whose slot is a plain
+    // DIV (Ghost.tsx `createSlot`) carrying the ghost attribute. Filtering on
+    // the tag alone drops it, so the pass never stamps an order on it and it
+    // stays glued to the end of the list — which is exactly the "moved it in
+    // settings but the rail did not follow" report. The ghost attribute is the
+    // reliable second shape; the element is this module's own, so accepting it
+    // is safe (the DOM pass may place it anywhere).
+    return [...nav.children].filter(
+      (child): child is HTMLElement =>
+        child instanceof HTMLElement &&
+        (child.tagName === 'BUTTON' || child.hasAttribute(GHOST_ATTR)) &&
+        child.tagName !== 'STYLE',
+    )
   }
   // Rows live inside the seat's own anchor.
   const anchor = host.querySelector(`[data-slot="${SEAT_SLOT_ATTR[seat]}"]`)
