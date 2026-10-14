@@ -3,10 +3,14 @@
  *
  * Data flow:
  *
- *   store ──profile──┐
+ *   store ──profile──┐            (the working copy: pending drags included)
  *                    ├─▶ buildPlan ──▶ rail.applyOverrides()  (order/label/glyph writes)
  *   rail.panels ─────┘            └──▶ groupUnit.sync()       (group rows + pages)
  *   selfCheck ──degradation───────┘
+ *
+ * The rail reads a SECOND projection of the same inputs, built from the section
+ * the file holds (`store.saved`): a drag only edits memory, so the sidebar must
+ * not move until the user saves. See {@link settledPlan}.
  *
  * Everything is pull-based: the plan is recomputed on a coalesced schedule from
  * three change sources (config store, slot ledger, self-check), and the units
@@ -14,7 +18,7 @@
  * re-registration to become visible.
  */
 import type { ReactNode } from 'react'
-import type { BuiltinIconName } from '../shared/config.ts'
+import type { BuiltinIconName, ProfileConfig } from '../shared/config.ts'
 import { buildPlan, type Plan, type PlanPanel, type RegisteredPanel } from '../shared/model.ts'
 import type { HealthReport } from '../shared/protocol.ts'
 import type { ClientContext } from './ctx.ts'
@@ -186,6 +190,14 @@ export function createController(deps: ControllerDeps): RailistController {
   const { ctx, store, translate, styles } = deps
   const listeners = new Set<() => void>()
   let cachedPlan: Plan | null = null
+  /**
+   * The same projection, built from the section the FILE holds.
+   *
+   * Two orderings coexist while a drag is pending: the list the user is
+   * rearranging follows the working copy, and the rail follows the file. Pressing
+   * Save is what makes the second catch up with the first.
+   */
+  let cachedSettledPlan: Plan | null = null
   let scheduled = false
   let inRecompute = false
   let disposed = false
@@ -201,7 +213,7 @@ export function createController(deps: ControllerDeps): RailistController {
   styles.register('settings-nav', settingsNavCss(settingsNavDataUri()))
 
   // --- plan -----------------------------------------------------------------
-  const rail = createRailAdapter(ctx, () => plan(), deps.glyph)
+  const rail = createRailAdapter(ctx, () => settledPlan(), deps.glyph)
   const dom = createRailDom()
 
   /**
@@ -233,22 +245,45 @@ export function createController(deps: ControllerDeps): RailistController {
     seats: () => dom.seats(),
   })
 
+  /** Project one section onto the rail's rows. Pure; every caller caches it. */
+  const project = (profile: ProfileConfig, moved: string | null): Plan =>
+    degrade(buildPlan(rail.panels(), profile, renderedRowIds(), moved), selfCheck.getState())
+
+  /**
+   * The rows as the settings page lists them.
+   *
+   * The working copy, pending drag included: the list the user is rearranging has
+   * to follow the pointer, and that is the whole point of an edit being pending.
+   */
   const plan = (): Plan => {
     if (cachedPlan === null) {
       const current = store.getSnapshot()
-      cachedPlan = degrade(
-        buildPlan(rail.panels(), current.profile, renderedRowIds(), current.movedRow),
-        selfCheck.getState(),
-      )
+      cachedPlan = project(current.profile, current.movedRow)
     }
     return cachedPlan
+  }
+
+  /**
+   * The rows as the rail is allowed to show them: the section the file holds.
+   *
+   * A drag writes memory only (`store.preview`), so projecting the working copy
+   * onto the rail would move the real sidebar before the user pressed Save — the
+   * arrangement the settings page promises with "this order is a preview". `saved`
+   * is null only before the first read, when nothing can be pending either.
+   */
+  const settledPlan = (): Plan => {
+    if (cachedSettledPlan === null) {
+      const current = store.getSnapshot()
+      cachedSettledPlan = project(current.saved ?? current.profile, current.movedRow)
+    }
+    return cachedSettledPlan
   }
 
   // --- units ----------------------------------------------------------------
   const groupUnit = createGroupUnit({
     ctx,
     rail,
-    plan,
+    plan: settledPlan,
     translate,
     glyph: deps.glyph,
     subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } },
@@ -311,15 +346,15 @@ export function createController(deps: ControllerDeps): RailistController {
     inRecompute = true
     try {
       const current = store.getSnapshot()
-      cachedPlan = degrade(
-        buildPlan(rail.panels(), current.profile, renderedRowIds(), current.movedRow),
-        selfCheck.getState(),
-      )
+      // Both projections are rebuilt here: the page lists the working copy, the
+      // rail only ever shows what the file holds.
+      cachedPlan = project(current.profile, current.movedRow)
+      cachedSettledPlan = project(current.saved ?? current.profile, current.movedRow)
       if (!selfCheck.getState().readOnly) rail.applyOverrides()
       groupUnit.sync()
       // After the registry and the group rows settled: the DOM pass needs the
       // elements the shell rendered for the rows whose order we just wrote.
-      if (!selfCheck.getState().readOnly) placeRows(cachedPlan)
+      if (!selfCheck.getState().readOnly) placeRows(cachedSettledPlan)
       for (const listener of listeners) listener()
     } finally {
       inRecompute = false
@@ -383,6 +418,7 @@ export function createController(deps: ControllerDeps): RailistController {
     },
     refresh: () => {
       cachedPlan = null
+      cachedSettledPlan = null
       recompute()
     },
     dispose: () => {

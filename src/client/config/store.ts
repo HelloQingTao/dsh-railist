@@ -297,6 +297,20 @@ export function createRailistStore(options: { profileId?: string; fetch?: FetchL
       if (disposed) return false
       const previous = snapshot.profile
       const next = mutator(cloneProfileConfig(snapshot.profile))
+      /**
+       * An ordinary edit is written straight through — unless a structural edit
+       * is already waiting to be saved.
+       *
+       * `put` sends the whole section, so writing here would also write the
+       * pending order: the user would watch the rail jump to an arrangement they
+       * never saved, which is exactly what "this order is a preview" promises not
+       * to happen. While something is pending, this edit joins the pending batch
+       * instead (the bar is on screen and Save is what makes either one real).
+       */
+      if (snapshot.saved !== null && JSON.stringify(snapshot.saved) !== JSON.stringify(snapshot.profile)) {
+        publish({ profile: next, movedRow: moved ?? null, revision: snapshot.revision + 1 })
+        return true
+      }
       publish({ profile: next, movedRow: moved ?? null, revision: snapshot.revision + 1 })
       const ok = await put(next)
       if (!ok && !disposed) {

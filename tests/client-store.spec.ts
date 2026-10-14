@@ -142,6 +142,33 @@ describe('createRailistStore', () => {
     store.dispose()
   })
 
+  it('joins a pending structural edit instead of writing it behind the user', async () => {
+    const { fetch, calls } = stubFetch()
+    const store = createRailistStore({ fetch })
+    await store.load()
+
+    // A drag only previews: memory moves, the file does not.
+    expect(store.preview(profile => ({ ...profile, sequence: [{ type: 'entry', id: 'a' }] }))).toBe(true)
+    expect(calls.some(call => call.method === 'PUT')).toBe(false)
+    expect(store.getSnapshot().profile.sequence).toEqual([{ type: 'entry', id: 'a' }])
+
+    // An ordinary edit arriving while that preview is pending is not written
+    // either: `put` sends the whole section, so it would write the unsaved
+    // order along with it — which is what "this order is a preview" forbids.
+    expect(await store.update(profile => setPanelHidden(profile, 'b', true))).toBe(true)
+    expect(calls.some(call => call.method === 'PUT')).toBe(false)
+    expect(store.getSnapshot().profile.sequence).toEqual([{ type: 'entry', id: 'a' }])
+    expect(store.getSnapshot().profile.entries['b']).toEqual({ hidden: true })
+
+    // Save is what makes both real, in one request.
+    expect(await store.commit()).toBe(true)
+    const put = calls.find(call => call.method === 'PUT')
+    expect(JSON.parse(put?.body ?? '{}')).toEqual({
+      profile: { sequence: [{ type: 'entry', id: 'a' }], entries: { b: { hidden: true } } },
+    })
+    store.dispose()
+  })
+
   it('imports a document by taking the matching profile section', async () => {
     const { fetch, calls } = stubFetch()
     const store = createRailistStore({ fetch })

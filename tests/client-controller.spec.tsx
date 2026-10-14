@@ -216,6 +216,35 @@ describe('controller: wiring', () => {
     expect(entry(h.ledger, 'skills').component).toBe(h.originals.get('skills'))
   })
 
+  it('does not move the rail for a pending preview, only for the saved section', async () => {
+    const h = build({
+      profile: {
+        sequence: [{ type: 'entry', id: 'plugins' }, { type: 'entry', id: 'schedules' }, { type: 'entry', id: 'skills' }],
+        entries: {},
+      },
+    })
+    h.controller.refresh()
+    await h.settle()
+    expect(entry(h.ledger, 'plugins').options.order).toBe(10)
+    expect(entry(h.ledger, 'skills').options.order).toBe(30)
+
+    // A drag edits memory only: the settings list has to follow it…
+    expect(h.store.preview(profile => ({ ...profile, sequence: [{ type: 'entry', id: 'skills' }] }))).toBe(true)
+    h.controller.refresh()
+    await h.settle()
+    expect(h.controller.plan().rows.map(row => row.id)).toEqual(['skills', 'plugins', 'schedules'])
+    // …while the rail keeps showing the section the file holds.
+    expect(entry(h.ledger, 'skills').options.order).toBe(30)
+    expect(entry(h.ledger, 'plugins').options.order).toBe(10)
+
+    // Save is what makes the arrangement real.
+    await h.store.commit()
+    h.controller.refresh()
+    await h.settle()
+    expect(entry(h.ledger, 'skills').options.order).toBe(10)
+    expect(entry(h.ledger, 'plugins').options.order).toBe(20)
+  })
+
   it('registers the settings section under the plugin id', () => {
     const h = build()
     h.controller.refresh()

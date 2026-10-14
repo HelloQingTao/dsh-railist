@@ -577,7 +577,12 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
             // Only a panel can join a group; a group payload always takes a
             // position, so it never sees the `inside` band.
             const canJoin = isGroup && payload.kind === 'panel' && payload.fromGroupId !== row.id
-            setDropTarget({ key: row.railId, edge: edgeOf(event, canJoin) })
+            const next = { key: row.railId, edge: edgeOf(event, canJoin) }
+            // A `dragover` fires for every pointer move, so handing a fresh object
+            // to `setState` here re-rendered the whole editor dozens of times a
+            // second — the drag stutter. Only a changed candidate is news.
+            setDropTarget(current =>
+              current !== null && current.key === next.key && current.edge === next.edge ? current : next)
           }}
         onDragLeave={pinned
           ? undefined
@@ -709,7 +714,9 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                       return
                     }
                     setDropAtEnd(false)
-                    setDropTarget({ key, edge: edgeOf(event, false) })
+                    const next = { key, edge: edgeOf(event, false) }
+                    setDropTarget(current =>
+                      current !== null && current.key === next.key && current.edge === next.edge ? current : next)
                   }}
                   onDragLeave={event => {
                     const to = event.relatedTarget as Node | null

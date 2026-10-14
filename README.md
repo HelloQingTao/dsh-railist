@@ -127,7 +127,7 @@ The **settings navigation row has its own dedicated glyph** (a panel list, at th
 
 Appearance edits — a rename, an icon, show/hide — **take effect and are written immediately**: no need to restart DSH, no need to reload any plugin, and no need to reload the page. That holds even for the edits that write nothing at all: the rewrite pass compares a digest of everything the rail renders (order, name, icon, shown/hidden, suppressed) and re-projects when it moves, so a second icon pick or a second rename lands on the rail just like the first one did.
 
-**Structural edits — a drag, a merge into a group, an ungroup — deliberately run at two speeds.** The rail and the list follow every pointer move, but nothing reaches the file until you say so: the first structural change makes a **pending-edit bar** appear above the list — *"this order is only a preview; it is kept after you save"* — carrying **Discard** and **Save**. A drag used to be a dozen writes, one per pointer move, and the list visibly stuttered; the store now holds the working copy beside the last one the host confirmed, so a drag touches memory only and **Save** writes the accumulated result in a single pass. **Discard** restores the file's own section, so no unsaved move can outlive the decision.
+**Structural edits — a drag, a merge into a group, an ungroup — deliberately run at two speeds.** This list follows every pointer move; the rail deliberately does not, because the point of a preview is being able to look at a candidate arrangement before committing it — and nothing reaches the file until you say so: the first structural change makes a **pending-edit bar** appear above the list — *"this order is only a preview; it is kept after you save"* — carrying **Discard** and **Save**. A drag used to be a dozen writes, one per pointer move, and the list visibly stuttered; the store now holds the working copy beside the last one the host confirmed, so a drag touches memory only and **Save** writes the accumulated result in a single pass — the rail then moves to the arrangement that was just kept. **Discard** restores the file's own section, so no unsaved move can outlive the decision.
 
 A change that moves a row into another seat is applied by the placement pass (§7.6), which runs after the registry writes settle.
 
@@ -185,7 +185,7 @@ Page content:
 
 - Lists the whole left column — every Panel entry of both managed seats from the first open, with nothing to adopt first. The list order **is** the column order, so the top of the list is the top seat and a row dragged past a seat boundary changes seat (§2.11).
 - **Drag and drop is the primary channel.** Drag a row **onto another row** to reorder it (the top/bottom third of the target places it before/after), **onto a Group row** to join that Group (its middle band), **out of a Group onto the list** to leave it, and **onto the gap under the last row** to send it to the end.
-- **A drag is staged, not written.** The rail and this list follow it at once, but the file is untouched until you press **Save** in the **pending-edit bar** that appears above the list on the first structural change — **Discard** drops every unpersisted move and restores the file's order, so trying an order costs nothing (§2.9).
+- **A drag is staged, not written.** This list follows it at once — the rail does not, so an arrangement can be tried without it taking effect — and the file is untouched until you press **Save** in the **pending-edit bar** that appears above the list on the first structural change; that press is also what moves the rail to the new order — **Discard** drops every unpersisted move and restores the file's order, so trying an order costs nothing (§2.9).
 - The **grab handle** (`⠿`, on the left of every row and every member) is the **only draggable node** — the row itself is not draggable, so Select / Hide / Ungroup stay mis-touch-proof — and it is also the **keyboard control**: focus it and press `↑` / `↓` to step the row one position (the member list inside a Group behaves the same). There are **deliberately no Move up / Move down buttons**: the handle carries the same capability, and a button pair per row was two more tab stops per entry for an action the arrow keys already cover.
 - Each row's **"Group with next"** creates a Group; a Group row's **"Ungroup"** dissolves one.
 - Every row carries a **"Hide"/"Show"** button that toggles that row in place — Group rows included, and the **member rows inside a Group** too (a hidden member leaves the Group menu, §2.3).
@@ -446,7 +446,7 @@ dsh-railist/
 
 #### 7.2 The rewrite pass and the nudge
 
-`registry/rail.tsx` reads the rail slots, captures each entry's original `order`/`label`/component the first time it sees it, and writes only what differs. Three consequences are worth knowing:
+`registry/rail.tsx` reads the rail slots, captures each entry's original `order`/`label`/component the first time it sees it, and writes only what differs. The controller runs the same loop over **two projections of the same inputs**: the **working copy** (`store.profile`, a pending drag included) feeds the settings page, and the **section the file holds** (`store.saved`) feeds the rail — so a staged drag can rearrange the list while the sidebar stays exactly as saved until the write is confirmed. Three consequences are worth knowing:
 
 - **Compare before write, always.** Every writer compares first and every generated value (the label thunk, the glyph wrapper) is cached per captured registration. That is not a style preference: a fresh identity on every pass would never compare equal, so the pass would report a change, nudge, and re-enter itself forever. The controller additionally bounds a burst at `CASCADE_LIMIT` (60) passes and logs a warning.
 - **A nudge is owed by the plan, not by the write.** A raw field write bumps no ledger version, so nothing re-renders. After a batch of writes the pass registers a throwaway row and disposes it in the same task, which mutates the ledger twice and makes the shell re-read `order`/`label`. An edit that changes only what our own wrapper paints (a second built-in icon on a panel that already has one, a rename resolved by the already-installed thunk) writes no field at all — so the pass also compares a **digest of everything the rail renders** (order, label, icon, hidden, suppressed; panels and groups) and nudges when it moves, even with nothing to write. The first pass of a mount only remembers the digest, so a fresh install stays a strict no-op.
@@ -697,7 +697,7 @@ DSH 左侧栏是一份**只读投影**：shell 枚举 `sidebar.panellist` 槽位
 
 外观类改动（改名、换图标、显示/隐藏）**即时生效、也即时落盘**：不用重启 DSH，不用重载任何插件，也不用刷新页面。那些什么都没写的编辑同样成立：改写过程会比较「轨道所渲染的一切」的摘要（顺序、名字、图标、显示/隐藏、被压制），只要它变了就重新投影，所以第二次换图标、第二次改名，和第一次一样会落到轨道上。
 
-**结构性改动（拖拽、并入分组、解散分组）故意分成两拍。** 轨道和列表跟着每一次指针移动走，但**在你发话之前一个字都不写盘**：第一次结构性改动会让列表上方出现一条**待保存条**——「当前顺序只是预览，保存后才会在刷新后保留。」——上面是**「放弃更改」**和**「保存更改」**。以前一次拖动就是十几次写盘（指针每动一下写一次），列表会肉眼可见地卡顿；现在 store 把工作副本放在宿主最后确认的那一份旁边，拖动只碰内存，**保存**时一次性把累积结果写下去，**放弃**则把文件里的那一段恢复回来，没保存的东西不可能留下来。
+**结构性改动（拖拽、并入分组、解散分组）故意分成两拍。** 这份列表跟着每一次指针移动走，**轨道则故意不动**——预览的意义就是「先看看这个顺序长什么样，再决定要不要」，而**在你发话之前一个字都不写盘**：第一次结构性改动会让列表上方出现一条**待保存条**——「当前顺序只是预览，保存后才会在刷新后保留。」——上面是**「放弃更改」**和**「保存更改」**。以前一次拖动就是十几次写盘（指针每动一下写一次），列表会肉眼可见地卡顿；现在 store 把工作副本放在宿主最后确认的那一份旁边，拖动只碰内存，**保存**时一次性把累积结果写下去，轨道也随之切到刚保存的顺序，**放弃**则把文件里的那一段恢复回来，没保存的东西不可能留下来。
 
 会把某一行搬进另一格的改动，由放置过程执行（§7.6），它在注册表写入稳定之后运行。
 
@@ -754,7 +754,7 @@ shell 可能在同一个页面上多次应用同一个客户端 bundle（文件�
 
 - 列出整个左侧栏——从第一次打开起，两个被管理格子的所有面板条目都在，不需要先认领。列表顺序**就是**这一列的顺序，因此列表顶部就是上格，一行被拖过格子边界就会换格（§2.11）。
 - **拖拽是主要通道。** 把一行拖**到另一行上**完成排序（目标的上/下三分之一分别表示放在它之前/之后）、拖**到分组行上**加入该分组（中间那条带）、**从分组里拖到列表上**离开分组、**拖到最后一行之下的空档**送到末尾。
-- **拖拽是先暂存、不写盘的。** 轨道和这份列表立刻跟随，但**在你按下列表上方那条待保存条里的「保存更改」之前，文件完全不动**；「放弃更改」会丢弃所有未持久化的移动、把文件里的顺序恢复回来，所以随便试一个顺序没有代价（§2.9）。
+- **拖拽是先暂存、不写盘的。** 这份列表立刻跟随，**轨道则不动**（这样才能先试一个顺序而不生效），而**在你按下列表上方那条待保存条里的「保存更改」之前，文件完全不动**；这一下「保存更改」也是让轨道切到新顺序的那一下；「放弃更改」会丢弃所有未持久化的移动、把文件里的顺序恢复回来，所以随便试一个顺序没有代价（§2.9）。
 - **拖拽把手**（`⠿`，在每一行和每个成员左侧）是**唯一可拖的节点**——行本身不可拖，这样「选中 / 隐藏 / 解散」不会被轻微移动的点击误触——同时也是**键盘控件**：聚焦它按 `↑` / `↓` 让该行上下移动一格（分组内的成员列表同理）。**故意没有上移/下移按钮**：把手已经承载同样的能力，而每行一对按钮等于每个条目多两个 Tab 停留点，只为做方向键已经覆盖的事。
 - 每行的 **「与下一项合并为分组」** 建一个分组；分组行的 **「解散分组」** 解散一个。
 - 每行都有 **「隐藏」/「显示」** 按钮，就地切换该行——分组行也有，**分组内的成员行也有**（被隐藏的成员不进分组菜单，§2.3）。
@@ -1015,7 +1015,7 @@ dsh-railist/
 
 #### 7.2 改写过程与 nudge
 
-`registry/rail.tsx` 读取轨道槽位，第一次看到某个条目时记下它原始的 `order`/`label`/组件，之后只写有差异的部分。有三点值得知道：
+`registry/rail.tsx` 读取轨道槽位，第一次看到某个条目时记下它原始的 `order`/`label`/组件，之后只写有差异的部分。控制器把同一条循环跑在**同一份输入的两种投影**上：**工作副本**（`store.profile`，包含尚未保存的拖动）喂给设置页，**文件里那一段**（`store.saved`）喂给轨道——所以暂存的拖动可以改列表，而侧边栏在写入被确认之前始终是保存时的样子。有三点值得知道：
 
 - **永远先比较再写。** 每个写入者都先比较，每个生成物（label thunk、字形包装器）都按捕获到的注册项缓存。这不是风格偏好：每次都是新身份就永远比较不相等，于是这一趟会报告变化、nudge、再进入自己，无限循环。控制器另外把一次爆发限制在 `CASCADE_LIMIT`（60）趟，并打警告日志。
 - **nudge 是计划的义务，而不是写入的义务。** 直接写字段不提升账本版本，因此没有任何东西会重渲染。一批写入之后，这一趟会注册一个一次性行并在同一个任务里释放它——这会改动账本两次，让 shell 重读 `order`/`label`。而只改变我们自己包装器绘制内容（已内置图标的行再换一个内置图标、由已装好的 thunk 解析的改名）的编辑根本不写字段——所以这一趟还会比较**轨道所渲染一切的摘要**（order、label、图标、隐藏、被压制；面板与分组），只要它变了就 nudge，即使无字段可写。挂载的第一趟只记住摘要，因此新装状态是严格的 no-op。
