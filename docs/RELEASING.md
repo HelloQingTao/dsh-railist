@@ -139,6 +139,7 @@ npm stage list             # 记下 stage id；status 从 validating 变 staged 
 | `0.0.0-stage` | npm 自动 | 用 staged publishing 新建包时 npm 放的公开占位版本 |
 | `0.1.0` | 手动 `npm stage publish` + 浏览器 2FA 批准 | OIDC 配置之前的一次性路径 |
 | `0.1.1` | CI / OIDC（tag `v0.1.1`） | 首次验证 trusted publisher，附带 SLSA provenance |
+| `0.1.2` | CI / OIDC（tag `v0.1.2`） | README 精简版（1133 → 117 行）随包发布 |
 
 ---
 
