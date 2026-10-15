@@ -2,6 +2,10 @@
 
 **English** | [中文](#中文)
 
+---
+
+## English
+
 Manage the whole DSH left column as one list: reorder rows across the panel list and the footer action row, rename them, change their icons, hide them, and fold them into Groups. Everything is configured in a new Settings tab and applies immediately.
 
 > A fork of [dsh-panellist](https://github.com/qwq1999/dsh-panellist). Upstream manages the panel list alone; this fork extends it to a single sequence spanning two seats.
