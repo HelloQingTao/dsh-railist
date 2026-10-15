@@ -3,16 +3,17 @@
  *
  * Sections render inside the settings dialog's content column, so this page
  * owns its own header and cards. It is the single owner of reactivity: the
- * controller's change stream (`deps.subscribe`), the language
- * (`deps.translate.subscribe`) and the self-check controller are all read
- * through `useSyncExternalStore`-style hooks, and every child below is a plain
+ * controller's change stream (`deps.subscribe`) and the language
+ * (`deps.translate.subscribe`) are both read through
+ * `useSyncExternalStore`-style hooks, and every child below is a plain
  * controlled component, so any plan/store change re-renders the page without
  * remounting it.
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
-import { cloneProfileConfig, type ProfileConfig } from '../../shared/config.ts'
+import { cloneProfileConfig, isEntryItem, isManagedSeat, type ManagedSeat, type ProfileConfig } from '../../shared/config.ts'
 import { materializeSequence } from '../../shared/edit.ts'
-import type { SelfCheckState, SettingsUnitDeps } from '../contracts.ts'
+import { resolveSeats } from '../../shared/model.ts'
+import type { SettingsUnitDeps } from '../contracts.ts'
 import type { I18nKey, Translator } from '../i18n/index.ts'
 import { AppearanceEditor } from './AppearanceEditor.tsx'
 import { ConfigBlock } from './ConfigBlock.tsx'
@@ -50,20 +51,6 @@ function useTranslate(deps: SettingsUnitDeps): Translator['t'] {
     (key: I18nKey, params?: Record<string, string | number>) => deps.translate.t(key, params),
     [deps, lang],
   )
-}
-
-/** The self-check state, cached between controller notifications. */
-function useSelfCheckState(deps: SettingsUnitDeps): SelfCheckState {
-  const cache = useRef<{ value: SelfCheckState } | null>(null)
-  const subscribe = useCallback((onChange: () => void) => deps.selfCheck.subscribe(() => {
-    cache.current = null
-    onChange()
-  }), [deps])
-  const getSnapshot = useCallback(() => {
-    if (cache.current === null) cache.current = { value: deps.selfCheck.getState() }
-    return cache.current.value
-  }, [deps])
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
 /**
@@ -112,7 +99,6 @@ function usePluginSources(deps: SettingsUnitDeps, t: Translator['t']): Record<st
 export function Section({ deps }: SectionProps): ReactNode {
   useControllerSubscription(deps)
   const t = useTranslate(deps)
-  const selfCheck = useSelfCheckState(deps)
   const [selected, setSelected] = useState<SequenceSelection | null>(null)
 
   const plan = deps.plan()
@@ -138,20 +124,40 @@ export function Section({ deps }: SectionProps): ReactNode {
   /**
    * Structural edits materialize the live rail order the user is looking at.
    *
-   * `rows` carries each row's resolved container, so a cross-seat drag is stored
-   * as that row's seat in the new sequence — without it the drag would only live
-   * in the store's `movedRow` and vanish on the next reload.
+   * `rows` carries each row's resolved container, so the edited sequence keeps
+   * every seat the user sees. A **cross-seat drag** needs one more fact the
+   * rows cannot carry: they describe the rail *before* the edit, so the dragged
+   * row's own entry would be materialized with its old seat. `moved` names the
+   * dragged row; its new seat is re-resolved from the post-edit order the same
+   * way the model does for a live drag (nearest unmoved row above), and only
+   * when it actually differs from the pre-drag seat is it written into the
+   * entry.
    *
    * Memory only: a drag fires on every pointer move, and one `PUT` per move made
    * the list stutter. `commit` writes the accumulated result when the user asks.
-   *
-   * The seat is already materialized into the sequence by the edit below, so the
-   * `moved` the caller names is no longer needed here — the earlier design
-   * carried it only because the seat itself was not yet stored.
    */
-  const applyStructural = useCallback((edit: (profile: ProfileConfig) => ProfileConfig): void => {
+  const applyStructural = useCallback((edit: (profile: ProfileConfig) => ProfileConfig, moved?: string | null): void => {
     const rows = deps.plan().rows.map(row => ({ kind: row.kind, id: row.id, container: row.container }))
-    deps.store.preview(profile => edit(materializeSequence(profile, rows)))
+    deps.store.preview(profile => {
+      const next = edit(materializeSequence(profile, rows))
+      if (moved == null) return next
+      // The dragged row's new seat: the nearest UNMOVED row above it in the
+      // post-edit order. `rows` predates the edit, so an unmoved row's
+      // container IS its post-edit seat; group rows resolve the same way.
+      const seats = new Map<string, ManagedSeat>()
+      for (const row of rows) {
+        if (isManagedSeat(row.container)) seats.set(row.id, row.container)
+      }
+      const ordered = next.sequence
+      const seat = resolveSeats(ordered, seats, moved).get(moved)
+      if (seat === undefined) return next
+      const before = rows.find(row => row.id === moved)?.container
+      if (seat === before) return next
+      const entry = next.sequence.find(item => item.id === moved)
+      if (entry === undefined || !isEntryItem(entry)) return next // a group row has no entry to seat
+      entry.seat = seat
+      return next
+    })
   }, [deps])
 
   /** Persist what the drags produced. One write, however many moves led here. */
@@ -165,8 +171,6 @@ export function Section({ deps }: SectionProps): ReactNode {
     if (saved === null) return
     deps.store.preview(() => cloneProfileConfig(saved))
   }, [deps, snapshot.saved])
-
-  const rerun = useCallback(() => deps.selfCheck.rerun(), [deps])
 
   const pluginSources = usePluginSources(deps, t)
 
@@ -251,13 +255,8 @@ export function Section({ deps }: SectionProps): ReactNode {
       <ConfigBlock
         plan={plan}
         snapshot={snapshot}
-        selfCheck={selfCheck}
         health={health}
-        registeredIds={registered.map(panel => panel.id)}
         t={t}
-        store={deps.store}
-        rerun={rerun}
-        apply={apply}
       />
     </section>
   )

@@ -50,6 +50,40 @@ import type { I18nKey, Translator } from '../i18n/index.ts'
  */
 const SECTION_ORDER = ['top', 'footer', 'pinned'] as const
 
+/**
+ * The two states of a row's visibility switch, on the shell's own 16×16 grid
+ * and stroked with `currentColor` — so they take the shell's label colour and
+ * follow the theme exactly like the rail's shipped icons.
+ *
+ * They are path data here rather than entries in `icons/builtin.tsx` on
+ * purpose: that catalogue is the *user-selectable* glyph set, listed in the
+ * schema and the icon picker, and a row's eye is neither — it is a control of
+ * this list. Keeping it local also keeps the config surface unchanged.
+ */
+const EYE_ON_PATHS = [
+  'M8 3.25C4.9 3.25 2.35 5.3 1.1 8c1.25 2.7 3.8 4.75 6.9 4.75S13.65 10.7 14.9 8C13.65 5.3 11.1 3.25 8 3.25Z',
+  'M8 6.1a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8Z',
+]
+
+const EYE_OFF_PATHS = [
+  'M8 3.25C4.9 3.25 2.35 5.3 1.1 8c1.25 2.7 3.8 4.75 6.9 4.75S13.65 10.7 14.9 8C13.65 5.3 11.1 3.25 8 3.25Z',
+  'M8 6.1a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8Z',
+  'M3.2 2.3 13.7 12.8',
+]
+
+/** One eye glyph, drawn inline so it inherits `currentColor`. */
+function eyeGlyph(paths: readonly string[]): ReactNode {
+  return (
+    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.2"
+      strokeLinecap="round" strokeLinejoin="round">
+      {paths.map(path => <path key={path} d={path} />)}
+    </svg>
+  )
+}
+
+const EYE_ON = eyeGlyph(EYE_ON_PATHS)
+const EYE_OFF = eyeGlyph(EYE_OFF_PATHS)
+
 /** Which row the appearance editor is currently editing. */
 export interface SequenceSelection {
   kind: 'panel' | 'group'
@@ -320,11 +354,28 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
     // first member's own name, resolved at render time. Baking a literal in here
     // would both contradict that default and freeze the creation-time language.
     applyStructural(profile => createGroup(profile, groupId, [row.id, next.id]))
+    // Select the fresh group right away: the rename box and the icon picker live
+    // in the group editor below the list, and a user who just grouped two rows
+    // should not have to guess that clicking the row's own name opens it.
+    onSelect({ kind: 'group', id: groupId })
   }
 
   const ungroup = (groupId: string): void => {
     applyStructural(profile => dissolveGroup(profile, groupId))
   }
+
+  /**
+   * Whether the strip's group verb would do anything for the current selection:
+   * the selected row must be a panel with a panel directly after it. It mirrors
+   * the per-row `canGroupWithNext` the row used to compute for its own button —
+   * the rule is the same, only the place the button lives changed.
+   */
+  const canGroupSelected = ((): boolean => {
+    if (selected === null || selected.kind === 'group') return false
+    const index = rows.findIndex(row => row.kind === 'panel' && row.id === selected.id)
+    const next = index === -1 ? undefined : rows[index + 1]
+    return next !== undefined && next.kind === 'panel'
+  })()
 
   /**
    * Hide or show one row. A panel keeps its rail position and stays selectable
@@ -515,8 +566,6 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
     // own, exactly as the rail trigger does.
     const nativePanelId = isGroup ? group?.iconFallbackPanelId ?? null : row.id
     const isSelected = selected !== null && selected.kind === row.kind && selected.id === row.id
-    const next = rows[index + 1]
-    const canGroupWithNext = !isGroup && next !== undefined && next.kind === 'panel'
     const members = group?.members ?? []
     const memberIds = members.map(member => member.id)
 
@@ -623,42 +672,32 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
           {badges.length === 0
             ? null
             : <span className="dsh-panellist-settings-badges">{badges}</span>}
+          {/* One icon per row, and it is the visibility switch (README §3.4):
+              the row itself is "glyph, name, optional subtitle and badges", and
+              the eye sits at the far right of that line. Hiding is the only
+              per-row action, so it is the only one that survives; grouping and
+              ungrouping moved to the strip under the list, where they can be
+              reached without hunting a row's buttons. A pinned row has no
+              controls at all, so it has no eye either. */}
           {pinned
             ? null
             : (
-              <span className="dsh-panellist-settings-actions dsh-panellist-settings-actionRow">
-                {isGroup
-                  ? (
-                    <button
-                      type="button"
-                      className="dsh-panellist-settings-action"
-                      data-action="ungroup"
-                      onClick={() => ungroup(row.id)}
-                    >{t('settings.sequence.ungroup')}</button>
-                  )
-                  : (
-                    <button
-                      type="button"
-                      className="dsh-panellist-settings-action"
-                      data-action="groupWithNext"
-                      disabled={!canGroupWithNext}
-                      onClick={() => groupWithNext(index)}
-                    >{t('settings.sequence.groupWithNext')}</button>
-                  )}
-                {/* Show/hide straight from the list: the per-row visibility toggle
-                    is the one action a user reaches for most often. */}
-                <button
-                  type="button"
-                  className="dsh-panellist-settings-action"
-                  data-action="toggleHidden"
-                  // A command button, not a toggle: the accessible name IS the
-                  // action, so `aria-pressed` would contradict the label the moment
-                  // the row flips.
-                  aria-label={hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}
-                  title={t('settings.appearance.hiddenHint')}
-                  onClick={() => toggleHidden(row.kind, row.id, !hidden)}
-                >{hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}</button>
-              </span>
+              <button
+                type="button"
+                className="dsh-railist-settings-eye"
+                data-action="toggleHidden"
+                data-state={hidden ? 'hidden' : 'shown'}
+                // A command button, not a toggle: the accessible name IS the
+                // action, so `aria-pressed` would contradict the label the moment
+                // the row flips.
+                aria-label={hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}
+                title={t('settings.appearance.hiddenHint')}
+                onClick={() => toggleHidden(row.kind, row.id, !hidden)}
+              >
+                <span className="dsh-railist-settings-eyeGlyph" aria-hidden="true">
+                  {hidden ? EYE_OFF : EYE_ON}
+                </span>
+              </button>
             )}
         </div>
         {isGroup && members.length > 0
@@ -764,28 +803,34 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                   {member.hidden
                     ? <span className="dsh-panellist-settings-badge" data-badge="hidden">{t('settings.appearance.hidden')}</span>
                     : null}
+                  {/* A member's row is "glyph, name, badges", then the two
+                      controls it alone keeps: leaving the group (`−`) and its
+                      own visibility switch, which is what "hidden inside a
+                      group" means. Neither repeats the row's name as a word —
+                      the row is already named, so the icon says it. */}
                   <button
                     type="button"
-                    className="dsh-panellist-settings-action"
+                    className="dsh-railist-settings-eye"
                     data-action="memberRemove"
                     aria-label={t('settings.sequence.removeFromGroup')}
                     title={t('settings.sequence.removeFromGroup')}
                     onClick={() => applyStructural(profile => removeFromGroup(profile, row.id, member.id))}
-                  >−</button>
-                  {/* Last in the row, like every other row's Hide/Show: the
-                      ordering is "move, then act, then visibility", so the
-                      destructive/structural controls read together. A member is
-                      hidden inside the group, not on the rail — its row is
-                      already suppressed, so this toggle is exactly "show it in
-                      the group's menu" (README §2.3). */}
+                  >
+                    <span className="dsh-railist-settings-eyeGlyph" aria-hidden="true">−</span>
+                  </button>
                   <button
                     type="button"
-                    className="dsh-panellist-settings-action"
+                    className="dsh-railist-settings-eye"
                     data-action="memberToggleHidden"
+                    data-state={member.hidden ? 'hidden' : 'shown'}
                     aria-label={member.hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}
                     title={t('settings.appearance.hiddenHint')}
                     onClick={() => toggleHidden('panel', member.id, !member.hidden)}
-                  >{member.hidden ? t('settings.sequence.show') : t('settings.sequence.hide')}</button>
+                  >
+                    <span className="dsh-railist-settings-eyeGlyph" aria-hidden="true">
+                      {member.hidden ? EYE_OFF : EYE_ON}
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -848,6 +893,33 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
               onDragLeave={() => setDropAtEnd(false)}
               onDrop={dropAtListEnd}
             />
+          </div>
+        )}
+
+      {/* Grouping is the list's one *structural* verb, and it needs a target:
+          the action belongs to the row you selected, not to every row on
+          screen. Putting it on a strip under the list keeps every row to an
+          icon and a name, and keeps the verb in reach without hunting that
+          row's buttons. */}
+      {selected === null
+        ? null
+        : (
+          <div className="dsh-railist-settings-rowActions" data-testid="dsh-railist-settings-rowActions">
+            <button
+              type="button"
+              className="dsh-railist-settings-stripAction"
+              data-action={selected.kind === 'group' ? 'ungroup' : 'groupWithNext'}
+              disabled={selected.kind === 'panel' && !canGroupSelected}
+              onClick={() => {
+                if (selected.kind === 'group') {
+                  ungroup(selected.id)
+                  return
+                }
+                groupWithNext(rows.findIndex(entry => entry.kind === 'panel' && entry.id === selected.id))
+              }}
+            >
+              {selected.kind === 'group' ? t('settings.sequence.ungroup') : t('settings.sequence.groupWithNext')}
+            </button>
           </div>
         )}
     </section>

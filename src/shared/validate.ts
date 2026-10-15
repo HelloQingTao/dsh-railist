@@ -18,6 +18,7 @@ import {
   emptyConfig,
   isManagedSeat,
   type BuiltinIconName,
+  type Container,
   type EntryItem,
   type EntryOverride,
   type GroupItem,
@@ -169,6 +170,17 @@ function normalizeSequenceItem(raw: unknown, seen: Set<string>): SequenceItem | 
     const icon = asIconRef(raw['icon'])
     if (icon !== null) group.icon = icon
     if (raw['hidden'] === true) group.hidden = true
+    // Member seats recorded when the group was built (see `GroupItem.seats`):
+    // kept only where they name a managed seat, mirroring how an entry's own
+    // `seat` is kept above; anything else is dropped rather than rejected.
+    const rawSeats = raw['seats']
+    if (isRecord(rawSeats)) {
+      const seats: Record<string, Container> = {}
+      for (const [member, seat] of Object.entries(rawSeats)) {
+        if (isManagedSeat(seat)) seats[member] = seat
+      }
+      if (Object.keys(seats).length > 0) group.seats = seats
+    }
     return group
   }
   return null

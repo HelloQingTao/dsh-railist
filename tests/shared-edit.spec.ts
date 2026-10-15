@@ -188,6 +188,57 @@ describe('groups', () => {
   })
 })
 
+describe('group member seats (see GroupItem.seats)', () => {
+  const seated = (id: string, seat: 'top' | 'footer'): SequenceItem => ({ type: 'entry', id, seat })
+
+  it('records each member seat when the group is built', () => {
+    const base = profile([seated('a', 'top'), { type: 'entry', id: 'b' }, seated('c', 'footer')])
+    const grouped = createGroup(base, 'group:g1', ['a', 'b', 'c'])
+    const group = grouped.sequence[0]
+    expect(group).toMatchObject({ type: 'group', members: ['a', 'b', 'c'], seats: { a: 'top', c: 'footer' } })
+    // A member with no stored seat records nothing: it has nothing to restore.
+  })
+
+  it('carries a member seat over from a previous group', () => {
+    const first = createGroup(profile([seated('a', 'footer'), seated('b', 'top')]), 'group:g1', ['a', 'b'])
+    const regrouped = createGroup(first, 'group:g2', ['a'])
+    const group = regrouped.sequence.find(item => item.type === 'group' && item.id === 'group:g2')
+    expect(group).toMatchObject({ members: ['a'], seats: { a: 'footer' } })
+  })
+
+  it('puts seats back when a group dissolves', () => {
+    const base = profile([seated('a', 'top'), seated('b', 'footer')])
+    const grouped = createGroup(base, 'group:g1', ['a', 'b'])
+    const dissolved = dissolveGroup(grouped, 'group:g1')
+    expect(ids(dissolved)).toEqual(['a', 'b'])
+    expect(dissolved.sequence[0]).toEqual({ type: 'entry', id: 'a', seat: 'top' })
+    expect(dissolved.sequence[1]).toEqual({ type: 'entry', id: 'b', seat: 'footer' })
+  })
+
+  it('records a seat when a member joins, and restores it when it leaves', () => {
+    const base = profile([{ type: 'group', id: 'group:g1', members: ['b'] }, seated('a', 'footer')])
+    const joined = addToGroup(base, 'group:g1', 'a')
+    const group = joined.sequence[0]
+    expect(group).toMatchObject({ members: ['b', 'a'], seats: { a: 'footer' } })
+
+    const left = removeFromGroup(joined, 'group:g1', 'a')
+    expect(ids(left)).toEqual(['group:g1', 'a'])
+    expect(left.sequence[1]).toEqual({ type: 'entry', id: 'a', seat: 'footer' })
+    // The record leaves with the member: an empty `seats` map is not kept.
+    const remaining = left.sequence[0]
+    expect(remaining).toMatchObject({ members: ['b'] })
+    expect(remaining).not.toHaveProperty('seats')
+  })
+
+  it('leaves seat-less members untouched by the record', () => {
+    const base = profile([{ type: 'group', id: 'group:g1', members: ['b'] }, { type: 'entry', id: 'a' }])
+    const joined = addToGroup(base, 'group:g1', 'a')
+    expect(joined.sequence[0]).not.toHaveProperty('seats')
+    const left = removeFromGroup(joined, 'group:g1', 'a')
+    expect(left.sequence[1]).toEqual({ type: 'entry', id: 'a' })
+  })
+})
+
 describe('cleanOrphans', () => {
   it('drops everything whose panel is gone and keeps the rest intact', () => {
     const dirty = profile(

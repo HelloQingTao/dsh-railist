@@ -16,13 +16,13 @@ This plugin lets the **user** take over: which rows appear, in what order, **whi
 >
 > **`dsh-railist` is a fork of [`dsh-panellist`](https://github.com/qwq1999/dsh-panellist)**. Upstream manages the panel list (`sidebar.panellist`) alone; this fork extends it to a **unified sequence spanning more than one seat** (the panel list and the footer action row), drag-and-drop reordering, per-row plugin name and version, and a "not shown" annotation. See [Differences from upstream dsh-panellist](#differences-from-upstream-dsh-panellist).
 >
-> Three refinements to the original design (all discovered during implementation and backfilled into this document): the rail id of a Group is `dsh-railist:<groupId>`; unconfigured Panel entries are always listed on the rail, but an `order` is written only once the Sequence is non-empty (i.e. after your first structural change); and the `/railist/api/reveal` endpoint was added to implement "Open config file".
+> Three refinements to the original design (all discovered during implementation and backfilled into this document): the rail id of a Group is `dsh-railist:<groupId>`; unconfigured Panel entries are always listed on the rail, but an `order` is written only once the Sequence is non-empty (i.e. after your first structural change); and the settings page shows the configuration file's full path instead of offering a button that opens it.
 
 ### Screenshots
 
-| Settings → Panel list | A Group menu on the rail |
-| :-: | :-: |
-| ![Settings → Panel list](docs/images/settings-panel-list.png) | ![A Group menu on the rail](docs/images/rail-group-menu.png) |
+| Settings → Panel list | Appearance override | A Group menu on the rail |
+| :-: | :-: | :-: |
+| ![Settings → Panel list](docs/images/settings-panel-list.png) | ![Appearance override](docs/images/settings-appearance.png) | ![A Group menu on the rail](docs/images/rail-group-menu.png) |
 
 ---
 
@@ -119,7 +119,7 @@ The **settings navigation row has its own dedicated glyph** (a panel list, at th
 #### 2.8 Unconfigured items, missing items and "not shown" rows
 
 - A newly installed plugin registers a Panel entry you have not touched yet → it is **listed in the sequence straight away** (after the configured entries, arranged by its own order); there is nothing to opt into first.
-- The contributor of a Panel entry is uninstalled while the config still holds it → the config is **kept**, the management panel marks it **`missing`**, and offers a "Clean up missing" button.
+- The contributor of a Panel entry is uninstalled while the config still holds it → the config is **kept** and the management panel marks the row **`missing`**. Nothing removes it automatically, and there is no longer a "Clean up missing" button: a missing row's configuration is exactly what a reinstall restores, so leaving it alone is the safe default.
 - A row that **is registered but currently renders no element at all** on the rail gets a **`not shown`** badge (Chinese UI: **`当前未显示`**). This is a *different* fact from `missing`: a missing row has no registration answering at all, while a not-shown row has a live registration whose own component happens to return nothing right now — a footer entry that only shows itself while its feature is switched on, for example. Such a row is **kept in the list and never filtered out**: a row the user cannot see is still a row the user has to be able to reach, and its own setting is usually what turns it back on.
 - Until you make a STRUCTURAL change (a drag, creating or dissolving a group), this plugin writes **no order at all**: the rail keeps the order its contributors chose. A rename, a re-icon or a hide only overrides that one entry and leaves the order alone — which is what "we do not touch what you did not ask us to touch" means in practice.
 
@@ -190,7 +190,7 @@ Page content:
 - Each row's **"Group with next"** creates a Group; a Group row's **"Ungroup"** dissolves one.
 - Every row carries a **"Hide"/"Show"** button that toggles that row in place — Group rows included, and the **member rows inside a Group** too (a hidden member leaves the Group menu, §2.3).
 - Each row shows **badges** for its state: `Hidden`, the member count of a Group, `missing` (§2.8) and **`not shown` / `当前未显示`** (§2.8) — a registered row that currently renders nothing.
-- Each panel row shows a **contributor subtitle** next to its name — the plugin's package name and version (§3.8). A row nothing is known about renders nothing at all: no dash, no "unknown".
+- Each panel row shows a **contributor subtitle** next to its name — the plugin's package name and version (§3.6). A row nothing is known about renders nothing at all: no dash, no "unknown".
 - Clicking a row's name opens that row's appearance editor (§3.2), including a Group's members, which have no row of their own.
 
 #### 3.2 Appearance override for an item
@@ -205,23 +205,17 @@ Page content:
 - The Group trigger's name and icon.
 - The ordered member list: move a member up/down, take it out of the Group, hide or show it.
 
-#### 3.4 Config import / export
+#### 3.4 Configuration
 
-Import validates the document before writing it; export serialises the whole file (all profiles) to the clipboard. A failed import reports the field-level reason and changes nothing.
+The page's configuration card shows **one thing**: the full path of the profile's configuration file (`$DSH_HOME/railist.json`). Nothing on the page writes the file directly — the sequence editor's own Save is the only write path — so there is no import, export, reset or "open in file manager" control here.
 
-#### 3.5 Open config file
+The host routes that used to back those controls (`/reset`, `/reveal`, `/export`, `/import`) are **still served** and still handle whole-file work; they are simply no longer called from this page.
 
-`POST /railist/api/reveal` opens `$DSH_HOME/railist.json` in the system file manager. The path is also printed next to the button. **Reset to defaults** reverts this profile's configuration after an inline confirmation.
+#### 3.5 Plan warnings
 
-#### 3.6 Missing panels
+Structural problems the model detects are listed under the same card: a Group with a single member, a Group whose members are all gone, a Group id that collides with a panel id, and a panel placed twice in the Sequence.
 
-Configured ids with no registration are collected here with a count, and **"Clean up missing"** removes them — after an explicit confirmation, never automatically.
-
-#### 3.7 Self-check status
-
-The result of the **five** startup probes (§5) with a **"Re-run self-check"** button. A failed probe shows what it measured, what is therefore disabled, and the DSH version the plugin measured.
-
-#### 3.8 Contributor subtitle (plugin name and version per row)
+#### 3.6 Contributor subtitle (plugin name and version per row)
 
 Each panel row shows which package contributed it and at which version (`name · v1.2.3`).
 
@@ -286,10 +280,10 @@ Host-half routes (reachable only via local loopback, with a trusted-host fence):
 | --- | --- | --- |
 | `GET` | `/railist/api/config?profile=<id>` | Read the config for that profile |
 | `PUT` | `/railist/api/config?profile=<id>` | Write the whole thing (server-side validation + atomic write to disk) |
-| `POST` | `/railist/api/config/reset?profile=<id>` | Revert to defaults |
-| `POST` | `/railist/api/reveal` | Reveal the config file in the system file manager (the "Open config file" button) |
+| `POST` | `/railist/api/config/reset?profile=<id>` | Revert to defaults (kept for scripts; no longer called from the settings page) |
+| `POST` | `/railist/api/reveal` | Reveal the config file in the system file manager (kept for scripts; no longer called from the settings page) |
 | `GET` | `/railist/api/health` | Config storage and field-level self-check status |
-| `GET` | `/railist/api/plugins` | Which package and version contributed each panel (§3.8) |
+| `GET` | `/railist/api/plugins` | Which package and version contributed each panel (§3.6) |
 
 `?profile=` only accepts ids that actually exist under `$DSH_HOME/profiles/<id>`; without the parameter, the config is written to the host's own profile (`DSH_PROFILE`, else `default`). `/health`, `/reveal` and `/plugins` are whole-file level and ignore the parameter. Request bodies are capped at 2 MB.
 
@@ -336,7 +330,7 @@ This plugin depends on several **internal** facts about DSH (none of them a publ
 | **The two managed seat containers can be found in the DOM** (`seats`) | Rows cannot be moved between the panel list and the footer; ordering inside a seat still applies | Ask the DOM half whether it can locate a container for each managed seat; report which ones are missing and which were found (a build with no DOM half at all skips this probe and passes) | Rows stay in the seat their contributor registered them into |
 
 - **The probes wait for the rail slot to exist before measuring.** `sidebar.panellist` is declared by the sidebar entry's children table and this plugin can mount before it; registering a probe row then is refused, and that one refusal is what read-only keys off. The run waits on the shell's own "run this when the seat exists" seam (`slots.inject`) first, bounded at 5 s, so a boot-order race can never park the plugin in read-only. A shell that never declares the slot is reported honestly after the wait.
-- If any self-check fails → **degrade to read-only**: no further rewriting is done, the top of the management panel gives a clear notice (which item failed, what it affects, and how to report it), and the "Re-run self-check" button is kept.
+- If any self-check fails → **degrade to read-only**: no further rewriting is done, so nothing on the rail is modified. The probes are **no longer shown on the settings page** — the compatibility card and its "Re-run self-check" button were removed on request — but the probes and the degradation they drive are unchanged, and the controller re-runs them on every mount.
 - It never silently half-breaks, and never blocks plugin loading (the UI is still usable after a DSH upgrade).
 - Known uncertainty: DSH's style class names are **build hashes** and are re-rolled at release time. So selectors always match on a "stable suffix" (for example `[class*="_panelRow"]`, measured to work; `[class$="_panelRow"]` fails on the active row), and probing is repeated on every mount.
 
@@ -387,7 +381,7 @@ pnpm build      # tsc (declarations only) + tsdown (host half + browser half)
 pnpm check      # all of the above
 ```
 
-Tests cover four areas: the **model** (normalization, serialization, migration, and corruption fallback for Sequence/Groups/overrides, **seat placement under the "nearest row above" rule**, and the unconfigured case that must move nothing), the **management panel interactions** (drag-and-drop reordering, the grab handle's arrow keys, icon selection, SVG sanitization, import and export, member hiding, the `not shown` annotation, and the contributor subtitle), the **DOM half** (placing rows into the right seat container, moving a row between the panel list and the footer, restoring every moved element on dispose, and the `/plugins` answer being parsed from `cordis.patch.yml` + `package.json`), the **degradation paths** (read-only behavior after each of the five self-checks fails, including the boot-order wait), and the **packaging contract** (the manifest, the mount layer, one source of truth for the schema version and the route prefix). No E2E against the real DSH UI is introduced.
+Tests cover four areas: the **model** (normalization, serialization, migration, and corruption fallback for Sequence/Groups/overrides, **seat placement under the "nearest row above" rule**, and the unconfigured case that must move nothing), the **management panel interactions** (drag-and-drop reordering, the grab handle's arrow keys, icon selection, SVG sanitization, member hiding, the `not shown` annotation, and the contributor subtitle), the **DOM half** (placing rows into the right seat container, moving a row between the panel list and the footer, restoring every moved element on dispose, and the `/plugins` answer being parsed from `cordis.patch.yml` + `package.json`), the **degradation paths** (read-only behavior after each of the five self-checks fails, including the boot-order wait), and the **packaging contract** (the manifest, the mount layer, one source of truth for the schema version and the route prefix). The settings page also has a **removal guard**: the missing-panel, import/export, reset and compatibility controls must not reappear. No E2E against the real DSH UI is introduced.
 
 #### Releases (maintainers)
 
@@ -409,7 +403,7 @@ dsh-railist/
 │  │  ├─ index.ts             # name / inject / apply
 │  │  ├─ store.ts             # file storage: ajv validation, 0600 atomic write, corruption isolation
 │  │  ├─ plugins.ts           # /railist/api/plugins: package + version per panel, from the profile's own files
-│  │  └─ routes.ts            # /railist/api handlers (loopback fence, five endpoints + reveal)
+│  │  └─ routes.ts            # /railist/api handlers (loopback fence, six endpoints)
 │  ├─ shared/                 # types and config model shared by the two halves (side-effect free)
 │  │  ├─ config.ts            # document shape, containers, built-in icon names, id prefixes
 │  │  ├─ model.ts             # buildPlan: Sequence → what each row should write, and which seat (pure function)
@@ -425,14 +419,14 @@ dsh-railist/
 │     ├─ styles.ts            # the single injected stylesheet (aggregates each unit's CSS block by id)
 │     ├─ mount.ts             # one live mount per page: a second apply retires the previous one
 │     ├─ service.ts           # fault-tolerant reading of optional cordis services
-│     ├─ config/store.ts      # config state: optimistic apply, rollback on failure, import/export
+│     ├─ config/store.ts      # config state: optimistic apply, rollback on failure, preview/commit split
 │     ├─ i18n/index.ts        # Chinese and English entries (the key set is closed)
 │     ├─ registry/rail.tsx    # registry discovery + rewrite + sync nudge + our own rows + the seat map
 │     ├─ rail/css.ts          # the DOM rules (hiding, settings-nav mask) in one place
 │     ├─ rail/dom.ts          # the placement half: moving a row element into the seat the plan gives it
 │     ├─ rail/probe.ts        # the five self-checks and the degradation decision
 │     ├─ groups/              # Group trigger rows, capture-phase click interception, menu, group page
-│     ├─ settings/            # settings tab: sequence editing, appearance, plugin info, config, self-checks
+│     ├─ settings/            # settings tab: sequence editing, appearance, plugin info, config path
 │     └─ icons/               # 24 built-in glyphs + the settings-nav glyph + SVG allow-list sanitization
 ├─ docs/                      # documentation assets
 │  ├─ images/                 # README screenshots
@@ -478,7 +472,7 @@ Three facts make it safe (all three verified against a live shell):
 2. **The seat anchors are stable by suffix.** Every class name carries a build hash (`hHd-Xa_footerActions`), so selectors match a stable suffix (`[class*="_footerActions"]`), and the candidate has to contain the seat's own `data-slot` anchor — a plugin that happens to name a class after ours cannot be mistaken for it.
 3. **A moved element can be put back exactly.** Every move records the parent and the following sibling it came from, so disposal restores the shell's own layout rather than an approximation of it.
 
-Rows are matched to registrations by walking the **React fiber chain**, because the shell stamps no id on the DOM; the element then carries a `data-dsh-railist-row` stamp, which is what the next pass (and the "not shown" reading, §3.8) reads back. The two managed row shapes need different anchors (both read off a live shell): in the `top` seat the rows are the panel list nav's own `button` children and the id lives in the `PanelRow` fiber's `props.id`; in the `footer` seat the seat's anchor is *around* its rows, so they are the anchor's element children, and the id lives in a `RootEntry` fiber's `props.entry.options.id`.
+Rows are matched to registrations by walking the **React fiber chain**, because the shell stamps no id on the DOM; the element then carries a `data-dsh-railist-row` stamp, which is what the next pass (and the "not shown" reading, §3.6) reads back. The two managed row shapes need different anchors (both read off a live shell): in the `top` seat the rows are the panel list nav's own `button` children and the id lives in the `PanelRow` fiber's `props.id`; in the `footer` seat the seat's anchor is *around* its rows, so they are the anchor's element children, and the id lives in a `RootEntry` fiber's `props.entry.options.id`.
 
 The pass is deliberately tolerant — an unmounted sidebar, a renamed class or a row that has not rendered yet all mean "nothing to do this pass" rather than an error — and a `MutationObserver` replays it when the shell re-renders. Because the observer callback runs as a microtask *after* the synchronous pass that moved the nodes, the pass **counts the mutations it makes** and the observer drops exactly those, so one placement is never mistaken for a change worth reacting to. A throw can never escape a pass: it would take the whole sidebar's layout down with it, so a failed pass leaves the rows where they are.
 
@@ -507,7 +501,7 @@ This repository began as a fork of [`dsh-panellist`](https://github.com/qwq1999/
 | Seat of a row | wherever its contributor registered it | derived from the row above it (§2.11) |
 | Rows that render nothing | not distinguished | `not shown` / `当前未显示` badge (§2.8) |
 | Rows that are gone | `missing` | `missing` (unchanged) |
-| Contributor info per row | — | package name + version from `GET /railist/api/plugins` (§3.8) |
+| Contributor info per row | — | package name + version from `GET /railist/api/plugins` (§3.6) |
 | Settings seat | not a concern (one seat) | **explicitly never taken over**, and why is documented (§2.12) |
 | Self-checks | four probes | **five** (the fifth is seat locatability, §5) |
 | Config file | `panellist.json` | `railist.json` (same shape, `schemaVersion` 2) |
@@ -523,7 +517,9 @@ The upstream slot names are still the real ones in the shell, so they are used v
 
 ### 9. First-version scope and non-goals
 
-**First version includes**: Sequence editing across both managed seats (drag and drop + keyboard fallback), Groups, Shown/Hidden (including inside a Group), Label and Icon override (original icon / built-in icon set / paste SVG), the `not shown` annotation, per-row contributor name and version, config import/export, orphan retention and cleanup, a Chinese and English UI, self-checks and read-only degradation, and this bilingual README.
+**First version includes**: Sequence editing across both managed seats (drag and drop + keyboard fallback), Groups, Shown/Hidden (including inside a Group), Label and Icon override (original icon / built-in icon set / paste SVG), the `not shown` annotation, per-row contributor name and version, a Chinese and English UI, and this bilingual README.
+
+> **Trimmed after release (v0.1.1)**: on request, the settings page dropped the missing-panel list and its "Clean up missing" action, the JSON import/export textarea and buttons, the "Open config file" button, **Reset to defaults**, and the whole **Compatibility** card (probe list, degraded banners, measured version, "Re-run self-check"). The page now shows one line — the configuration file's full path — beside the sequence editor. The self-check probes themselves, their read-only / `active`-rule degradation, the `missing` badge on rows, the `cleanOrphans` model helper and the `/reset`, `/reveal`, `/export`, `/import` host routes all remain; only the controls that reached them from this page are gone.
 
 **Not in the first version** (left for a later one): search within a Group, a right-click context menu on the rail, per-language names, and E2E against the real DSH UI.
 
@@ -541,6 +537,7 @@ The upstream slot names are still the real ones in the shell, so they are used v
 6. ✅ **On-device iteration (upstream)** — the plugin ran in a real profile through several feedback rounds: the settings page lists the whole rail, hidden rows and Groups behave, the icon set was redrawn against the shell's own artworks, member hiding landed, and the self-check's boot-order race was fixed;
 7. ✅ **Release (upstream)** — `dsh-panellist` `v0.1.0` on GitHub and npm, submitted to `awesome-dsh-plugin`;
 8. ✅ **The fork** — renamed to **`dsh-railist`**, its own config file, route prefix and rail id prefix; the sequence extended to a second seat with the "nearest row above" rule and a physical placement pass; the up/down buttons replaced by drag-and-drop; the `not shown` annotation, the per-row contributor name and version, the token-only polish chunk, and the fifth self-check added.
+9. ✅ **Trim** — the settings page reduced to the sequence editor plus one line naming the configuration file: the missing-panel list, import/export, open-file, reset and the compatibility card removed, with the probes and their degradation kept behind the scenes (§9).
 
 #### Static checks that need no application start
 
@@ -586,13 +583,13 @@ MIT
 >
 > **`dsh-railist` 是 [`dsh-panellist`](https://github.com/qwq1999/dsh-panellist) 的 fork。** 上游只管面板列表（`sidebar.panellist`）这一格；本 fork 把它扩展成**一条跨越多格（seat）的统一序列**（面板列表 + 设置上方那一行），并加入拖拽排序、每行显示所属插件名与版本、以及「当前未显示」标注。差异见 [与原上游 dsh-panellist 的差异](#与原上游-dsh-panellist-的差异)。
 >
-> 相对最初设计的三处修正（均为实现过程中发现并回填到本文档）：分组的轨道 id 是 `dsh-railist:<groupId>`；未配置的面板条目始终列在轨道上，但只有序列非空（即你做出第一次结构性改动）之后才会写入 `order`；`/railist/api/reveal` 端点是为实现「打开配置文件」而新增的。
+> 相对最初设计的三处修正（均为实现过程中发现并回填到本文档）：分组的轨道 id 是 `dsh-railist:<groupId>`；未配置的面板条目始终列在轨道上，但只有序列非空（即你做出第一次结构性改动）之后才会写入 `order`；设置页改为直接显示配置文件的完整路径，而不再提供一个打开它的按钮。
 
 ### 截图
 
-| 设置 → 面板列表 | 轨道上的分组菜单 |
-| :-: | :-: |
-| ![设置 → 面板列表](docs/images/settings-panel-list.png) | ![轨道上的分组菜单](docs/images/rail-group-menu.png) |
+| 设置 → 面板列表 | 外观覆盖 | 轨道上的分组菜单 |
+| :-: | :-: | :-: |
+| ![设置 → 面板列表](docs/images/settings-panel-list.png) | ![外观覆盖](docs/images/settings-appearance.png) | ![轨道上的分组菜单](docs/images/rail-group-menu.png) |
 
 ---
 
@@ -650,7 +647,7 @@ DSH 左侧栏是一份**只读投影**：shell 枚举 `sidebar.panellist` 槽位
 - 隐藏 = 不再出现在轨道上，但面板条目本身仍然存在、仍然可用（可以在管理面板里选中，也可以由其他插件或快捷键激活），它所属插件的功能不受影响。
 - 例外：**如果被隐藏的面板条目当前处于激活态，它那一行会临时显示**——避免出现「用户还在这个页面上，轨道上却没有它的入口」这种情况。
 - **分组里的成员也可以隐藏**，此时「隐藏」的含义是「不进分组菜单」：成员的轨道行本来就被分组压制了，所以对成员来说，隐藏只影响浮出菜单。成员仍然留在分组里——计数、排序和分组触发按钮的高亮都还看得见它。
-- **已缺失的成员会自动不进分组菜单**（注册已经没了，菜单里留一个点不动的「缺失」行，只是占掉用户无法操作的位置）。它仍然留在配置里，也在设置页的「已缺失的面板」列表里，等着被清理。
+- **已缺失的成员会自动不进分组菜单**（注册已经没了，菜单里留一个点不动的「缺失」行，只是占掉用户无法操作的位置）。它仍然留在配置里。
 
 #### 2.4 名称覆盖
 
@@ -689,7 +686,7 @@ DSH 左侧栏是一份**只读投影**：shell 枚举 `sidebar.panellist` 槽位
 #### 2.8 未配置项、缺失项与「当前未显示」
 
 - 新装的插件注册了一个你还没碰过的面板条目 → 它**立刻列进序列里**（排在已配置条目之后，按它自己的 order 排）；不需要先「认领」什么。
-- 面板条目的贡献者被卸载、而配置里还留着它 → 配置**保留**，管理面板给它标上 **`missing`（缺失）**，并提供「清理缺失项」按钮。
+- 面板条目的贡献者被卸载、而配置里还留着它 → 配置**保留**，管理面板给它标上 **`missing`（缺失）**。没有自动清理，也不再提供「清理缺失项」按钮：缺失行的配置正是重装后能恢复的东西，不动它才是安全的默认。
 - 一个**已注册、但当前在轨道上什么都没渲染出来**的行，会得到 **`当前未显示`** 徽标（英文界面：**`not shown`**）。这与 `missing` 是**两件不同的事**：缺失意味着根本没有注册项回应，而未显示意味着注册是活的，只是它自己的组件此刻什么都没渲染——比如一个只在功能打开时才出现的底部操作入口。这样的行**保留在列表里、绝不滤掉**：用户看不见的行，仍然是用户必须能操作到的行，而它的设置通常正是把它打开的地方。
 - 在你做出**结构性**改动（拖拽、建组或解散分组）之前，本插件**完全不写 order**：轨道保持贡献者自己选择的顺序。改名、换图标或隐藏只是覆盖那一个条目，不动顺序——这就是「没让你动的东西我们不碰」在实际中的含义。
 
@@ -759,7 +756,7 @@ shell 可能在同一个页面上多次应用同一个客户端 bundle（文件�
 - 每行的 **「与下一项合并为分组」** 建一个分组；分组行的 **「解散分组」** 解散一个。
 - 每行都有 **「隐藏」/「显示」** 按钮，就地切换该行——分组行也有，**分组内的成员行也有**（被隐藏的成员不进分组菜单，§2.3）。
 - 每行用**徽标**标示状态：`隐藏`、分组的成员数、`缺失`（§2.8），以及 **`当前未显示` / `not shown`**（§2.8）——已注册但当前什么都没渲染的行。
-- 每个面板行在名字旁显示**贡献者副标题**——插件包名与版本（§3.8）。什么都不知道的行什么都不渲染：没有短横线，没有「未知」。
+- 每个面板行在名字旁显示**贡献者副标题**——插件包名与版本（§3.6）。什么都不知道的行什么都不渲染：没有短横线，没有「未知」。
 - 点击某一行的名字打开该行的外观编辑器（§3.2），分组内的成员也一样——它们没有自己的行。
 
 #### 3.2 条目的外观覆盖
@@ -774,23 +771,17 @@ shell 可能在同一个页面上多次应用同一个客户端 bundle（文件�
 - 分组触发按钮的名字与图标。
 - 有序成员列表：上移/下移成员、移出分组、隐藏或显示。
 
-#### 3.4 配置导入 / 导出
+#### 3.4 配置
 
-导入会先校验文档再写入；导出把整个文件（所有 profile）序列化到剪贴板。导入失败会报出字段级原因，且什么都不改。
+配置卡片**只显示一样东西**：该 profile 配置文件的完整路径（`$DSH_HOME/railist.json`）。页面上没有任何地方直接写这个文件——唯一的写入路径是序列编辑器自己的「保存」——所以这里不再有导入、导出、恢复默认、或在文件管理器里打开。
 
-#### 3.5 打开配置文件
+那些控件原先调用的宿主路由（`/reset`、`/reveal`、`/export`、`/import`）**仍然保留并照常服务**，只是这个页面不再调用它们。
 
-`POST /railist/api/reveal` 会在系统文件管理器里打开 `$DSH_HOME/railist.json`。路径也打印在按钮旁边。**恢复默认** 会在行内确认后回退该 profile 的配置。
+#### 3.5 计划警告
 
-#### 3.6 已缺失的面板
+模型检出的结构性问题列在同一张卡片里：只有一个成员的分组、成员全部消失的分组、与面板 id 冲突的分组 id、以及在序列里出现两次的面板。
 
-没有对应注册项的已配置 id 会连同计数一起收集在这里，**「清理缺失项」** 会删掉它们——先显式确认，绝不自动执行。
-
-#### 3.7 自检状态
-
-**五个**启动探测（§5）的结果，外加一个 **「重跑自检」** 按钮。失败的探测会显示它测了什么、因此禁用了什么，以及插件测到的 DSH 版本。
-
-#### 3.8 贡献者副标题（每行显示插件名与版本）
+#### 3.6 贡献者副标题（每行显示插件名与版本）
 
 每个面板行都会显示它是哪个包提供的、以及哪个版本（`name · v1.2.3`）。
 
@@ -855,10 +846,10 @@ shell 可能在同一个页面上多次应用同一个客户端 bundle（文件�
 | --- | --- | --- |
 | `GET` | `/railist/api/config?profile=<id>` | 读取该 profile 的配置 |
 | `PUT` | `/railist/api/config?profile=<id>` | 写入整份配置（服务端校验 + 原子落盘） |
-| `POST` | `/railist/api/config/reset?profile=<id>` | 恢复默认 |
-| `POST` | `/railist/api/reveal` | 在系统文件管理器中定位配置文件（「打开配置文件」按钮） |
+| `POST` | `/railist/api/config/reset?profile=<id>` | 恢复默认（为脚本保留；设置页已不再调用） |
+| `POST` | `/railist/api/reveal` | 在系统文件管理器中定位配置文件（为脚本保留；设置页已不再调用） |
 | `GET` | `/railist/api/health` | 配置存储与字段级自检状态 |
-| `GET` | `/railist/api/plugins` | 每个面板由哪个包、哪个版本提供（§3.8） |
+| `GET` | `/railist/api/plugins` | 每个面板由哪个包、哪个版本提供（§3.6） |
 
 `?profile=` 只接受 `$DSH_HOME/profiles/<id>` 下确实存在的 id；不带该参数时，配置写入宿主自己的 profile（`DSH_PROFILE`，否则 `default`）。`/health`、`/reveal`、`/plugins` 是整文件级别的，忽略该参数。请求体上限 2 MB。
 
@@ -905,7 +896,7 @@ shell 可能在同一个页面上多次应用同一个客户端 bundle（文件�
 | **两个被管理格子的容器在 DOM 里能找到**（`seats`） | 行无法在面板列表与底部操作行之间移动；格内排序仍然生效 | 询问 DOM 半边能否为每个被管理格子找到容器；报出哪些没找到、哪些找到了（完全没有 DOM 半边的构建会跳过该探测并通过） | 行留在贡献者注册时所在的格子 |
 
 - **探测会先等轨道槽位出现再测量。** `sidebar.panellist` 由侧边栏条目的 children 表声明，而本插件可能先于它挂载；此时注册探测行会被拒绝，而正是这一次拒绝决定了只读状态。运行会先等 shell 自己的「等这个位置存在再跑」接缝（`slots.inject`），上限 5 秒，因此启动顺序竞争永远不会把插件锁进只读。始终不声明该槽位的 shell 会在等待结束后如实上报。
-- 任何自检失败 → **降级为只读**：不再做后续改写，管理面板顶部给出清晰提示（哪一项失败、影响什么、如何上报），并保留「重跑自检」按钮。
+- 任何自检失败 → **降级为只读**：不再做后续改写，轨道上不做任何修改。这些探测**不再显示在设置页上**——兼容性卡片与「重跑自检」按钮已按要求删除——但探测本身以及它们驱动的降级逻辑没有变，控制器会在每次挂载时重跑。
 - 它绝不静默地半坏，也绝不阻塞插件加载（DSH 升级后 UI 仍然可用）。
 - 已知不确定性：DSH 的样式类名是**构建哈希**，发布时会重掷。因此选择器一律匹配「稳定后缀」（例如 `[class*="_panelRow"]`，实测可用；`[class$="_panelRow"]` 在激活行上会失败），并且在每次挂载时重跑探测。
 
@@ -956,7 +947,7 @@ pnpm build      # tsc（仅声明）+ tsdown（宿主半边 + 浏览器半边）
 pnpm check      # 以上全部
 ```
 
-测试覆盖四个方面：**模型**（序列/分组/覆盖的归一化、序列化、迁移与损坏回退，**「上方最近有格子的行」规则下的格子归属**，以及未配置时必须什么都不搬的情况）、**管理面板交互**（拖拽排序、把手的方向键、图标选择、SVG 净化、导入导出、成员隐藏、`当前未显示` 标注、贡献者副标题）、**DOM 半边**（把行放进正确的格子容器、在面板列表与底部操作行之间搬运、释放时还原每个被移动的元素、以及从 `cordis.patch.yml` + `package.json` 解析出 `/plugins` 的答案）、**降级路径**（五个自检各自失败后的只读行为，包括启动顺序等待），以及**打包契约**（manifest、挂载层、schema 版本与路由前缀的唯一来源）。不引入针对真实 DSH UI 的 E2E。
+测试覆盖四个方面：**模型**（序列/分组/覆盖的归一化、序列化、迁移与损坏回退，**「上方最近有格子的行」规则下的格子归属**，以及未配置时必须什么都不搬的情况）、**管理面板交互**（拖拽排序、把手的方向键、图标选择、SVG 净化、成员隐藏、`当前未显示` 标注、贡献者副标题）、**DOM 半边**（把行放进正确的格子容器、在面板列表与底部操作行之间搬运、释放时还原每个被移动的元素、以及从 `cordis.patch.yml` + `package.json` 解析出 `/plugins` 的答案）、**降级路径**（五个自检各自失败后的只读行为，包括启动顺序等待），以及**打包契约**（manifest、挂载层、schema 版本与路由前缀的唯一来源）。设置页另有一条**删除守卫**：缺失面板、导入导出、恢复默认与兼容性这些控件不许再长回来。不引入针对真实 DSH UI 的 E2E。
 
 #### 发布（维护者）
 
@@ -978,7 +969,7 @@ dsh-railist/
 │  │  ├─ index.ts             # name / inject / apply
 │  │  ├─ store.ts             # 文件存储：ajv 校验、0600 原子写入、损坏隔离
 │  │  ├─ plugins.ts           # /railist/api/plugins：每个面板的包名与版本，取自 profile 自己的文件
-│  │  └─ routes.ts            # /railist/api 处理器（回环围栏，五个端点 + reveal）
+│  │  └─ routes.ts            # /railist/api 处理器（回环围栏，六个端点）
 │  ├─ shared/                 # 两半共享的类型与配置模型（无副作用）
 │  │  ├─ config.ts            # 文档形态、容器、内置图标名、id 前缀
 │  │  ├─ model.ts             # buildPlan：序列 → 每行该写什么、该落哪一格（纯函数）
@@ -994,14 +985,14 @@ dsh-railist/
 │     ├─ styles.ts            # 唯一的注入样式表（按 id 聚合各单元的 CSS 块）
 │     ├─ mount.ts             # 每页一个活动挂载：第二次 apply 会退休上一个
 │     ├─ service.ts           # 对可选 cordis 服务的容错读取
-│     ├─ config/store.ts      # 配置状态：乐观应用、失败回滚、导入导出
+│     ├─ config/store.ts      # 配置状态：乐观应用、失败回滚、preview/commit 分离
 │     ├─ i18n/index.ts        # 中英文词条（key 集合是封闭的）
 │     ├─ registry/rail.tsx    # 注册表发现 + 改写 + 同步 nudge + 自己的行 + 格子映射
 │     ├─ rail/css.ts          # DOM 规则（隐藏、设置导航蒙版）集中在一处
 │     ├─ rail/dom.ts          # 放置半边：把行元素搬进计划指定的格子
 │     ├─ rail/probe.ts        # 五个自检与降级决策
 │     ├─ groups/              # 分组触发行、捕获阶段点击拦截、菜单、分组页
-│     ├─ settings/            # 设置页：序列编辑、外观、插件信息、配置、自检
+│     ├─ settings/            # 设置页：序列编辑、外观、插件信息、配置路径
 │     └─ icons/               # 24 个内置字形 + 设置导航字形 + SVG 白名单净化
 ├─ docs/                      # 文档资源
 │  ├─ images/                 # README 截图
@@ -1047,7 +1038,7 @@ dsh-railist/
 2. **格子锚点可按后缀稳定匹配。** 每个类名都带构建哈希（`hHd-Xa_footerActions`），因此选择器匹配稳定后缀（`[class*="_footerActions"]`），并且候选元素里必须包含该格子自己的 `data-slot` 锚点——正好把类名起得和我们一样的插件不会被误认成格子。
 3. **移动过的元素可以精确放回。** 每次移动都记下它原来的父节点和它后面的兄弟节点，因此释放时还原的是 shell 自己的布局，而不是它的近似。
 
-行与注册项的对应关系靠走 **React fiber 链**建立，因为 shell 不给 DOM 打 id；随后元素会带上 `data-dsh-railist-row` 标记，下一趟（以及「当前未显示」的读取，§3.8）就靠它读回来。两种被管理的行形态需要不同的锚点（都读自真实 shell）：`top` 格里，行是面板列表 nav 自己的 `button` 子节点，id 在 `PanelRow` fiber 的 `props.id` 上；`footer` 格里，格子锚点包在行的**外面**，所以行是锚点的元素子节点，id 在 `RootEntry` fiber 的 `props.entry.options.id` 上。
+行与注册项的对应关系靠走 **React fiber 链**建立，因为 shell 不给 DOM 打 id；随后元素会带上 `data-dsh-railist-row` 标记，下一趟（以及「当前未显示」的读取，§3.6）就靠它读回来。两种被管理的行形态需要不同的锚点（都读自真实 shell）：`top` 格里，行是面板列表 nav 自己的 `button` 子节点，id 在 `PanelRow` fiber 的 `props.id` 上；`footer` 格里，格子锚点包在行的**外面**，所以行是锚点的元素子节点，id 在 `RootEntry` fiber 的 `props.entry.options.id` 上。
 
 这一趟刻意宽容——侧边栏未挂载、类名被改、行还没渲染，都只是「这一趟无事可做」而不是报错——并由 `MutationObserver` 在 shell 重渲染时重放。因为 observer 回调是在搬动节点的同步趟*之后*作为微任务运行的，这一趟会**统计自己做了多少次改动**，observer 就正好丢掉这些回调，于是一次放置不会被误判成值得反应的变化。异常绝不会逃出一趟放置：那会把整个侧边栏布局一起带崩，所以失败的趟就让行停在原地。
 
@@ -1076,7 +1067,7 @@ dsh-railist/
 | 一行的格子 | 贡献者注册在哪就是哪 | 由上方那一行推导（§2.11） |
 | 什么都不渲染的行 | 不作区分 | `当前未显示` / `not shown` 徽标（§2.8） |
 | 已经不存在的行 | `缺失` | `缺失`（不变） |
-| 每行显示贡献者信息 | — | 由 `GET /railist/api/plugins` 提供包名 + 版本（§3.8） |
+| 每行显示贡献者信息 | — | 由 `GET /railist/api/plugins` 提供包名 + 版本（§3.6） |
 | 设置那一格 | 不涉及（只有一格） | **明确永不接管**，并写明了原因（§2.12） |
 | 自检数量 | 四个探测 | **五个**（第五个是格子可定位性，§5） |
 | 配置文件 | `panellist.json` | `railist.json`（形态相同，`schemaVersion` 2） |
@@ -1092,7 +1083,9 @@ dsh-railist/
 
 ### 9. 第一版范围与非目标
 
-**第一版包含**：跨两个被管理格子的序列编辑（拖拽 + 键盘兜底）、分组、显示/隐藏（分组内同样支持）、名称与图标覆盖（原图标 / 内置图标集 / 粘贴 SVG）、`当前未显示` 标注、每行的贡献者包名与版本、配置导入导出、孤儿保留与清理、中英文界面、自检与只读降级，以及这份双语 README。
+**第一版包含**：跨两个被管理格子的序列编辑（拖拽 + 键盘兜底）、分组、显示/隐藏（分组内同样支持）、名称与图标覆盖（原图标 / 内置图标集 / 粘贴 SVG）、`当前未显示` 标注、每行的贡献者包名与版本、中英文界面，以及这份双语 README。
+
+> **发布后精简（v0.1.1）**：按要求，设置页删掉了「已缺失的面板」列表与「清理缺失项」、JSON 导入/导出的文本框与按钮、「打开配置文件」按钮、**恢复默认**，以及整个**兼容性**卡片（探测列表、降级横幅、测量版本、「重跑自检」）。现在这一页只剩序列编辑器旁边的一行——配置文件的完整路径。自检探测本身、它们驱动的只读 / `active` 规则降级、行上的 `missing` 徽标、模型里的 `cleanOrphans` 助手，以及 `/reset`、`/reveal`、`/export`、`/import` 宿主路由都保留；消失的只是这个页面通往它们的入口。
 
 **第一版不含**（留给后续）：分组内搜索、轨道上的右键上下文菜单、按语言分别取名、针对真实 DSH UI 的 E2E。
 
@@ -1110,6 +1103,7 @@ dsh-railist/
 6. ✅ **真机迭代（上游）** —— 插件在真实 profile 里跑过若干轮反馈：设置页列出整条轨道、隐藏行与分组行为正确、图标集按 shell 自己的原稿重绘、成员隐藏落地、自检的启动顺序竞争被修掉；
 7. ✅ **发布（上游）** —— `dsh-panellist` `v0.1.0` 上到 GitHub 与 npm，并提交到 `awesome-dsh-plugin`；
 8. ✅ **本 fork** —— 更名 **`dsh-railist`**，拥有自己的配置文件、路由前缀与轨道 id 前缀；序列扩展到第二格，配「上方最近有格子的行」规则与物理放置过程；上移/下移按钮改为拖拽；加入 `当前未显示` 标注、每行的贡献者包名与版本、只用 token 的打磨 CSS 块，以及第五个自检。
+9. ✅ **精简** —— 设置页缩减为序列编辑器加一行配置文件路径：「已缺失的面板」列表、导入导出、打开文件、恢复默认与兼容性卡片全部删除，探测及其降级逻辑保留在幕后（§9）。
 
 #### 无需启动应用的静态检查
 

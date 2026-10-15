@@ -75,6 +75,24 @@ export interface GhostDeps {
    * props the footer seat passes, exactly as the shell would have rendered it.
    */
   component: unknown
+  /**
+   * Paint the panel's configured icon INSIDE the row, or do nothing when the
+   * panel carries no override.
+   *
+   * A footer contributor is the entire row — its own button, its own icon
+   * element, its own label — unlike a top-seat contributor, whose component IS
+   * a glyph and whose surrounding button and label belong to the shell. So the
+   * footer half cannot honour an override by rendering a different component:
+   * that is what made a re-iconed row lose its label and sit unaligned. It has
+   * to find the icon element the contributor already rendered and redraw just
+   * that, leaving the button, label and layout untouched.
+   *
+   * Called after the portal's content is in the DOM, on every render, so a
+   * changed choice repaints without re-mounting the contributor.
+   *
+   * @param slot - the ghost's own slot element, holding the contributor's tree.
+   */
+  paintIcon(slot: HTMLElement): void
   /** Live row state, or `null` when the plan no longer places this row here. */
   read(): GhostState | null
   /** Subscribe to plan changes; the ghost re-renders (and re-places) on each. */
@@ -135,12 +153,34 @@ export function createGhost(deps: GhostDeps): AnyComponent {
       if (host !== null && element.parentNode !== host) host.appendChild(element)
     })
 
+    /**
+     * Swap the row's own icon for the configured one, INSIDE the contributor's
+     * markup.
+     *
+     * Runs after the portal's children are in the DOM, and re-runs whenever the
+     * icon choice changes, so the row shows what the picker shows without
+     * giving up the contributor's button, label or flex layout. A contributor
+     * whose markup has no recognisable icon element is left exactly as it
+     * renders — the override simply does not apply there, which is strictly
+     * better than replacing the whole row with a glyph and losing its label.
+     */
+    useEffect(() => {
+      if (element === null) return
+      deps.paintIcon(element)
+    })
+
     if (element === null || state === null || state.suppressed || state.hidden) return null
     const Native = deps.component as AnyComponent | null
     if (Native === null) return null
     // The whole prop bag is forwarded verbatim through JSX — never called as a
     // plain function — so a contributor that consumes composed props (a locale
     // seat, a hook context) keeps working.
+    //
+    // A configured icon does NOT replace this component: a footer contributor
+    // IS the whole row (its own button, its own icon span, its own label span),
+    // so replacing it with a bare glyph dropped the label and left the icon
+    // unaligned — the row rendered as a stray 16px svg. The contributor stays,
+    // and the icon is swapped inside its markup by the effect below.
     return createPortal(<Native {...props} />, element)
   }
   return ghost

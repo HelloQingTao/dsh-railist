@@ -78,7 +78,11 @@ export const SETTINGS_CSS = `
   padding: 16px;
   border: 1px solid var(--dsh-railist-line);
   border-radius: 16px;
-  background: var(--dsw-alias-bg-layer-3, transparent);
+  /* The card is the shell's own surface, not a grey of our making: painting it
+     with a layer colour made the whole section read as a dimmed panel next to
+     the shell's settings rows. Transparent keeps it on the dialog's background
+     and lets the border do the framing. */
+  background: transparent;
 }
 
 .dsh-railist-settings-blockTitle {
@@ -204,6 +208,93 @@ export const SETTINGS_CSS = `
   background: none;
 }
 
+/* A selected row is marked by the accent on its name, not by a filled box —
+   the list stays a list while it says which row the editor below is on. */
+.dsh-railist-settings-row[data-selected='true'] {
+  background: transparent;
+}
+
+.dsh-railist-settings-row[data-selected='true'] .dsh-panellist-settings-rowName,
+.dsh-railist-settings-row[data-selected='true'] .dsh-panellist-settings-memberName {
+  color: var(--dsh-railist-accent);
+}
+
+/* The visibility switch: an icon, not a worded button. It sits at the end of
+   the row, takes the label colour, and only reveals itself as a control on
+   hover or when it is actually reporting "hidden" — so the list reads as
+   "glyph + name" until the pointer is on the row. */
+.dsh-railist-settings-eye {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  /* The name block stays flush left and the switch is pushed to the far right,
+     so every row's icon and text start at the same x whatever its name length. */
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsh-railist-muted);
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.dsh-railist-settings-row:hover .dsh-railist-settings-eye,
+.dsh-railist-settings-member:hover .dsh-railist-settings-eye,
+.dsh-railist-settings-eye:focus-visible {
+  opacity: 1;
+}
+
+.dsh-railist-settings-eye[data-state='hidden'] {
+  color: var(--dsh-railist-warn);
+  opacity: 1;
+}
+
+.dsh-railist-settings-eye:hover {
+  background: var(--dsw-alias-interactive-bg-hover, var(--dsh-railist-fill-strong));
+}
+
+.dsh-railist-settings-eyeGlyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The strip under the list: one verb, on the row you selected. */
+.dsh-railist-settings-rowActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.dsh-railist-settings-stripAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--dsh-railist-line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dsh-railist-settings-stripAction:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover, var(--dsh-railist-fill-strong));
+}
+
+.dsh-railist-settings-stripAction:disabled {
+  color: var(--dsh-railist-muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
 .dsh-railist-settings-dropZone {
   min-height: 8px;
 }
@@ -212,10 +303,30 @@ export const SETTINGS_CSS = `
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px;
-  border: 1px solid var(--dsh-railist-hairline);
+  padding: 4px 6px;
+  border: 1px solid transparent;
   border-radius: 10px;
-  background: var(--dsh-railist-fill);
+  /* No fill of our own: a row is a line of the list, not a card. The wash read
+     as a grey box per row and made the list look like a table of chips. */
+  background: transparent;
+}
+
+/* The row's own line, so the list keeps its structure without painting a
+   surface: the hairline under each row is the separator (the last one and the
+   pinned row drop it). */
+.dsh-railist-settings-row + .dsh-railist-settings-row {
+  border-top: 1px solid var(--dsh-railist-hairline);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.dsh-railist-settings-row:hover {
+  /* The ONE hover layer a row gets, in the shell's own hover colour. The
+     fallback is a tint of the accent rather than a grey wash: a currentColor
+     wash at 5% reads as dirt on a light theme and as nothing at all on a dark
+     one, so an environment that publishes no hover alias got a colour that was
+     not the theme's. */
+  background: var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, var(--dsh-railist-accent) 12%, transparent));
 }
 
 .dsh-railist-settings-row[data-dragging='true'] {
@@ -232,12 +343,14 @@ export const SETTINGS_CSS = `
   gap: 8px;
 }
 
-.dsh-railist-settings-rowSelect {
-  flex: 1 1 auto;
+.dsh-railist-settings-rowSelect,
+.dsh-panellist-settings-rowSelect {
+  flex: 0 1 auto;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  max-width: 100%;
   padding: 4px 6px;
   border: 0;
   border-radius: 8px;
@@ -248,11 +361,12 @@ export const SETTINGS_CSS = `
   cursor: pointer;
 }
 
-.dsh-railist-settings-rowSelect:hover {
-  background: var(--dsw-alias-interactive-bg-hover, var(--dsh-railist-fill-strong));
-}
+/* No hover fill of its own: the select covers all but the row's padding, so a
+   second layer here painted a visibly darker band INSIDE the hovered row —
+   two greys at once. The row's own :hover is the one hover layer. */
 
-.dsh-railist-settings-rowGlyph {
+.dsh-railist-settings-rowGlyph,
+.dsh-panellist-settings-rowGlyph {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -261,7 +375,8 @@ export const SETTINGS_CSS = `
   height: 20px;
 }
 
-.dsh-railist-settings-rowName {
+.dsh-railist-settings-rowName,
+.dsh-panellist-settings-rowName {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -315,9 +430,10 @@ export const SETTINGS_CSS = `
   border-radius: 8px;
 }
 
-.dsh-railist-settings-member:hover {
-  background: var(--dsh-railist-fill-strong);
-}
+/* Members of a group sit INSIDE their row: hovering one used to paint a grey
+   band under the row's own hover grey. The row-level layer is the one hover
+   layer, so nothing is painted here. The selected fill below stays — that is a
+   state, not a hover, and it says which icon the editor is editing. */
 
 .dsh-railist-settings-member[data-selected='true'] {
   background: var(--dsh-railist-fill-strong);
@@ -407,87 +523,6 @@ export const SETTINGS_CSS = `
 .dsh-railist-settings-error {
   margin: 0;
   color: var(--dsh-railist-danger);
-}
-
-.dsh-railist-settings-confirm {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--dsh-railist-line);
-  border-radius: 10px;
-  background: var(--dsh-railist-fill);
-}
-
-.dsh-railist-settings-plainList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/*
- * A row is icon + label, laid out explicitly: as inline content the
- * contributor's SVG sits on the text baseline, so a tight line box clips it or
- * runs it into the name. Flex keeps both on one optical line at any glyph size,
- * and only the label may be truncated.
- */
-.dsh-railist-settings-plainList li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--dsh-railist-muted);
-}
-
-.dsh-railist-settings-plainList li > * {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-}
-
-.dsh-railist-settings-probeList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.dsh-railist-settings-probe {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.dsh-railist-settings-probeHead {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.dsh-railist-settings-probeState {
-  color: var(--dsh-railist-muted);
-  font-size: 11px;
-}
-
-.dsh-railist-settings-probe[data-ok='false'] .dsh-railist-settings-probeState {
-  color: var(--dsh-railist-danger);
-}
-
-.dsh-railist-settings-probeImpact {
-  margin: 0;
-  color: var(--dsh-railist-muted);
-}
-
-.dsh-railist-settings-probeDetail {
-  color: var(--dsh-railist-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
 }
 
 .dsh-railist-settings-warnings {

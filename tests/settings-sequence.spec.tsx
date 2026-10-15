@@ -131,7 +131,8 @@ describe('SequenceEditor', () => {
   it('groups a row with the next row', () => {
     const harness = renderPage(profileWith(['plugins', 'schedules', 'skills']))
 
-    fireEvent.click(within(rowOf('plugins')).getByRole('button', { name: 'Group with next' }))
+    fireEvent.click(rowOf('plugins').querySelector('[data-action="select"]') as HTMLElement)
+    fireEvent.click(within(screen.getByTestId('dsh-railist-settings-rowActions')).getByRole('button', { name: 'Group with next' }))
 
     const next = harness.profile()
     expect(next.sequence).toHaveLength(2)
@@ -156,7 +157,11 @@ describe('SequenceEditor', () => {
     }
     const harness = renderPage(profile)
 
-    fireEvent.click(within(rowOf('group:g1')).getByRole('button', { name: 'Ungroup' }))
+    // The verb lives on the strip under the list and acts on the selected row,
+    // so the row has to be selected first — that is the whole point of the
+    // move: the row itself is only an icon and a name.
+    fireEvent.click(rowOf('group:g1').querySelector('[data-action="select"]') as HTMLElement)
+    fireEvent.click(within(screen.getByTestId('dsh-railist-settings-rowActions')).getByRole('button', { name: 'Ungroup' }))
 
     expect(harness.profile().sequence).toEqual([
       // A dissolved group leaves its members bare. Only `skills` was a bare row
@@ -256,9 +261,9 @@ describe('SequenceEditor', () => {
     const toggle = member.querySelector('[data-action="memberToggleHidden"]')
     if (toggle === null) throw new Error('the member row has no hide/show affordance')
 
-    // Hide/Show is the LAST control on the row, like every other row's: the
-    // order is "move, then act, then visibility". Moving is the handle now, and
-    // the handle is not a `data-action` button — the ↑/↓ pair is gone.
+    // Both controls on a member's row are ICONS now, not worded buttons: the
+    // row is already named, so repeating "Hide"/"Take out of group" as text on
+    // every member was noise. Their `data-action` still names the verb.
     const order = Array.from(member.querySelectorAll('[data-action]')).map(node => node.getAttribute('data-action'))
     expect(order).toEqual(['select', 'memberRemove', 'memberToggleHidden'])
     // The move affordance is still on the row, just not as a button pair.

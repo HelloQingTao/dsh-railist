@@ -34,6 +34,9 @@ interface Harness {
   deps: GroupUnitDeps
   registered: Map<string, RailRowRegistration>
   selectCalls: string[]
+  activateCalls: string[]
+  /** Fake `main`-page registrations, keyed by panel id. */
+  pages: Map<string, () => ReactNode>
   glyphRequests: GlyphRequest[]
   dispose(): void
   setActive(panelId: string): void
@@ -48,6 +51,7 @@ function createHarness(sequence: SequenceItem[], entries: ProfileConfig['entries
   const rows = new Map<string, RailRowRegistration>()
   const pages = new Map<string, () => ReactNode>()
   const selectCalls: string[] = []
+  const activateCalls: string[] = []
   const glyphRequests: GlyphRequest[] = []
 
   const rail: RailHost = {
@@ -57,6 +61,9 @@ function createHarness(sequence: SequenceItem[], entries: ProfileConfig['entries
       selectCalls.push(panelId)
       activePanelId = panelId
       for (const listener of [...activeListeners]) listener()
+    },
+    activateRow: (panelId) => {
+      activateCalls.push(panelId)
     },
     registerRow: (registration, page) => {
       rows.set(registration.railId, registration)
@@ -90,10 +97,16 @@ function createHarness(sequence: SequenceItem[], entries: ProfileConfig['entries
   }
 
   const unit = createGroupUnit(deps)
+  // Standard members carry a `main` page, exactly as a real registration does —
+  // `select()` routes them to `selectPanel`. A member WITHOUT a page (a footer
+  // action) is the subject of the `activateRow` test below.
+  for (const panel of PANELS) pages.set(panel.id, () => null)
   return {
     deps,
     registered: rows,
     selectCalls,
+    activateCalls,
+    pages,
     glyphRequests,
     dispose: () => { unit.dispose() },
     setActive: (panelId) => {
@@ -300,6 +313,21 @@ describe('groups flyout — interaction', () => {
 
     expect(rowKeyDown).not.toHaveBeenCalled()
     expect(harness.selectCalls).toEqual(['gamma'])
+  })
+
+  it('evokes a member without a main page instead of selecting it', () => {
+    // A footer action (e.g. the capability panel) registers no `main` page:
+    // `selectPanel` is a guarded no-op there, so the member's own row is
+    // evoked for one interaction and its real button is clicked instead —
+    // the native behaviour keeps working from inside the group.
+    const harness = createHarness([ALPHA, GROUP])
+    harness.pages.delete('gamma')
+    openMenu(harness, { left: 8, top: 100, width: 36, height: 36 })
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Gamma' }))
+
+    expect(harness.activateCalls).toEqual(['gamma'])
+    expect(harness.selectCalls).toEqual([])
   })
 })
 

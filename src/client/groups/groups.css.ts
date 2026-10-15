@@ -48,6 +48,11 @@ nav[class*="_panelList"] button[class*="_panelRow"]:has([data-dsh-railist-group-
   z-index: 90;
 }
 
+/* Material copied from the shell's own menu surface (MenuSurface.module.css):
+   translucent fill + heavy backdrop blur + the shell elevation stroke/shadow,
+   so the flyout reads as the same surface as every native menu. The leading
+   tokens exist on body/body[data-ds-dark-theme]; the aliases only back up
+   shells that predate them. */
 [data-dsh-railist-flyout] {
   position: fixed;
   z-index: 90;
@@ -57,10 +62,10 @@ nav[class*="_panelList"] button[class*="_panelRow"]:has([data-dsh-railist-group-
   max-height: min(420px, calc(100vh - 16px));
   overflow: auto;
   padding: 4px;
-  border: 1px solid var(--dsw-alias-border-l2, rgba(128, 128, 128, 0.25));
   border-radius: var(--dsw-radius-md, 8px);
-  background: var(--dsw-alias-bg-layer-2, Canvas);
-  box-shadow: var(--dsw-shadow-lv3, 0 8px 24px rgba(0, 0, 0, 0.18));
+  background: var(--dsw-menu-surface-fill, var(--dsw-alias-bg-layer-2, Canvas));
+  backdrop-filter: var(--dsw-menu-backdrop-filter, blur(40px) saturate(150%));
+  box-shadow: var(--dsw-elevation-panel, 0 8px 24px rgba(0, 0, 0, 0.18));
   color: var(--dsw-alias-label-primary, CanvasText);
   font: inherit;
 }

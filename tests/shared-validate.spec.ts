@@ -81,6 +81,28 @@ describe('normalizeConfigDocument', () => {
     expect(section?.entries['other']).toEqual({ hidden: true })
   })
 
+  it('keeps only managed member seats in a group record', () => {
+    const result = normalizeConfigDocument({
+      schemaVersion: SCHEMA_VERSION,
+      profiles: {
+        web: {
+          sequence: [
+            {
+              type: 'group', id: 'group:g', members: ['a', 'b'],
+              seats: { a: 'footer', b: 'settings', ghost: 'top' },
+            },
+          ],
+        },
+      },
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const group = result.config.profiles['web']?.sequence[0]
+    // `settings` is not a managed seat and `ghost` is not a member: both drop,
+    // and the record vanishes entirely once nothing legible is left.
+    expect(group).toMatchObject({ type: 'group', members: ['a', 'b'], seats: { a: 'footer' } })
+  })
+
   it('keeps a custom SVG inside the size window only', () => {
     const svg = '<svg viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg>'
     const ok = normalizeConfigDocument({

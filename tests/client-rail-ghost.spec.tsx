@@ -17,9 +17,9 @@
  *    reference to, and must carry the row stamp the rest of the plugin reads.
  */
 import { describe, expect, it } from 'vitest'
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { emptyProfileConfig, type ProfileConfig } from '../src/shared/config.ts'
+import { emptyProfileConfig, type BuiltinIconName, type ProfileConfig } from '../src/shared/config.ts'
 import { buildPlan, type Plan } from '../src/shared/model.ts'
 import type { GlyphRequest } from '../src/client/contracts.ts'
 import { createRailAdapter } from '../src/client/registry/rail.tsx'
@@ -36,7 +36,10 @@ function glyph(_request: GlyphRequest): ReactNode {
 
 /** A footer contributor: a whole button, as the footer seat's contract expects. */
 const FooterButton = ({ label }: { label?: string }): ReactNode => (
-  <button type="button" data-testid="footer-button">{label ?? 'footer'}</button>
+  <button type="button" data-testid="footer-button">
+    <span className="skp-foot-icon" data-testid="footer-icon" />
+    <span data-testid="footer-label">{label ?? 'footer'}</span>
+  </button>
 )
 
 function seedFooter(ledger: FakeLedger, ids: string[]): void {
@@ -197,6 +200,140 @@ describe('createRailAdapter: footer ghost', () => {
     adapter.dispose()
 
     expect(footerEntry(ledger, 'power').component).toBe(original)
+  })
+})
+
+/**
+ * A footer row must honour a configured icon.
+ *
+ * The top seat reaches its icons through the glyph WRAPPER (`rail.tsx`'s
+ * `wrapperFor`), but a footer row is REPLACED by this ghost — which used to
+ * forward props straight into its portal and never consult the plan's `icon`.
+ * The picker wrote `entries[id].icon` to `railist.json` and the rail kept the
+ * contributor's own glyph: reported as "picking a built-in icon and saving has
+ * no effect", and it only ever affected footer rows, which is why the top half
+ * of the list looked correct.
+ */
+describe('createRailAdapter: footer ghost icon override', () => {
+  /**
+   * A glyph renderer that marks itself, so the test can see WHICH path ran.
+   *
+   * `request.icon` is nullable on the real contract (a row may have no override),
+   * so the narrowing is explicit rather than an assertion the stub would not
+   * survive a contract change.
+   */
+  const markedGlyph = (request: GlyphRequest): ReactNode => {
+    const icon = request.icon
+    const name = icon === null ? 'none' : icon.kind === 'builtin' ? icon.name : icon.kind
+    return <span data-testid="override-glyph">{name}</span>
+  }
+
+  /** A plan whose `power` panel carries a built-in icon override. */
+  function planWithIcon(name: BuiltinIconName, profile: ProfileConfig): Plan {
+    const config: ProfileConfig = {
+      ...profile,
+      entries: { power: { icon: { kind: 'builtin', name } } },
+    }
+    return buildPlan(
+      [{ id: 'power', label: 'Power', order: 0, container: 'top' as const }],
+      config,
+    )
+  }
+
+  it('keeps the contributor row and swaps only its icon element', () => {
+    const ledger = new FakeLedger()
+    seedFooter(ledger, ['power'])
+    const plan = planWithIcon('star', emptyProfileConfig())
+    const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => plan, markedGlyph)
+    adapter.applyOverrides()
+    const Ghost = footerEntry(ledger, 'power').component as (props: { wide?: boolean }) => ReactNode
+    const nav = withPanelList()
+
+    const view = render(<div data-testid="footer-host"><Ghost wide /></div>)
+
+    const slot = nav.querySelector(`[${GHOST_ATTR}]`)
+    expect(slot).not.toBeNull()
+    // The contributor's button and label SURVIVE: a footer row is the whole
+    // row, so replacing it with a bare glyph is what made the label disappear
+    // and the icon sit unaligned.
+    expect(slot?.querySelector('[data-testid="footer-button"]')).not.toBeNull()
+    expect(slot?.querySelector('[data-testid="footer-icon"]')).not.toBeNull()
+    view.unmount()
+    nav.remove()
+    adapter.dispose()
+  })
+
+  it('leaves a contributor without a recognisable icon element alone', () => {
+    const ledger = new FakeLedger()
+    // A contributor whose markup carries no icon element at all: the override
+    // cannot apply, and painting over some arbitrary node would corrupt it.
+    ledger.declare('sidebar.panellist')
+    ledger.declare('main')
+    ledger.declare(FOOTER_SLOT)
+    ledger.register({ name: FOOTER_SLOT, id: 'power', order: 0, label: 'power' }, () => (
+      <div className="no-icon-here"><span>{'plain'}</span></div>
+    ))
+    ledger.register({ name: 'main', key: 'power' }, () => null)
+    const plan = planWithIcon('star', emptyProfileConfig())
+    const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => plan, markedGlyph)
+    adapter.applyOverrides()
+    const Ghost = footerEntry(ledger, 'power').component as (props: { wide?: boolean }) => ReactNode
+    const nav = withPanelList()
+
+    const view = render(<div data-testid="footer-host"><Ghost wide /></div>)
+
+    const slot = nav.querySelector(`[${GHOST_ATTR}]`)
+    expect(slot?.querySelector('.no-icon-here')).not.toBeNull()
+    expect(slot?.querySelector('[data-testid="override-glyph"]')).toBeNull()
+    view.unmount()
+    nav.remove()
+    adapter.dispose()
+  })
+
+  it('falls back to the contributor row when the panel carries no icon', () => {
+    const ledger = new FakeLedger()
+    seedFooter(ledger, ['power'])
+    const plan = planTop([{ id: 'power', label: 'Power' }], emptyProfileConfig())
+    const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => plan, markedGlyph)
+    adapter.applyOverrides()
+    const Ghost = footerEntry(ledger, 'power').component as (props: { wide?: boolean }) => ReactNode
+    const nav = withPanelList()
+
+    const view = render(<div data-testid="footer-host"><Ghost wide /></div>)
+
+    const slot = nav.querySelector(`[${GHOST_ATTR}]`)
+    expect(slot?.querySelector('[data-testid="override-glyph"]')).toBeNull()
+    expect(slot?.querySelector('[data-testid="footer-button"]')).not.toBeNull()
+    view.unmount()
+    nav.remove()
+    adapter.dispose()
+  })
+
+  it('repaints the icon when the choice changes to another built-in', () => {
+    const ledger = new FakeLedger()
+    seedFooter(ledger, ['power'])
+    let plan = planWithIcon('star', emptyProfileConfig())
+    const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, () => plan, markedGlyph)
+    adapter.applyOverrides()
+    const Ghost = footerEntry(ledger, 'power').component as (props: { wide?: boolean }) => ReactNode
+    const nav = withPanelList()
+
+    const view = render(<div data-testid="footer-host"><Ghost wide /></div>)
+    const icon = (): Element | null | undefined => nav.querySelector('[data-testid="footer-icon"] [data-testid="override-glyph"]')
+    expect(icon()?.textContent).toBe('star')
+
+    // Picking a SECOND built-in icon on a panel already carrying one writes no
+    // ledger field at all, so the shell has no reason to re-render the row: the
+    // rewrite pass compares a rendering digest and nudges the ghosts itself.
+    plan = planWithIcon('puzzle', emptyProfileConfig())
+    act(() => { adapter.applyOverrides() })
+
+    expect(icon()?.textContent).toBe('puzzle')
+    // The row is NOT re-mounted by the repaint — its own chrome is still there.
+    expect(nav.querySelector('[data-testid="footer-button"]')).not.toBeNull()
+    view.unmount()
+    nav.remove()
+    adapter.dispose()
   })
 })
 

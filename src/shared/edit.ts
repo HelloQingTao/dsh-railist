@@ -43,6 +43,23 @@ function sequenceOf(profile: ProfileConfig): SequenceItem[] {
   return profile.sequence.map(item => (isGroupItem(item) ? { ...item, members: [...item.members] } : { ...item }))
 }
 
+/**
+ * The seat a panel's row keeps in its current shape: its own entry's `seat`,
+ * or the seat its current group recorded for it (see `GroupItem.seats`).
+ * `undefined` means "no stored seat" — the row falls back to its
+ * contributor's seat.
+ */
+function storedSeatOf(items: readonly SequenceItem[], panelId: string): Container | undefined {
+  for (const item of items) {
+    if (isEntryItem(item)) {
+      if (item.id === panelId) return item.seat
+    } else if (item.members.includes(panelId)) {
+      return item.seats?.[panelId]
+    }
+  }
+  return undefined
+}
+
 /** Remove a panel from wherever it sits; drop any group left with no members. */
 function withoutPanel(items: SequenceItem[], panelId: string): SequenceItem[] {
   const result: SequenceItem[] = []
@@ -234,8 +251,19 @@ export function createGroup(
     : item.members.some(member => panelIds.includes(member))))
   const anchor = topmost > 0 ? next.sequence[topmost - 1]?.id ?? null : null
   let items = sequenceOf(next)
-  for (const panelId of panelIds) items = withoutPanel(items, panelId)
+  // Member seats must survive the rebuild (see `GroupItem.seats`): the entries
+  // below are dropped, and on a later dissolve each member is re-created as a
+  // bare entry — without this record a member dragged across seats would fall
+  // back to its contributor's seat. A member that currently lives inside
+  // another group keeps the seat THAT group recorded for it.
+  const seats: Record<string, Container> = {}
+  for (const panelId of panelIds) {
+    const seat = storedSeatOf(items, panelId)
+    if (isManagedSeat(seat)) seats[panelId] = seat
+    items = withoutPanel(items, panelId)
+  }
   const group: GroupItem = { type: 'group', id: groupId, members: [...panelIds] }
+  if (Object.keys(seats).length > 0) group.seats = seats
   if (options.label !== undefined && options.label.trim().length > 0) group.label = options.label.trim()
   if (options.icon !== undefined && options.icon.kind !== 'original') group.icon = { ...options.icon }
   let insertAt = 0
@@ -258,7 +286,14 @@ export function dissolveGroup(profile: ProfileConfig, groupId: string): ProfileC
   if (index < 0) return next
   const item = next.sequence[index]
   if (item === undefined || !isGroupItem(item)) return next
-  const replacements: SequenceItem[] = item.members.map(member => ({ type: 'entry', id: member }))
+  const replacements: SequenceItem[] = item.members.map(member => ({
+    type: 'entry',
+    id: member,
+    // Put back the seat the member carried when it joined (see
+    // `GroupItem.seats`) — this record exists exactly so dissolving does not
+    // teleport a member to its contributor's seat.
+    ...(item.seats?.[member] === undefined ? {} : { seat: item.seats[member] }),
+  }))
   next.sequence.splice(index, 1, ...replacements)
   return next
 }
@@ -271,11 +306,17 @@ export function addToGroup(
   index?: number,
 ): ProfileConfig {
   const next = base(profile)
-  let items = withoutPanel(sequenceOf(next), panelId)
+  const previous = sequenceOf(next)
+  // Record the member's current seat (see `GroupItem.seats`) so a later
+  // dissolve or removal can put it back: the member leaves its current shape
+  // here, which would otherwise drop that fact.
+  const seat = storedSeatOf(previous, panelId)
+  let items = withoutPanel(previous, panelId)
   const target = items.find(item => isGroupItem(item) && item.id === groupId)
   if (target === undefined || !isGroupItem(target)) return next
   const at = index === undefined ? target.members.length : Math.max(0, Math.min(target.members.length, index))
   target.members.splice(at, 0, panelId)
+  if (isManagedSeat(seat)) (target.seats ??= {})[panelId] = seat
   next.sequence = items
   return next
 }
@@ -289,8 +330,17 @@ export function removeFromGroup(profile: ProfileConfig, groupId: string, panelId
   if (index < 0 || group === undefined || !isGroupItem(group)) return next
   if (!group.members.includes(panelId)) return next
   group.members = group.members.filter(member => member !== panelId)
-  if (group.members.length === 0) items.splice(index, 1, { type: 'entry', id: panelId })
-  else items.splice(index + 1, 0, { type: 'entry', id: panelId })
+  // The member re-enters the top level as a bare row carrying the seat it had
+  // when it joined (see `GroupItem.seats`); the record leaves with the member.
+  const entry: EntryItem = { type: 'entry', id: panelId }
+  const seat = group.seats?.[panelId]
+  if (group.seats !== undefined) {
+    delete group.seats[panelId]
+    if (Object.keys(group.seats).length === 0) delete group.seats
+  }
+  if (isManagedSeat(seat)) entry.seat = seat
+  if (group.members.length === 0) items.splice(index, 1, entry)
+  else items.splice(index + 1, 0, entry)
   next.sequence = items
   return next
 }

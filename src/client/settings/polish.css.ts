@@ -33,30 +33,37 @@ export const SETTINGS_POLISH_CSS = `
 
 .dsh-panellist-settings-row {
   gap: 2px;
-  padding: 5px 10px 5px 8px;
-  border-radius: var(--dsw-radius-lg, 12px);
+  padding: 4px 8px;
+  border-radius: var(--dsw-radius-md, 8px);
   transition: border-color 120ms ease, background-color 120ms ease, opacity 120ms ease;
 }
 
 /*
- * The shell paints its own hover as a flat fill on the element under the
- * pointer. A row is a container, not a control, so hovering it should answer
- * "this whole thing is one unit" — a hairline that firms up — rather than light
- * the entire row up as if it were a button.
+ * Hover answers "this whole thing is one unit" with a flat, faint fill — the
+ * same answer the shell gives its own list rows. It must not draw a border
+ * here: the base row only carries a top hairline, and lighting all four sides
+ * would box the row in.
+ *
+ * This is the ONE hover layer a settings row gets, so it must be clearly
+ * visible on its own: the inner rowSelect and member hovers are gone precisely
+ * because they stacked a second band inside this one. The fallback is a tint of
+ * the theme accent, not a currentColor wash — that wash is grey on a light
+ * theme and invisible on a dark one, which is how "hover is grey" got reported
+ * in the first place.
  */
 .dsh-panellist-settings-row:hover {
-  border-color: var(--dsw-alias-border-l2, color-mix(in srgb, currentColor 16%, transparent));
+  background: var(--dsw-alias-interactive-bg-hover, color-mix(in srgb, var(--dsw-alias-brand-primary, currentColor) 12%, transparent));
 }
 
 /*
- * Selection is a state, not a hover: it has to survive the pointer leaving. A
- * 1px border in the brand colour is enough to read as "this is the row you are
- * editing", and it keeps the row's size stable where a heavier outline would
- * shift the text by a pixel.
+ * Selection is a state, not a hover: it has to survive the pointer leaving. The
+ * row is marked by the brand on its 1px border and on the name itself, never by
+ * a filled box — a fill here read as a grey chip in light mode and dimmed the
+ * row's own text in dark mode.
  */
 .dsh-panellist-settings-row[data-selected='true'] {
   border-color: var(--dsw-alias-brand-primary, currentColor);
-  background: var(--dsw-alias-interactive-bg-active, color-mix(in srgb, currentColor 8%, transparent));
+  background: transparent;
 }
 
 .dsh-panellist-settings-row[data-selected='true']:hover {
@@ -386,9 +393,9 @@ export const SETTINGS_POLISH_CSS = `
   transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 
-.dsh-panellist-settings-member:hover {
-  background: var(--dsw-alias-interactive-bg-hover, var(--dsh-railist-fill-strong, color-mix(in srgb, currentColor 11%, transparent)));
-}
+/* Members carry no hover fill: they live inside a row that has one, and the two
+   layers read as a double grey band. The selected state below is kept — it
+   marks which icon the editor is editing. */
 
 /* The selected member keeps the same inset ring the rail uses for a nested row. */
 .dsh-panellist-settings-member[data-selected='true'] {
@@ -399,20 +406,17 @@ export const SETTINGS_POLISH_CSS = `
 /* ---------------------------------------------------------------- drop zone */
 
 /*
- * The drop target at the end of the list: an empty 8px strip that the pointer
- * could not find and that gave no answer while dragging. It now grows into a
- * visible line on hover, so "drop here to send it to the end" is discoverable
- * and confirmed before the drop rather than after it.
+ * The drop target is the whole list wrapper, so it must stay invisible until a
+ * drag is actually in flight: painting it on hover lit up the entire sequence
+ * whenever the pointer crossed a gap between rows, which read as a second grey
+ * layer above the row's own hover. The row's :hover is the only hover layer here
+ * (user feedback, 2026-10-15); the end-of-list strip keeps its own affordance.
  */
 .dsh-panellist-settings-dropZone {
   min-height: 12px;
   border-radius: var(--dsw-radius-md, 8px);
-  transition: background-color 120ms ease, box-shadow 120ms ease;
-}
-
-.dsh-panellist-settings-dropZone:hover {
-  background: color-mix(in srgb, currentColor 5%, transparent);
-  box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l2, color-mix(in srgb, currentColor 16%, transparent));
+  background: none;
+  box-shadow: none;
 }
 
 /* --------------------------------------------------------------- blocks */
@@ -438,9 +442,9 @@ export const SETTINGS_POLISH_CSS = `
 
 /*
  * The pending-edit bar. It is rendered above the sequence list so the two ways
- * out of a previewed reorder are the first thing the eye lands on, and it is
- * the only element on the page that carries a brand-coloured fill — which is
- * what makes "Save" the obvious choice when the bar appears.
+ * out of a previewed reorder are the first thing the eye lands on. It is framed
+ * by its border and its brand-coloured Save, not by a grey surface — a layered
+ * fill here made the bar look like a disabled region in light mode.
  */
 .dsh-panellist-settings-commitBar {
   display: flex;
@@ -451,7 +455,7 @@ export const SETTINGS_POLISH_CSS = `
   padding: 10px 12px;
   border: 1px solid var(--dsw-alias-border-l2, color-mix(in srgb, currentColor 16%, transparent));
   border-radius: var(--dsw-radius-lg, 12px);
-  background: var(--dsw-alias-bg-layer-3, var(--dsh-railist-fill, color-mix(in srgb, currentColor 5%, transparent)));
+  background: transparent;
 }
 
 .dsh-panellist-settings-commitBar[hidden] { display: none; }

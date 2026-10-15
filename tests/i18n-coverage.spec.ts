@@ -65,31 +65,21 @@ describe('i18n', () => {
   it('carries no key that nothing renders', () => {
     // The mirror of the check above, and the one that catches the leftovers a
     // feature removal leaves behind (the keys survive the code that used them).
-    // Two families are built at runtime from closed sets and are listed below.
+    // One family is built at runtime from a closed set and is listed below.
     const used = new Set(usedKeys().keys())
-    const generated = /^(warning|probe)\.|^settings\.sequence\.seat/
+    const generated = /^warning\.|^settings\.sequence\.seat/
     const unused = Object.keys(en).filter(key => !used.has(key) && !generated.test(key))
     expect(unused).toEqual([])
   })
 
-  it('documents every warning and probe key the model can produce', () => {
-    // The plan's structured warnings and the four probes are rendered from
-    // generated keys, so they never appear as a literal `t('…')` call site.
+  it('documents every warning key the model can produce', () => {
+    // The plan's structured warnings are rendered from generated keys, so they
+    // never appear as a literal `t('…')` call site.
     const generated = [
       'warning.single-member-group',
       'warning.empty-group',
       'warning.group-id-collision',
       'warning.duplicate-in-sequence',
-      'probe.registry',
-      'probe.registry.impact',
-      'probe.rail',
-      'probe.rail.impact',
-      'probe.active',
-      'probe.active.impact',
-      'probe.settingsNav',
-      'probe.settingsNav.impact',
-      'probe.ok',
-      'probe.failed',
     ]
     for (const key of generated) {
       expect(Object.prototype.hasOwnProperty.call(en, key), key).toBe(true)

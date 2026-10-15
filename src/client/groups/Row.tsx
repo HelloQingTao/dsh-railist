@@ -96,8 +96,16 @@ export function createTriggerGlyph(runtime: GroupUnitRuntime, groupId: string): 
     }
     const select = (panelId: string): void => {
       setOpen(false)
-      // Guarded by the layout's own `main` probe inside the rail host.
-      deps.rail.selectPanel(panelId)
+      if (deps.rail.hasPage(panelId)) {
+        // Guarded by the layout's own `main` probe inside the rail host.
+        deps.rail.selectPanel(panelId)
+        return
+      }
+      // No `main` page (a footer action button like the capability panel):
+      // `selectPanel` is a guarded no-op there, so evoke the member's own row
+      // and click its real button — the member keeps its native behaviour
+      // inside the group instead of silently doing nothing.
+      deps.rail.activateRow(panelId)
     }
 
     return (

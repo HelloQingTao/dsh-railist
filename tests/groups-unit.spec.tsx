@@ -66,6 +66,7 @@ function createHarness(registered: RegisteredPanel[], initialProfile: ProfileCon
   const pages = new Map<string, () => ReactNode>()
   const disposeCalls: string[] = []
   const selectCalls: string[] = []
+  const activateCalls: string[] = []
   const styleChunks = new Map<string, string>()
   const glyphRequests: GlyphRequest[] = []
   const nativeGlyphs = new Map<string, GlyphComponent>()
@@ -77,6 +78,9 @@ function createHarness(registered: RegisteredPanel[], initialProfile: ProfileCon
       selectCalls.push(panelId)
       activePanelId = panelId
       for (const listener of [...activeListeners]) listener()
+    },
+    activateRow: (panelId) => {
+      activateCalls.push(panelId)
     },
     registerRow: (registration, page) => {
       rows.set(registration.railId, registration)

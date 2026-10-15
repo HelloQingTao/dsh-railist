@@ -20,6 +20,7 @@
  * throwaway registration that is disposed in the same task, which mutates the
  * ledger twice and makes the shell re-project `order`/`label`.
  */
+import { createRoot, type Root } from 'react-dom/client'
 import type { ReactNode } from 'react'
 import type { StoredEntry, SlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import type { Plan, PlanPanel, RegisteredPanel } from '../../shared/model.ts'
@@ -138,6 +139,40 @@ function unwrap(component: unknown): GlyphComponent | null {
   return typeof value === 'function' ? value as GlyphComponent : null
 }
 
+/**
+ * The element inside a footer row that holds its icon.
+ *
+ * A footer contributor is the whole row: a button, an icon element and a label
+ * element, all its own. Honouring an icon override means redrawing that icon
+ * element, and there is no contract for naming it — every contributor picked
+ * its own class. The search is therefore structural and deliberately
+ * conservative:
+ *
+ * 1. an element explicitly marked as the row's icon (`data-panellist-icon`),
+ *    which a contributor can opt into;
+ * 2. an element whose class ENDS with `icon` (word-boundary on `-icon`), the
+ *    shape every footer contributor seen so far uses (`skp-foot-icon`). The
+ *    match is anchored rather than a substring on purpose: `[class*=icon]`
+ *    also hits classes like `no-icon-here` or `iconography-note`, and painting
+ *    a glyph over one of those corrupts a row this plugin does not understand.
+ *
+ * Anything else returns `null`, and the caller leaves the row untouched: not
+ * applying the override is strictly better than mangling the row. A row with no
+ * override keeps its contributor's icon either way, because an unmarked element
+ * is never chosen.
+ */
+function findIconTarget(slot: HTMLElement): HTMLElement | null {
+  const explicit = slot.querySelector<HTMLElement>('[data-panellist-icon]')
+  if (explicit !== null) return explicit
+  for (const element of slot.querySelectorAll<HTMLElement>('[class]')) {
+    for (const name of element.classList) {
+      // `-icon` / `_icon` / bare `icon`, but never `iconography` or `no-icon-here`.
+      if (name === 'icon' || name.endsWith('-icon') || name.endsWith('_icon')) return element
+    }
+  }
+  return null
+}
+
 /** One glyph choice, in a form two plans can be compared by. */
 function iconKey(icon: PlanPanel['icon']): string {
   if (icon === null) return '-'
@@ -201,6 +236,13 @@ export interface RailAdapter {
   hasPage(id: string): boolean
   /** Select a panel behind {@link RailAdapter.hasPage}. */
   selectPanel(id: string): void
+  /**
+   * Bring a group member's own row back for one interaction and click its real
+   * button — the activation path for a member whose contributor registers no
+   * `main` page, where `selectPanel` is a guarded no-op (the flyout's member
+   * click lands here).
+   */
+  activateRow(id: string): void
   /** Currently selected panel id, or an empty string. */
   activePanelId(): string
   /** Observe selection changes. */
@@ -307,7 +349,29 @@ export function createRailAdapter(
    * list's rows is an ordinary DOM write no bookkeeping can desynchronise; and
    * the contributor still gets the footer seat's props and its own hooks.
    */
+  /**
+   * Row ids currently evoked out of their group for ONE interaction.
+   *
+   * A member whose contributor registers no `main` page cannot be activated
+   * through `selectPanel`: its whole behaviour lives in its own row button,
+   * which the group hides (`HIDE_CSS` / the ghost's `display: none`). Evoking a
+   * row drops its `suppressed` state for that one interaction — the wrapper and
+   * the ghost read this set (see `wrapperFor` / `ghostFor`) — and the
+   * document-level pointerdown installed with `activateRow` ends the evoke once
+   * the user clicks somewhere else.
+   */
+  const evokedRows = new Set<string>()
+
   const ghosts = new Map<string, AnyComponent>()
+
+  /**
+   * One React root per ghost slot that is currently painting a glyph override.
+   *
+   * Keyed by the slot element and held weakly, so a slot the ghost unmounted
+   * does not keep its renderer alive. A fresh root on every paint would mount a
+   * SECOND renderer over the same element and leak the first.
+   */
+  const iconRoots = new WeakMap<HTMLElement, Root>()
 
   /** The ghost for one footer row, built once and cached for the entry's life. */
   const ghostFor = (captured: Capture, id: string): AnyComponent => {
@@ -316,10 +380,41 @@ export function createRailAdapter(
     const built = createGhost({
       id,
       component: captured.component,
+      /**
+       * Redraw the row's own icon element with the configured glyph.
+       *
+       * The contributor rendered the row; this only replaces what sits inside
+       * its icon span, so the button, the label and the flex layout all stay
+       * exactly as the contributor drew them. Each slot gets at most one React
+       * root, cached in a WeakMap so repeated paints REUSE it instead of
+       * mounting a second renderer over the same element.
+       */
+      paintIcon: (slot) => {
+        const icon = plan().panels.get(id)?.icon ?? null
+        const target = icon === null ? null : findIconTarget(slot)
+        const previous = iconRoots.get(slot)
+        if (target === null) {
+          // No override (or nowhere to put it): tear our root down and let the
+          // contributor's own markup stand untouched.
+          if (previous !== undefined) {
+            previous.unmount()
+            iconRoots.delete(slot)
+          }
+          return
+        }
+        const root = previous ?? createRoot(target)
+        if (previous === undefined) iconRoots.set(slot, root)
+        root.render(glyph({ icon, native: null, size: 16, active: false }))
+      },
       read: () => {
         const panel = plan().panels.get(id)
         if (panel === undefined) return null
-        return { hidden: panel.hidden === true, suppressed: panel.suppressed === true }
+        // An evoked member renders in place for one interaction (see the evoke
+        // notes on `evokedRows`): drop `suppressed` while the evoke lasts.
+        return {
+          hidden: panel.hidden === true,
+          suppressed: panel.suppressed === true && !evokedRows.has(id),
+        }
       },
       subscribe: subscribeGhosts,
       version: ghostVersion,
@@ -423,19 +518,30 @@ export function createRailAdapter(
     return fresh
   }
 
-  /** Make the shell re-project the rail: two ledger mutations, one task. */
+  /**
+   * Make the shell re-project the rail: one ledger mutation pair per seat slot,
+   * one task.
+   *
+   * Every MANAGED seat gets its own probe, not just the panel list: a nudge's
+   * purpose is to re-render the glyph wrappers, and the wrappers the evoke needs
+   * to re-render usually live in the FOOTER seat (a suppressed group member's
+   * row is a footer card). A panel-list-only probe leaves that slot's React
+   * subtree untouched, so the evoked marker would never surface.
+   */
   const nudge = (): void => {
     if (nudged || disposed) return
     nudged = true
     queueMicrotask(() => {
       nudged = false
       if (disposed) return
-      try {
-        const dispose = registerList({ name: RAIL_SLOT, id: NUDGE_ID, order: -1 }, () => null)
-        dispose()
-      } catch {
-        // The slot is not declared on this shell (or the ledger refused the
-        // row): there is nothing to nudge.
+      for (const slot of [...Object.values(SEAT_SLOTS), RAIL_SLOT]) {
+        try {
+          const dispose = registerList({ name: slot, id: NUDGE_ID, order: -1 }, () => null)
+          dispose()
+        } catch {
+          // The slot is not declared on this shell (or the ledger refused the
+          // row): there is nothing to nudge there.
+        }
       }
     })
   }
@@ -445,12 +551,19 @@ export function createRailAdapter(
     const wrapper = function RailGlyph(props: GlyphProps): ReactNode {
       const panel = plan().panels.get(id)
       const icon = panel?.icon ?? null
-      const suppressed = panel?.suppressed === true
+      // An EVOKE lifts `suppressed` for one interaction: the flyout just asked
+      // for this member's native behaviour (its contributor has no `main`
+      // page), so the row renders as its plain self and hides again when the
+      // document-level pointerdown clears the evoke (see `evokedRows`).
+      const evoked = panel?.suppressed === true && evokedRows.has(id)
+      const suppressed = panel?.suppressed === true && !evoked
       const hidden = !suppressed && panel?.hidden === true && props['active'] !== true
-      // The marker span carries the two state hooks HIDE_CSS matches on, and
-      // nothing else: an extra identity attribute would be a hook with no reader.
+      // The marker span carries the state hooks HIDE_CSS matches on — plus the
+      // evoke stamp `activateRow` clicks through. Nothing else: an extra
+      // identity attribute would be a hook with no reader.
       const marker: Record<string, string> = {}
-      if (suppressed) marker['data-dsh-railist-suppressed'] = ''
+      if (evoked) marker['data-dsh-railist-evoked'] = id
+      else if (suppressed) marker['data-dsh-railist-suppressed'] = ''
       else if (hidden) marker['data-dsh-railist-hidden'] = ''
       const size = typeof props['size'] === 'number' ? props['size'] : 0
       const active = props['active'] === true
@@ -606,6 +719,81 @@ export function createRailAdapter(
     if (appearanceChanged) notifyGhosts()
   }
 
+  /**
+   * Bring one group member's own row back and click its real button.
+   *
+   * The flyout's member click ends here when the member has no `main` page: the
+   * row has to reappear because the contributor's own popover renders INSIDE
+   * its row (the capability panel's is a plain child of its action div), and
+   * then its button takes the click exactly as if the user had pressed it in
+   * the rail. An evoke is not a ledger change — the wrapper reads the set, the
+   * ledger fields stay put — so the digest sees nothing and the re-projection
+   * is forced: `nudge` makes the shell re-render the rows, `notifyGhosts`
+   * wakes the portals. The rewrite itself is synchronous, but the shell's
+   * re-projection and React's render are not, so the click waits for the evoked
+   * marker to surface, bounded so a refusal degrades to "nothing happened"
+   * instead of spinning forever.
+   */
+  const activateRow = (id: string): void => {
+    if (disposed) return
+    evokedRows.clear()
+    evokedRows.add(id)
+    applyOverrides()
+    nudge()
+    notifyGhosts()
+    const deadline = Date.now() + 1_000
+    const click = (): void => {
+      if (disposed) return
+      const marker = document.querySelector(`[data-dsh-railist-evoked="${CSS.escape(id)}"]`)
+      const button = marker === null ? null : evokedButtonFor(marker)
+      if (button === null) {
+        if (Date.now() < deadline) requestAnimationFrame(click)
+        return
+      }
+      button.click()
+    }
+    requestAnimationFrame(click)
+  }
+
+  /**
+   * The real button an evoked row renders. A top-seat row IS a button (the
+   * marker sits inside it); a footer row is the contributor's own component,
+   * whose button follows the marker in the slot's container.
+   */
+  const evokedButtonFor = (marker: Element): HTMLButtonElement | null => {
+    const row = marker.closest('button')
+    if (row !== null) return row as HTMLButtonElement
+    const host = marker.parentElement
+    if (host === null) return null
+    for (const button of host.querySelectorAll('button')) {
+      // The wrapper renders the marker before the contributor's subtree, so the
+      // first button after the marker is the member's own.
+      if ((marker.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0) return button
+    }
+    return null
+  }
+
+  /**
+   * An outside pointerdown ends the evoke: the row hides back into its group.
+   * Clicks inside the evoked row keep it (the contributor's popover lives
+   * there); the contributor's own outside-click handling — the capability
+   * panel's backdrop, for one — closes its popover in step.
+   */
+  const onDocumentPointerDown = (event: PointerEvent): void => {
+    if (disposed || evokedRows.size === 0) return
+    const target = event.target
+    if (!(target instanceof Node)) return
+    const marker = document.querySelector('[data-dsh-railist-evoked]')
+    if (marker !== null && marker.parentElement !== null && marker.parentElement.contains(target)) return
+    evokedRows.clear()
+    applyOverrides()
+    nudge()
+    notifyGhosts()
+  }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('pointerdown', onDocumentPointerDown, true)
+  }
+
   const restore = (captured: Capture): boolean => {
     let changed = false
     if (captured.touchedOrder) {
@@ -726,6 +914,7 @@ export function createRailAdapter(
       }
     },
     applyOverrides,
+    activateRow,
     registerRow: (registration, page) => {
       const disposers: Array<() => void> = []
       // A row we contribute goes into the seat the plan placed it in (a group the
@@ -770,6 +959,10 @@ export function createRailAdapter(
     dispose: () => {
       if (disposed) return
       disposed = true
+      evokedRows.clear()
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('pointerdown', onDocumentPointerDown, true)
+      }
       let changed = false
       for (const captured of captures.values()) changed = restore(captured) || changed
       captures.clear()

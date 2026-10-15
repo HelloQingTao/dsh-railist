@@ -252,7 +252,7 @@ type ManagedSeat = (typeof MANAGED_SEATS)[number]
  *   is in flight", in which case every row keeps the seat it already has.
  * @returns each row's seat, by id.
  */
-function resolveSeats(
+export function resolveSeats(
   ordered: readonly { id: string }[],
   seats: ReadonlyMap<string, ManagedSeat>,
   moved: string | null,

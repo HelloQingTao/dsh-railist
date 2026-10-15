@@ -96,6 +96,12 @@ export interface RailHost {
   hasPage(panelId: string): boolean
   /** Select a panel behind the layout's own `main` probe. */
   selectPanel(panelId: string): void
+  /**
+   * Bring a grouped member's own row back for one interaction (`evoked`): used
+   * when the member has no `main` page to select, so its contributor's own
+   * click handler (e.g. a footer popover) can run.
+   */
+  activateRow(panelId: string): void
   /** Register one rail row plus its `main` page; returns a disposer. */
   registerRow(registration: RailRowRegistration, page: () => ReactNode): () => void
   /** Active panel id, or an empty string. */

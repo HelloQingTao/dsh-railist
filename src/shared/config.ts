@@ -155,6 +155,16 @@ export interface GroupItem {
   hidden?: boolean
   /** Ordered panel ids. A member may not be another group. */
   members: string[]
+  /**
+   * The seat each member's entry carried when it joined the group, by member id.
+   *
+   * Grouping rebuilds a member's entry (which drops its `seat`), and dissolving
+   * rebuilds the entries (which cannot invent one). Without this record a member
+   * dragged across seats — the capability panel parked on top, say — jumped back
+   * to its contributor's seat the moment its group was dissolved. Only managed
+   * seats are recorded; a member with no stored seat is simply absent.
+   */
+  seats?: Record<string, Container>
 }
 
 export type SequenceItem = EntryItem | GroupItem
@@ -236,7 +246,12 @@ export function emptyConfig(): RailistConfig {
 export function cloneProfileConfig(profile: ProfileConfig): ProfileConfig {
   return {
     sequence: profile.sequence.map(item => (isGroupItem(item)
-      ? { ...item, members: [...item.members], ...(item.icon === undefined ? {} : { icon: { ...item.icon } }) }
+      ? {
+          ...item,
+          members: [...item.members],
+          ...(item.icon === undefined ? {} : { icon: { ...item.icon } }),
+          ...(item.seats === undefined ? {} : { seats: { ...item.seats } }),
+        }
       : { ...item })),
     entries: Object.fromEntries(
       Object.entries(profile.entries).map(([id, override]) => [id, {

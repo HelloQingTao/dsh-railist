@@ -101,6 +101,14 @@
           "maxItems": 100,
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/panelId" }
+        },
+        "seats": {
+          "type": "object",
+          "description": "The managed seat each member's entry carried when it joined the group, so dissolving the group or removing a member can put that seat back. Absent means the member had no stored seat.",
+          "minProperties": 1,
+          "maxProperties": 100,
+          "propertyNames": { "$ref": "#/$defs/panelId" },
+          "additionalProperties": { "$ref": "#/$defs/seat" }
         }
       }
     },
