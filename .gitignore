@@ -9,3 +9,6 @@ lib/
 .playwright-cli/
 .*.log
 
+# a pack that got interrupted leaves this behind; it must never reach git
+*.tgz
+
