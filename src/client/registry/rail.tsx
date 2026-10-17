@@ -663,18 +663,36 @@ export function createRailAdapter(
       }
 
       // --- glyph -----------------------------------------------------------
+      /**
+       * Re-installing a wrapper the shell just threw away is NOT a change.
+       *
+       * `nudge` re-projects the rail by registering and disposing a probe row,
+       * and that re-projection rebuilds each entry's `component` from the
+       * contributor's registration — dropping our wrapper. Counting the
+       * re-install as a change asked for another nudge, which dropped it again:
+       * measured live as an endless 60-pass cascade (7.2k installs/minute).
+       * `touchedComponent` therefore means "this entry still HOLDS our
+       * component", read from the entry itself rather than remembered.
+       */
       const needsWrapper = panel.icon !== null || panel.hidden || panel.suppressed
       if (needsWrapper) {
         captured.wrapper ??= wrapperFor(captured, id)
         if (entry.component !== captured.wrapper) {
+          const wasOurs = captured.touchedComponent || entry.component === captured.ghost
           entry.component = captured.wrapper
           captured.touchedComponent = true
-          changed = true
+          // Only a row whose appearance we changed needs the shell to redraw it.
+          if (!wasOurs) changed = true
         }
       } else if (captured.touchedComponent) {
-        entry.component = captured.component
-        captured.touchedComponent = false
-        changed = true
+        if (entry.component === captured.wrapper || entry.component === captured.ghost) {
+          entry.component = captured.component
+          captured.touchedComponent = false
+          changed = true
+        } else {
+          // The shell already re-projected this row back to its own component.
+          captured.touchedComponent = false
+        }
       }
 
       // --- footer ghost ----------------------------------------------------
@@ -692,9 +710,12 @@ export function createRailAdapter(
       if (wantsGhost) {
         captured.ghost ??= ghostFor(captured, id)
         if (entry.component !== captured.ghost) {
+          const wasOurs = captured.touchedComponent
           entry.component = captured.ghost
           captured.touchedComponent = true
-          changed = true
+          // Same rule as the wrapper: a ghost put back after the shell dropped it
+          // is not news, and asking for a nudge would drop it again.
+          if (!wasOurs) changed = true
         }
       } else if (captured.ghost !== undefined && entry.component === captured.ghost) {
         // The row went back to the footer: put the contributor's own component

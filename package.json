@@ -1,6 +1,6 @@
 {
   "name": "dsh-railist",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Whole-left-column manager for DeepSeek Harness: one sequence across the panel list, the footer action row and the Settings seat — reorder, drag across seats, rename, re-icon, show/hide and collect rows into flyout groups. Configuration lives in a new Settings tab and applies instantly.",
   "type": "module",
   "main": "lib/index.js",

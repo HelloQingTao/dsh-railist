@@ -80,11 +80,38 @@ export const ROW_ATTR = 'data-dsh-railist-row'
  */
 export const GHOST_ATTR = 'data-dsh-railist-ghost'
 
-/** Where one row element was before this module moved it. */
+/**
+ * Attribute carrying the position this module gave a row inside its seat.
+ *
+ * Read back by `placeByOrder` and stamped by the pass; see the write site for
+ * why it must only ever be written when the value actually changes.
+ */
+export const ORDER_ATTR = 'data-dsh-railist-order'
+
+/** Where one row element belongs, and whether this module is the one that put it
+ * where it is now. */
 interface Home {
+  /**
+   * The element's own container: the seat whose renderer owns it.
+   *
+   * Learned ONCE, and never from a container this module moved the element into.
+   * A ghost slot's home is the footer anchor the ghost's own effect created it
+   * in; recording the parent a later pass happened to find would make the home
+   * follow the plan, and a row moving back to the footer would be "restored"
+   * into the panel list on every pass — one write per pass, which never settles.
+   */
   parent: Node
   /** The sibling it sat in front of, or `null` when it was last. */
   next: Node | null
+  /**
+   * This module physically moved the element into {@link parent}.
+   *
+   * A moved element is put back home when the plan wants it somewhere else; a
+   * row this module did NOT move (a shell row, or a ghost the commit boundary
+   * already placed) is left exactly where its renderer put it — moving it back
+   * would fight the shell, whose own commit puts it there again.
+   */
+  moved: boolean
 }
 
 /** One row the plan wants placed. */
@@ -262,7 +289,7 @@ function placeByOrder(host: HTMLElement, element: HTMLElement, order: number): b
 
 /** The placement order a stamped row element carries. */
 function orderOf(element: HTMLElement): number {
-  const value = element.getAttribute('data-dsh-railist-order')
+  const value = element.getAttribute(ORDER_ATTR)
   return value === null ? 0 : Number(value)
 }
 
@@ -305,11 +332,13 @@ export function rowHost(seat: ManagedSeat): HTMLElement | null {
  *   and silently matches nothing.)
  *
  * A contributor may inject a stylesheet next to its row, so `STYLE` is skipped.
+ *
+ * `rowsUnder` is the same scan for a container that was already located, which is
+ * what {@link createRailDom}'s pass uses: it needs the container an element was
+ * found in — that container is the element's home — so it must not scan the seat
+ * twice and risk the two scans disagreeing.
  */
-function rowElements(seat: ManagedSeat): HTMLElement[] {
-  if (typeof document === 'undefined') return []
-  const host = seatContainer(seat)
-  if (host === null) return []
+function rowsUnder(seat: ManagedSeat, host: HTMLElement): HTMLElement[] {
   const isRowTag = (element: Element): element is HTMLElement =>
     element instanceof HTMLElement && element.tagName !== 'STYLE'
   if (seat === 'top') {
@@ -336,6 +365,13 @@ function rowElements(seat: ManagedSeat): HTMLElement[] {
   return [...anchor.children].filter(isRowTag)
 }
 
+function rowElements(seat: ManagedSeat): HTMLElement[] {
+  if (typeof document === 'undefined') return []
+  const host = seatContainer(seat)
+  if (host === null) return []
+  return rowsUnder(seat, host)
+}
+
 /**
  * Create the DOM half.
  *
@@ -357,6 +393,41 @@ export function createRailDom(): RailDom {
   let selfMutations = 0
   /** Latest rows the controller asked for; the observer replays these. */
   let desired: readonly DomRow[] = []
+
+  /**
+   * Record an element's home on the evidence it is actually IN that container.
+   *
+   * `parent` must be the container the element's own renderer put it in — never
+   * a container this module moved it into. A call made while the element is
+   * still being placed is therefore ignored, which is what makes the very first
+   * pass learn the truth even though it is also the pass that moves the row.
+   */
+  const learnHome = (element: HTMLElement, parent: Node | null, next: Node | null): void => {
+    if (parent === null || homes.has(element)) return
+    homes.set(element, { parent, next, moved: false })
+  }
+
+  /**
+   * The valid home for an element, learned from where it is rendered right now.
+   *
+   * A home is learned ONCE and never overwritten: the container an element is in
+   * when it is first seen is the one its renderer put it in, and every later
+   * position is either a shell re-render or a move this module made.
+   *
+   * The exception is the one the pass itself creates — an element already in
+   * {@link moved} has just been placed by this module, so `homeOf` returns the
+   * previously learned home and `target` never re-learns the destination.
+   */
+  const homeOf = (element: HTMLElement): Home | null => {
+    const current = element.parentNode
+    if (current === null) return null
+    const home = homes.get(element)
+    if (home !== undefined) return home
+    // An element this module is about to move has no home yet: record the seat it
+    // is rendered in before the write, so the very first restore knows the truth.
+    learnHome(element, current, element.nextSibling)
+    return homes.get(element) ?? null
+  }
 
   /**
    * Reconcile once, ignoring the mutations this very pass causes.
@@ -389,9 +460,20 @@ export function createRailDom(): RailDom {
       const pairs: Array<{ element: HTMLElement; row: DomRow }> = []
       const seen = new Set<HTMLElement>()
       for (const seat of MANAGED_SEATS) {
-        for (const element of rowElements(seat)) {
+        const container = seatContainer(seat)
+        if (container === null) continue
+        // The container the scan actually reads rows from — the element's home
+        // whenever it is rendered there. For `top` that is the nav; for `footer`
+        // it is the anchor INSIDE the class-tagged wrapper, which is why it has
+        // to be resolved here rather than reused from `seatContainer`.
+        const scannedIn = rowHost(seat)
+        for (const element of rowsUnder(seat, container)) {
           if (seen.has(element)) continue
           seen.add(element)
+          // Learn where the element belongs BEFORE anything can move it. The scan
+          // finds every row in every seat in the same pass that then moves some of
+          // them, so this is the one moment the container really is the renderer's.
+          if (scannedIn !== null) learnHome(element, scannedIn, element.nextSibling)
           // Every managed seat resolves its rows by the id the registration carries.
           const id = rowIdFromElement(element)
           const row = id === null ? undefined : desired.find(candidate => candidate.id === id)
@@ -427,8 +509,14 @@ export function createRailDom(): RailDom {
          */
         if (row.container === 'top' && isFooterOwned(element)) continue
         // A ghost slot is positioned by the plan's order among its new siblings,
-        // so the order travels with the row.
-        element.setAttribute('data-dsh-railist-order', String(row.order))
+        // so the order travels with the row. Written only when it CHANGES: a
+        // `setAttribute` that stores the value already there still records a
+        // mutation, and the observer treats any record as "something changed,
+        // recompute" — an unconditional write here re-armed the pass on every
+        // frame (measured live: ~2.7k mutation records per second, the 60-pass
+        // guard tripping every ~80ms).
+        const stamp = String(row.order)
+        if (element.getAttribute(ORDER_ATTR) !== stamp) element.setAttribute(ORDER_ATTR, stamp)
         if (target(host, element, row.order)) writes += 1
       }
     } finally {
@@ -457,18 +545,27 @@ export function createRailDom(): RailDom {
    */
   const target = (host: HTMLElement, element: HTMLElement, order?: number): boolean => {
     if (element.parentNode === host && !isPlacedByOrder(element)) return false
-    if (!homes.has(element)) homes.set(element, { parent: element.parentNode as Node, next: element.nextSibling })
     if (isPlacedByOrder(element)) {
       if (placeByOrder(host, element, order ?? 0)) {
         moved.add(element)
+        const home = homes.get(element)
+        if (home !== undefined) home.moved = true
         return true
       }
       if (element.parentNode === host) return false
     }
-    // Appended, not inserted: the shell's own `order` decides where within the
-    // container the row ends up, and it will place it there on the next render.
-    host.appendChild(element)
+    // The home is read BEFORE anything moves: `homeOf` answers "where the element
+    // currently sits" for an element this module has not moved, so it has to run
+    // first. Re-reading it afterwards would report the destination.
+    const home = homeOf(element)
+    if (home === null || home.parent !== host) return false
+    // Appended, not inserted, unless the home names a sibling to sit in front
+    // of: the shell's own `order` decides where within the container the row
+    // ends up, and it will place it there on the next render.
+    if (home.next !== null && home.next.parentNode === host) host.insertBefore(element, home.next)
+    else host.appendChild(element)
     moved.add(element)
+    home.moved = true
     return true
   }
 
