@@ -68,12 +68,20 @@ nav[class*="_panelList"] button[class*="_panelRow"]:has([data-dsh-railist-group-
   box-shadow: var(--dsw-elevation-panel, 0 8px 24px rgba(0, 0, 0, 0.18));
   color: var(--dsw-alias-label-primary, CanvasText);
   font: inherit;
+  /* The card is portaled onto document.body, so font: inherit resolves against
+     BODY — the browser's 16px — and not against the rail row the menu flew out of.
+     That is why every member label rendered larger than the panel list beside it.
+     Pin the shell's own panel-row type instead (_panelRow: 14px / 22px). */
+  font-size: 14px;
+  line-height: 22px;
 }
 
 [data-dsh-railist-flyout-header] {
   display: flex;
   align-items: center;
-  padding: 4px 6px 6px;
+  /* The title starts over the glyph column, so the header and the member icons
+     share one left edge (card padding 4px + 10px). */
+  padding: 4px 10px 6px;
   color: var(--dsw-alias-label-tertiary, inherit);
   font-size: 12px;
 }
@@ -98,7 +106,7 @@ nav[class*="_panelList"] button[class*="_panelRow"]:has([data-dsh-railist-group-
   gap: 8px;
   width: 100%;
   min-height: 30px;
-  padding: 5px 8px;
+  padding: 5px 10px;
   border: none;
   border-radius: var(--dsw-radius-sm, 6px);
   background: 0 0;

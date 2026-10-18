@@ -18,6 +18,20 @@ if (typeof CSS === 'undefined') {
   Object.defineProperty(CSS, 'supports', { value: () => false, writable: true, configurable: true })
 }
 
+/**
+ * jsdom ships no `CSS.escape` either, and the evoke path uses it to build the
+ * `[data-dsh-railist-evoked="<id>"]` selector. Rail ids are registration ids
+ * (`power`, `capability-panel`), so escaping everything outside the ident
+ * charset is enough for the specs.
+ */
+if (typeof CSS.escape !== 'function') {
+  Object.defineProperty(CSS, 'escape', {
+    value: (value: string) => value.replace(/[^a-zA-Z0-9_-]/g, char => `\\${char}`),
+    writable: true,
+    configurable: true,
+  })
+}
+
 if (typeof window !== 'undefined' && !('matchMedia' in window)) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

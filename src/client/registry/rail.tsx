@@ -29,6 +29,7 @@ import { RAIL_ID_PREFIX, isOwnRailId } from '../../shared/config.ts'
 import type { ClientContext } from '../ctx.ts'
 import type { GlyphComponent, GlyphProps, GlyphRequest, RailRowRegistration } from '../contracts.ts'
 import { optionalService } from '../service.ts'
+import { ROW_ATTR } from '../rail/dom.ts'
 import { createGhost, type AnyComponent } from './Ghost.tsx'
 
 /** The rail slot every sidebar row lives in. */
@@ -572,7 +573,12 @@ export function createRailAdapter(
       // different hook counts (which would break React's hook order).
       let visual: ReactNode = null
       if (!suppressed && !hidden) {
-        if (icon !== null) {
+        // An EVOKED row renders the contributor's own component even when a
+        // configured icon exists. The evoke exists so the member's real row comes
+        // back and its button can take the click (its popover lives inside that
+        // row); painting only the icon left a bare glyph with nothing to press,
+        // which is why clicking the capability panel in a group opened nothing.
+        if (icon !== null && !evoked) {
           visual = glyph({ icon, native: null, size, active })
         } else {
           const Native = captured.component as GlyphComponent | null
@@ -755,6 +761,22 @@ export function createRailAdapter(
    * marker to surface, bounded so a refusal degrades to "nothing happened"
    * instead of spinning forever.
    */
+  /**
+   * End an evoke: the row hides back into its group.
+   *
+   * An outside pointerdown ends one ({@link onDocumentPointerDown}) and a
+   * deadline that never found a button ends one too — a failed activation MUST
+   * end it, or a grouped row stays visible on the rail with nothing activated,
+   * which the user reads as an extra icon that appeared out of nowhere.
+   */
+  const endEvoke = (): void => {
+    if (evokedRows.size === 0) return
+    evokedRows.clear()
+    applyOverrides()
+    nudge()
+    notifyGhosts()
+  }
+
   const activateRow = (id: string): void => {
     if (disposed) return
     evokedRows.clear()
@@ -766,9 +788,10 @@ export function createRailAdapter(
     const click = (): void => {
       if (disposed) return
       const marker = document.querySelector(`[data-dsh-railist-evoked="${CSS.escape(id)}"]`)
-      const button = marker === null ? null : evokedButtonFor(marker)
+      const button = marker === null ? null : evokedButtonFor(marker, id)
       if (button === null) {
         if (Date.now() < deadline) requestAnimationFrame(click)
+        else endEvoke()
         return
       }
       button.click()
@@ -781,15 +804,23 @@ export function createRailAdapter(
    * marker sits inside it); a footer row is the contributor's own component,
    * whose button follows the marker in the slot's container.
    */
-  const evokedButtonFor = (marker: Element): HTMLButtonElement | null => {
+  const evokedButtonFor = (marker: Element, id: string): HTMLButtonElement | null => {
     const row = marker.closest('button')
     if (row !== null) return row as HTMLButtonElement
     const host = marker.parentElement
     if (host === null) return null
     for (const button of host.querySelectorAll('button')) {
       // The wrapper renders the marker before the contributor's subtree, so the
-      // first button after the marker is the member's own.
-      if ((marker.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0) return button
+      // first button after the marker is the member's own — unless the member
+      // rendered no button at all, in which case the scan would walk into a
+      // NEIGHBOURING row and press that row's action instead. Every row this
+      // plugin manages carries its own id stamp, so a foreign owner is
+      // recognisable and refused (an unstamped element stays accepted, as the
+      // shell simply does not manage it).
+      if ((marker.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING) === 0) continue
+      const owner = button.closest(`[${ROW_ATTR}]`)
+      if (owner !== null && owner.getAttribute(ROW_ATTR) !== id) return null
+      return button
     }
     return null
   }
@@ -806,10 +837,7 @@ export function createRailAdapter(
     if (!(target instanceof Node)) return
     const marker = document.querySelector('[data-dsh-railist-evoked]')
     if (marker !== null && marker.parentElement !== null && marker.parentElement.contains(target)) return
-    evokedRows.clear()
-    applyOverrides()
-    nudge()
-    notifyGhosts()
+    endEvoke()
   }
   if (typeof document !== 'undefined') {
     document.addEventListener('pointerdown', onDocumentPointerDown, true)
