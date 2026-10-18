@@ -991,7 +991,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
   }
 
   return (
-    <section className="dsh-panellist-settings-block">
+    <section className="dsh-panellist-settings-block dsh-panellist-settings-sequence">
       <h3 className="dsh-panellist-settings-blockTitle">{t('settings.sequence.title')}</h3>
       <p className="dsh-panellist-settings-hint">{t('settings.sequence.hint')}</p>
 

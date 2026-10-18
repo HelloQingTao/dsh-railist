@@ -441,12 +441,25 @@ export const SETTINGS_POLISH_CSS = `
 }
 
 /*
- * The pending-edit bar. It is rendered above the sequence list so the two ways
- * out of a previewed reorder are the first thing the eye lands on. It is framed
- * by its border and its brand-coloured Save, not by a grey surface — a layered
- * fill here made the bar look like a disabled region in light mode.
+ * The pending-edit bar. It is FLOATED, not stacked: the user reported that the
+ * sequence list jumped down the moment a drag made the bar appear, because the
+ * bar used to be a block in the settings column and pushed everything below it.
+ *
+ * position: fixed is the only placement that cannot move the list: it takes
+ * the bar out of flow entirely, so no sibling re-layouts when it appears or
+ * disappears. It is pinned to the BOTTOM of the viewport instead of the top
+ * because the list starts at the top of the settings dialog — a top-pinned bar
+ * would cover the very rows the user is dragging.
  */
 .dsh-panellist-settings-commitBar {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 40;
+  width: max-content;
+  max-width: min(720px, calc(100vw - 32px));
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -455,10 +468,22 @@ export const SETTINGS_POLISH_CSS = `
   padding: 10px 12px;
   border: 1px solid var(--dsw-alias-border-l2, color-mix(in srgb, currentColor 16%, transparent));
   border-radius: var(--dsw-radius-lg, 12px);
-  background: transparent;
+  background: var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-primary, Canvas));
+  box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l2, color-mix(in srgb, currentColor 16%, transparent));
+  pointer-events: auto;
 }
 
 .dsh-panellist-settings-commitBar[hidden] { display: none; }
+
+/*
+ * Keep the floating bar from landing on the last row of a long page. The
+ * padding is unconditional rather than tied to the bar being visible, so the
+ * reserved strip never appears or disappears with it — that is the whole point
+ * of floating the bar out of flow.
+ */
+.dsh-panellist-settings-sequence {
+  padding-bottom: 72px;
+}
 
 .dsh-panellist-settings-commitHint {
   flex: 1 1 auto;
