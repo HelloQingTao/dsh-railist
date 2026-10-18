@@ -83,9 +83,31 @@ export const DRAG_CSS = `
 
 /* ---------------------------------------------------------- drop feedback */
 
-/* The active list gets a soft fill, so "you can drop anywhere here" reads
-   before the pointer reaches a specific gap. */
-[data-drop-active='true'] {
+/* The list currently receiving a drag gets a soft fill, so "you can drop
+   anywhere here" reads before the pointer reaches a specific gap.
+
+   Only the top-level list gets it. The group whose member is being dragged
+   used to paint the same fill - and it painted it on the element that wraps
+   the entire row, so dragging one member turned the whole group grey. The
+   member list is identified by its own attribute instead, which outlines just
+   the list the pointer is actually in (below). */
+[data-drop-active='true']:not([data-member-drop]) {
+  background: var(--dsh-railist-fill);
+  border-radius: 10px;
+}
+
+/* A group's member list accepts a member of its OWN group: the reorder runs
+   inside it. It gets an inset outline, not a fill — the fill covered the group
+   row's own name and badges, i.e. an ancestor of the thing being sorted. */
+[data-member-drop='active'] {
+  outline: 1px dashed var(--dsh-railist-accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* A member dragged out of its group and over the top-level list: that list is
+   a real destination (the member leaves the group), so it gets the full fill. */
+[data-drop-active='true'][data-member-drop='escape'] {
   background: var(--dsh-railist-fill);
   border-radius: 10px;
 }
@@ -107,6 +129,48 @@ export const DRAG_CSS = `
   border-radius: 2px;
   background: var(--dsh-railist-accent);
   pointer-events: none;
+}
+
+/* A group's member list draws its gaps between the members, inset from the
+   indent so the line reads as "between these two members". The gap above the
+   first member uses the ::before pseudo-element and the one below the last
+   uses ::after, so the two cases never fight over one pseudo-element.
+
+   Declared AFTER the generic row rule on purpose: same specificity, so the
+   display/inset resets below would otherwise be undone by it. */
+.dsh-panellist-settings-members[data-drop-target] {
+  position: relative;
+}
+
+.dsh-panellist-settings-members[data-drop-target='before']::after,
+.dsh-panellist-settings-members[data-drop-target='after']::after,
+.dsh-panellist-settings-members[data-drop-target='before']::before,
+.dsh-panellist-settings-members[data-drop-target='after']::before {
+  content: '';
+  position: absolute;
+  left: 24px;
+  right: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--dsh-railist-accent);
+  pointer-events: none;
+  transform: none;
+}
+
+/* One line per case: the "above the first member" case hides the row rule's
+   top line, the "below the last member" case hides the bottom one. */
+.dsh-panellist-settings-members[data-drop-target='before']::after,
+.dsh-panellist-settings-members[data-drop-target='after']::before {
+  display: none;
+}
+
+.dsh-panellist-settings-members[data-drop-target='before']::before {
+  top: -2px;
+}
+
+.dsh-panellist-settings-members[data-drop-target='after']::after {
+  top: auto;
+  bottom: -2px;
 }
 
 [data-drop-target='before']::after {

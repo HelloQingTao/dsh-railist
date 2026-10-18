@@ -124,6 +124,9 @@ export interface SequenceEditorProps {
 
 const DND_MIME = 'application/x-dsh-panellist'
 
+/** Suffix that names a group's member list rather than one of its members. */
+const MEMBERS_KEY = '$members'
+
 /**
  * Where a drop would land, relative to the row under the pointer.
  *
@@ -191,6 +194,21 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
   /** True while the trailing "move to the end" gap is the candidate. */
   const [dropAtEnd, setDropAtEnd] = useState(false)
   /**
+   * While a MEMBER is dragged: the group under the pointer, or `null` when the
+   * pointer is on the top-level list itself (outside every group).
+   *
+   * It is what lets a group say "you can reorder HERE": the row used to paint
+   * the whole-group fill for the entire drag — a band over the group's own name
+   * and badges — while the gaps between its members showed nothing.
+   *
+   * Derived from the pointer path by the list's single `dragover` handler
+   * instead of from a `dragenter`/`dragleave` pair: React reports
+   * `relatedTarget: null` for both of those during an HTML5 drag, so a
+   * leave-based scheme cannot tell "moved on to a sibling" from "left the
+   * list", and ends up painting the wrong thing.
+   */
+  const [escapeHoverGroup, setEscapeHoverGroup] = useState<string | null>(null)
+  /**
    * The whole rail, listed from the start: the sequence is not a separate
    * "configured" subset any more, so there is nothing for the user to opt into
    * before they can touch a panel. `rows` IS the rail, which is why everything
@@ -245,6 +263,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
     setDragScope(scope)
     setDropTarget(null)
     setDropAtEnd(false)
+    setEscapeHoverGroup(null)
     const transfer = transferOf(event)
     if (transfer === null) return
     try {
@@ -263,6 +282,7 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
     setDragScope(null)
     setDropTarget(null)
     setDropAtEnd(false)
+    setEscapeHoverGroup(null)
   }
 
   const payloadOf = (event: DragEvent<HTMLElement>): DragPayload | null => {
@@ -483,6 +503,96 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
 
   /* ---------------------------------------------------------------- render */
 
+  /**
+   * The insertion indicator in DOM order, so a candidate whose row is stretched
+   * by its group can still be drawn in the right place (see `resolveDrop`).
+   */
+  const edgeFromKeys = (
+    target: DropTarget | null,
+    atEnd: boolean,
+    order: readonly string[],
+    anchor: string | null,
+  ): DropEdge => {
+    if (atEnd) return 'after'
+    if (target === null) return 'before'
+    // The candidate is a member of the group that owns `anchor`: the indicator
+    // sits between members, so it is drawn against the group's member list
+    // instead of against the group's stretched row.
+    if (anchor !== null && target.key.startsWith(`${anchor}/`)) return target.edge
+    const from = order.indexOf(anchor ?? '')
+    const to = order.indexOf(target.key)
+    if (from < 0 || to < 0) return target.edge
+    return to > from ? 'after' : 'before'
+  }
+
+  /**
+   * Resolve the live drop candidate to the element that should carry the
+   * indicator, and to which side of it.
+   *
+   * Only one row `dragover` handler fires — the innermost one under the pointer
+   * — but the event then BUBBLES to its ancestors. So while the pointer was over
+   * a group's member list, the group's own row handler set a candidate first and
+   * the member's handler overwrote it, but the top-level "escape to the list"
+   * handler (the list, the zip under it) fired after that and painted ITS OWN
+   * half-split candidate — the indicator landed in a gap on the row ABOVE the
+   * group, never between the members where the drop actually goes.
+   *
+   * Reading the target back out of the candidate — not trusting whichever
+   * handler ran last — keeps the indicator on the row the pointer is in: a
+   * member key is drawn inside the group's member list, a top-level key on that
+   * row.
+   */
+  const resolveDrop = (anchorRailId: string | null): { at: string | null; edge: DropEdge | null } => {
+    if (dropTarget === null) return { at: null, edge: dropAtEnd ? 'after' : null }
+    const target = dropTarget
+    const owner = rows.find(row => target.key === row.railId || target.key.startsWith(`${row.railId}/`))
+    if (owner === undefined || owner.pinned) return { at: target.key, edge: target.edge }
+    // A candidate ON the group row is the "put it before/after the group"
+    // position (and, for a panel from elsewhere, "join this group"). It is none
+    // of the member list's business, so it is never folded into it.
+    if (target.key === owner.railId && target.edge !== 'inside') return { at: owner.railId, edge: target.edge }
+    // Everything else inside the group — a member key, or "join this group"
+    // (`inside`, which appends at the end of the member list) — is drawn on the
+    // member list. The side follows DOM order against the node being moved, so a
+    // gap above the source reads `before` and one below reads `after`.
+    if (target.key === owner.railId) return { at: `${owner.railId}/${MEMBERS_KEY}`, edge: 'after' }
+    return {
+      at: `${owner.railId}/${MEMBERS_KEY}`,
+      edge: edgeFromKeys(target, false, rows.filter(row => !row.pinned).map(row => row.railId), anchorRailId),
+    }
+  }
+
+  /**
+   * The member candidate for a pointer over member `selfId`.
+   *
+   * A member is never its own drop target, and its neighbours are only half a
+   * row each — so "drag this member up one" had no producible target at all
+   * (the gap between two members belongs to whichever of the two the pointer is
+   * over, and once the pointer is on the dragged one there is nothing left).
+   * Parking on yourself therefore resolves to the neighbour on the side that
+   * would move you: a source BELOW the pointer means "up", toward the sibling
+   * after it; a source above means "down", toward the sibling before it.
+   */
+  const memberTarget = (
+    railId: string,
+    members: readonly { id: string }[],
+    selfId: string,
+    event: DragEvent<HTMLElement>,
+  ): DropTarget => {
+    const selfEdge = edgeOf(event, false)
+    const ids = members.map(member => member.id)
+    const index = ids.indexOf(selfId)
+    const sourceKey = dragRef.current?.id ?? null
+    const sourceIndex = sourceKey === null ? -1 : ids.indexOf(sourceKey)
+    const below = sourceIndex > index
+    const next = members[below ? index + 1 : index - 1]
+    if (next !== undefined) return { key: `${railId}/${next.id}`, edge: below ? 'before' : 'after' }
+    // Already at the end of the list in the direction the drag came from: the
+    // list end is the only gap left.
+    return { key: `${railId}/${MEMBERS_KEY}`, edge: selfEdge }
+  }
+  const resolved = resolveDrop(draggingKey)
+
   const badge = (kind: string, text: string): ReactNode => (
     <span key={kind} className="dsh-panellist-settings-badge" data-badge={kind}>{text}</span>
   )
@@ -598,7 +708,11 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
       )
     }
 
-    const targetEdge = pinned ? null : dropTarget !== null && dropTarget.key === row.railId ? dropTarget.edge : null
+    // The indicator belongs to the resolved target (see `resolveDrop`): a
+    // member candidate is drawn on the group's member list, a top-level one on
+    // its row. Never on the group row just because the pointer is somewhere
+    // inside it.
+    const targetEdge = pinned || resolved.at !== row.railId ? null : resolved.edge
 
     return (
       <li
@@ -622,6 +736,12 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
               setDropTarget(null)
               return
             }
+            // A MEMBER of this group (or a member of any group, over this row's
+            // member list) is not this row's business: the event only reached
+            // this handler because it bubbled out of the member list. The member
+            // rule next to the target member already claimed the indicator, so
+            // this row must not overwrite it with "before/after the group".
+            if (payload.fromGroupId !== null) return
             setDropAtEnd(false)
             // Only a panel can join a group; a group payload always takes a
             // position, so it never sees the `inside` band.
@@ -705,16 +825,41 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
             <ul
               className="dsh-panellist-settings-members"
               data-drop-scope="members"
-              data-drop-active={dragScope === 'members' && draggingKey?.startsWith(`${row.railId}/`) === true ? 'true' : undefined}
+              // The insertion point between members lives here. `::before` is
+              // used for a gap above the first member, `::after` for one below
+              // the last — the same pseudo-element trick the rows use, so no
+              // child node can move the drop target out from under the pointer.
+              data-drop-target={
+                resolved.at === `${row.railId}/${MEMBERS_KEY}`
+                  ? resolved.edge === 'inside' ? 'after' : resolved.edge ?? undefined
+                  : undefined
+              }
+              // The member list the pointer is in gets the outline (see
+              // drag.css.ts) — never the whole group row. `escapeHoverGroup` is
+              // derived by the top-level list's single `dragover` trail, so it is
+              // live while the pointer is on a member too. Every group states who
+              // it is; only the hovered one paints itself.
+              data-group-hover={isGroup ? row.railId : undefined}
+              data-member-drop={
+                dragScope === 'members' && escapeHoverGroup === row.railId
+                  ? 'active'
+                  : undefined
+              }
+              // `dragleave` fires for every child the pointer crosses, so only a
+              // departure from the list itself clears the hover.
+              onDragLeave={event => {
+                const to = event.relatedTarget as Node | null
+                if (to !== null && event.currentTarget.contains(to)) return
+                setEscapeHoverGroup(null)
+              }}
               onDragOver={event => {
                 allowDrop(event)
                 // The blank space below the last member is part of the group:
                 // dropping there appends, like dropping below the list appends
                 // at the top level.
                 if (dragScope !== 'members') return
-                const payload = payloadOf(event)
-                if (payload === null || payload.fromGroupId !== row.id) return
                 setDropAtEnd(false)
+                setEscapeHoverGroup(null)
               }}
               onDrop={event => {
                 event.preventDefault()
@@ -741,19 +886,24 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
                   data-selected={selected !== null && selected.kind === 'panel' && selected.id === member.id ? 'true' : 'false'}
                   data-dragging={draggingKey === `${row.railId}/${member.id}` ? 'true' : 'false'}
                   data-drop-target={
-                    dropTarget !== null && dropTarget.key === `${row.railId}/${member.id}` ? dropTarget.edge : undefined
+                    dropTarget !== null && dropTarget.key === `${row.railId}/${member.id}` ? dropTarget.edge ?? undefined : undefined
                   }
                   onDragOver={event => {
                     allowDrop(event)
                     if (dragScope === null) return
                     const payload = payloadOf(event)
-                    const key = `${row.railId}/${member.id}`
-                    if (payload === null || payload.kind !== 'panel' || payload.id === member.id) {
+                    if (payload === null || payload.kind !== 'panel') {
                       setDropTarget(null)
                       return
                     }
+                    // A member is never its own drop target, but its SIBLINGS are:
+                    // the pointer has to be free to park on it and still read as
+                    // "next to it". A half-height target with a tiny pin row above
+                    // it made "drag this member up" unreachable — the gap the
+                    // pointer sought was never produced. So a candidate on itself
+                    // becomes one on the nearest sibling instead.
+                    const next = memberTarget(row.railId, members, member.id, event)
                     setDropAtEnd(false)
-                    const next = { key, edge: edgeOf(event, false) }
                     setDropTarget(current =>
                       current !== null && current.key === next.key && current.edge === next.edge ? current : next)
                   }}
@@ -857,7 +1007,40 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
             data-testid="dsh-panellist-settings-dropZone"
             data-drop-scope="rows"
             data-drop-active={dragScope === 'rows' ? 'true' : undefined}
-            onDragOver={allowDrop}
+            // A member dragged out of its group may land here ("leave the
+            // group"), so the list is a destination for that drag too — but it
+            // is painted only while the pointer is actually over it, not for the
+            // whole member drag.
+            data-member-drop={
+              dragScope === 'members' && escapeHoverGroup === null ? 'escape' : undefined
+            }
+            onDragLeave={event => {
+              const to = event.relatedTarget as Node | null
+              if (to !== null && event.currentTarget.contains(to)) return
+              setEscapeHoverGroup(null)
+            }}
+            // NO `dragover` of its own for the "append to the end" gap below:
+            // this handler also fires while the pointer is inside a group's
+            // member list (the event bubbles up), and it used to claim the end
+            // of the list — which put the indicator on the last row above the
+            // group instead of between the members. Pairing is opt-in now: the
+            // end gap is only a candidate when its own handler sets it.
+            //
+            // Which is also why the escape state is DERIVED here instead of
+            // being written by a handler of its own: there is exactly one
+            // `dragover` trail through this list (the pointer path), and the
+            // topmost node on it decides. A member's `<li>` (or the icon/name
+            // inside it) paints its group; the list, the seat heading or the
+            // end gap paint the "leave the group" fill.
+            onDragOver={event => {
+              allowDrop(event)
+              if (dragScope !== 'members') return
+              const target = event.target as Element | null
+              const group = target === null
+                ? null
+                : target.closest('[data-group-hover]')?.getAttribute('data-group-hover') ?? null
+              setEscapeHoverGroup(current => (current === group ? current : group))
+            }}
             onDrop={dropOnList}
           >
             <ol className="dsh-panellist-settings-rows">
@@ -886,6 +1069,9 @@ export function SequenceEditor(props: SequenceEditorProps): ReactNode {
               data-drop-target={dropAtEnd ? 'after' : undefined}
               onDragOver={event => {
                 allowDrop(event)
+                // Only a top-level drag appends to the top-level list: a member
+                // being sorted inside its group must not drag the "end of list"
+                // indicator out of the group it is in.
                 if (dragScope !== 'rows') return
                 setDropTarget(null)
                 setDropAtEnd(true)

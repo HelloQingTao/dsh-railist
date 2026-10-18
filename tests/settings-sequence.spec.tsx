@@ -357,4 +357,73 @@ describe('SequenceEditor', () => {
     render(<Section deps={harness.deps} />)
     expect(screen.getByText('No panel is registered on this profile yet.')).toBeTruthy()
   })
+
+  it('draws a member drag inside the group, and greys only the member list', () => {
+    // Three things this pins, all visible in the running app:
+    //  1. the insertion line for a member drag belongs BETWEEN THE MEMBERS, not
+    //     on the row above the group — the `dragover` of a member bubbles up to
+    //     the group row and to the top-level list, and the last handler used to
+    //     win the indicator;
+    //  2. the grey "you can drop here" fill belongs to the member list the
+    //     pointer is in, not to the group's whole row (which also carries the
+    //     group's own name and badges);
+    //  3. the top-level list's own grey fill must NOT come back just because a
+    //     member drag passed over it — only a pointer genuinely outside every
+    //     group may paint it (checked by the last assertion below).
+    const harness = renderPage({
+      sequence: [
+        { type: 'entry', id: 'skills' },
+        { type: 'group', id: 'group:g1', members: ['plugins', 'schedules'] },
+      ],
+      entries: {},
+    })
+    const group = rowOf('group:g1')
+    const members = group.querySelector('.dsh-panellist-settings-members') as HTMLElement
+    const targetMember = group.querySelector('[data-member-id="plugins"]') as HTMLElement
+    const handle = handleOf(group.querySelector('[data-member-id="schedules"]') as HTMLElement)
+    const dragData = new Map<string, string>()
+    const transfer = {
+      dropEffect: 'none',
+      effectAllowed: 'none',
+      types: [] as string[],
+      setData: (kind: string, value: string) => {
+        dragData.set(kind, value)
+        transfer.types = [...dragData.keys()]
+      },
+      getData: (kind: string) => dragData.get(kind) ?? '',
+    }
+
+    fireEvent.dragStart(handle, { dataTransfer: transfer })
+    // `dragover` bubbles: the member's own handler runs, then the group's, then
+    // every list above it — fire them in that order, exactly as the browser
+    // does. The indicator must still follow the innermost pointer position.
+    // `clientY` sits inside every node's zero-height jsdom box, so the member
+    // counts as "before" and the group would count as "before" too.
+    for (const node of [targetMember, group, members]) {
+      if (node === null) continue
+      // The last node is the LIST itself: that is the pointer genuinely outside
+      // every group, so its own `dragover` target is the list, not a row.
+      const on = node === members ? group : node
+      fireEvent.dragOver(node as HTMLElement, {
+        dataTransfer: transfer,
+        clientY: 0,
+        relatedTarget: on,
+      })
+    }
+    // The line is on the member list, in the gap above the first member, even
+    // though the LAST handler to run was the top-level list's.
+    expect(members.getAttribute('data-drop-target')).toBe('before')
+    // The member list is the marked scope; the group row is NOT filled.
+    expect(members.getAttribute('data-member-drop')).toBe('active')
+    expect(document.querySelector('[data-drop-scope="rows"]')?.getAttribute('data-member-drop')).toBeNull()
+    // Nothing on the group row and nothing on the row above it.
+    expect(group.getAttribute('data-drop-target')).toBeNull()
+    expect(rowOf('skills').getAttribute('data-drop-target')).toBeNull()
+
+    // Dropping there still reorders inside the group: `schedules` moves above
+    // `plugins`, which is the edit the line promised.
+    fireEvent.drop(targetMember, { dataTransfer: transfer, clientY: 0 })
+    const group_ = harness.profile().sequence.find(item => item.id === 'group:g1')
+    expect(group_).toEqual({ type: 'group', id: 'group:g1', members: ['schedules', 'plugins'] })
+  })
 })
