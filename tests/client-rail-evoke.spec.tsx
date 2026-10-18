@@ -224,4 +224,94 @@ describe('EVOKE_CSS', () => {
     expect(document.querySelectorAll(`${PANEL_ROW_SELECTOR}:has([data-dsh-railist-evoked])`)).toHaveLength(0)
     document.body.removeChild(nav)
   })
+
+  it('collapses the footer slot that carries an evoked marker', () => {
+    // The shape measured live on the very member this bug was reported for, and
+    // the one the two rules above do NOT match: the member's registration stays
+    // in `sidebar.footer.action`, so the slot is a plain `display: contents` div
+    // holding the wrapper's marker span and the contributor's card as SIBLINGS.
+    // Neither carries the ghost stamp, so without the slot rule the marker kept
+    // its 42px and the contributor's card kept its own box: opening the popover
+    // pushed a second copy of the row into the bottom of the rail.
+    const slot = document.createElement('div')
+    slot.setAttribute('data-slot', 'sidebar.footer.action')
+    slot.style.display = 'contents'
+    const marker = document.createElement('span')
+    marker.setAttribute('data-dsh-railist-evoked', MEMBER)
+    const card = document.createElement('div')
+    card.className = 'skp-foot'
+    slot.append(marker, card)
+    const row = document.createElement('div')
+    row.className = '_footerActions_x1'
+    row.appendChild(slot)
+    document.body.appendChild(row)
+
+    // Hard-coded on purpose: building this from the same constant the runtime
+    // interpolates made the assertion self-consistent, and a mutant that renamed
+    // the attribute still passed (verified — the first version of this case did).
+    const slotRule = '[data-slot="sidebar.footer.action"]:has([data-dsh-railist-evoked])'
+    expect(EVOKE_CSS).toContain(slotRule)
+    expect(EVOKE_CSS).toContain(`${slotRule} > span[data-dsh-railist-evoked]`)
+    expect(document.querySelectorAll(slotRule)).toHaveLength(1)
+    // The marker is the only thing removed; the contributor's card stays, because
+    // it is what the evoke is for — its popover lives inside it.
+    expect(document.querySelectorAll(`${slotRule} > span[data-dsh-railist-evoked]`)).toHaveLength(1)
+    // A neighbouring footer action without a marker keeps its own box.
+    const quietSlot = document.createElement('div')
+    quietSlot.setAttribute('data-slot', 'sidebar.footer.action')
+    const quietCard = document.createElement('div')
+    quietSlot.appendChild(quietCard)
+    row.appendChild(quietSlot)
+    expect(document.querySelectorAll(`${slotRule}`)).toHaveLength(1)
+    expect(quietSlot.matches(slotRule)).toBe(false)
+
+    marker.removeAttribute('data-dsh-railist-evoked')
+    marker.setAttribute('data-dsh-railist-suppressed', '')
+    expect(document.querySelectorAll(slotRule)).toHaveLength(0)
+    document.body.removeChild(row)
+  })
+
+  it('hides the evoked footer button but not the popover inside its card', () => {
+    // The capability panel's card is
+    //   <div class="skp-foot"><div class="skp-backdrop"/><div class="skp-popover"/>
+    //   <button class="skp-foot-btn"/></div>
+    // and only the button is in flow: `.skp-foot` is `position: relative` with no
+    // size, the backdrop and the popover are both `position: fixed; inset: 0`.
+    // Hiding the BUTTON is therefore what takes the bottom-left row away while
+    // leaving the open panel alone — measured live, the foot area stayed at
+    // y=700/h=94 before and after the evoke, and the popover was 947x672 at
+    // (166, 64). Hiding or repositioning the CARD instead broke both: the popover
+    // rendered inside it and went off screen, and the neighbouring power button
+    // stretched from 264px to 1288px.
+    const slot = document.createElement('div')
+    slot.setAttribute('data-slot', 'sidebar.footer.action')
+    slot.style.display = 'contents'
+    const marker = document.createElement('span')
+    marker.setAttribute('data-dsh-railist-evoked', MEMBER)
+    const card = document.createElement('div')
+    card.className = 'skp-foot'
+    const backdrop = document.createElement('div')
+    backdrop.className = 'skp-backdrop'
+    const popover = document.createElement('div')
+    popover.className = 'skp-popover'
+    const button = document.createElement('button')
+    button.className = 'skp-foot-btn'
+    card.append(backdrop, popover, button)
+    slot.append(marker, card)
+    document.body.appendChild(slot)
+
+    const buttonRule = '[data-slot="sidebar.footer.action"]:has([data-dsh-railist-evoked]) [class*="foot-btn"]'
+    expect(EVOKE_CSS).toContain(buttonRule)
+    expect(document.querySelectorAll(buttonRule)).toHaveLength(1)
+    // The card and the popover are deliberately left alone.
+    expect(card.matches(`${buttonRule.split(' [class')[0]} > :not([data-dsh-railist-evoked])`)).toBe(true)
+    expect(popover.closest('[class*="foot-btn"]')).toBeNull()
+    // No rule hides the card itself: that would take the popover with it.
+    expect(EVOKE_CSS).not.toContain('> [class*="foot"]')
+    expect(EVOKE_CSS).not.toMatch(/>\s*:not\(\[data-dsh-railist-evoked\]\)/)
+
+    marker.removeAttribute('data-dsh-railist-evoked')
+    expect(document.querySelectorAll(buttonRule)).toHaveLength(0)
+    document.body.removeChild(slot)
+  })
 })

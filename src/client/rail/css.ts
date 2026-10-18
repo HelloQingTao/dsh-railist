@@ -20,6 +20,9 @@
 /** Marker attribute for the settings navigation row (see {@link createSettingsNavMarker}). */
 export const SETTINGS_NAV_ATTR = 'data-dsh-railist-settings-nav'
 
+/** The footer seat's `data-slot` anchor, shared with `rail/dom.ts` (see {@link EVOKE_CSS}). */
+const FOOTER_SLOT_ATTR = 'sidebar.footer.action'
+
 /**
  * The selector for one rail row, in the ONE place.
  *
@@ -77,6 +80,29 @@ ${PANEL_ROW_SELECTOR}:has([data-dsh-railist-suppressed]) {
  * host next to every other footer action. The slot therefore needs a rule of its
  * own — measured live, `display: none` on the marker alone collapses the row to
  * nothing, which is what the evoke needs.
+ *
+ * A member the plan did NOT move stays in its original `sidebar.footer.action`
+ * slot, and the glyph wrapper renders the marker span and the contributor's
+ * component as SIBLING cards inside it (`registry/rail.tsx`, `wrapperFor`).
+ *
+ * Two things are removed there, and neither of them is the contributor's card.
+ *
+ * 1. The marker span. Measured live at 42px: the footer only looked right while
+ *    the row was suppressed because the span was the slot's only tall child, and
+ *    it stayed behind for as long as a popover was open.
+ * 2. The contributor's BUTTON. The capability panel's card is
+ *    `<div class="skp-foot"><div class="skp-backdrop"/><div class="skp-popover"/>
+ *    <button class="skp-foot-btn"/></div>`, and only that last button sits in
+ *    flow — `.skp-foot` is `position: relative` with no size of its own, the
+ *    backdrop is `position: fixed; inset: 0`, and so is the popover. Hiding the
+ *    button therefore takes the whole bottom-left row away while leaving the
+ *    open popover untouched, which is exactly what an evoke wants: the popover
+ *    is what the click was for, the row it was pressed in must not come back.
+ *
+ * The card itself must NOT be repositioned or hidden: taking it out of flow
+ * stretched the neighbouring power button (264px -> 1288px), and hiding it hides
+ * the popover with it, because the popover RENDERS INSIDE the card and only its
+ * `position: fixed` takes it out of the layout.
  */
 export const EVOKE_CSS = `
 ${PANEL_ROW_SELECTOR}:has([data-dsh-railist-evoked]) {
@@ -85,6 +111,15 @@ ${PANEL_ROW_SELECTOR}:has([data-dsh-railist-evoked]) {
 [${GHOST_ATTR}]:has([data-dsh-railist-evoked]) {
   display: none;
   flex: 0 0 auto;
+}
+[data-slot="${FOOTER_SLOT_ATTR}"]:has([data-dsh-railist-evoked]) {
+  display: contents;
+}
+[data-slot="${FOOTER_SLOT_ATTR}"]:has([data-dsh-railist-evoked]) > span[data-dsh-railist-evoked] {
+  display: none;
+}
+[data-slot="${FOOTER_SLOT_ATTR}"]:has([data-dsh-railist-evoked]) [class*="foot-btn"] {
+  display: none;
 }
 `
 
