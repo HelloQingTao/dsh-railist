@@ -22,7 +22,7 @@ export const en = {
   'settings.subtitle': 'Order, rename, re-icon, hide and group the entries of the left rail. Changes apply immediately.',
 
   'settings.sequence.title': 'Sequence',
-  'settings.sequence.hint': 'Drag the handle to reorder, or drop one row onto another to create a group. Focus a handle and use ↑ / ↓ to move it; “Group with next” stays a button.',
+  'settings.sequence.hint': 'Drag the handle to reorder. To group, use “Group with next” or drop a row onto a group. Focus a handle and use ↑ / ↓ to move it.',
   'settings.sequence.pendingHint': 'Your order is only on screen for now — save it to keep it after a reload.',
   'settings.sequence.save': 'Save changes',
   'settings.sequence.discard': 'Discard',
@@ -116,7 +116,7 @@ export const zh: Record<I18nKey, string> = {
   'settings.subtitle': '管理左侧轨道上的页签：排序、改名、换图标、显示或隐藏、收进分组。改动即时生效。',
 
   'settings.sequence.title': '序列',
-  'settings.sequence.hint': '拖动把手排序；把一行拖到另一行上即可建组。把手聚焦后按 ↑ / ↓ 可让该行上下移动，「与下一项合并为分组」仍是按钮。',
+  'settings.sequence.hint': '拖动把手排序。建组用「与下一项合并为分组」，或把面板拖到某个分组行上。把手聚焦后按 ↑ / ↓ 可上下移动。',
   'settings.sequence.pendingHint': '当前顺序只是预览，保存后才会在刷新后保留。',
   'settings.sequence.save': '保存更改',
   'settings.sequence.discard': '放弃更改',
