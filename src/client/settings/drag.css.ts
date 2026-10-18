@@ -100,7 +100,9 @@ export const DRAG_CSS = `
    inside it. It gets an inset outline, not a fill — the fill covered the group
    row's own name and badges, i.e. an ancestor of the thing being sorted. */
 [data-member-drop='active'] {
-  outline: 1px dashed var(--dsh-railist-accent);
+  /* A hairline in the theme accent: enough to say "you can reorder inside
+     here" without the box shouting over the rows it wraps. */
+  outline: 1px solid color-mix(in srgb, var(--dsh-railist-accent) 40%, transparent);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -125,9 +127,12 @@ export const DRAG_CSS = `
   position: absolute;
   left: 0;
   right: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--dsh-railist-accent);
+  height: 1px;
+  border-radius: 1px;
+  /* The insertion line is a hairline hint, not a bar: the theme's accent at
+     low opacity says "it goes here" without out-shouting the rows on either
+     side of it. */
+  background: color-mix(in srgb, var(--dsh-railist-accent) 35%, transparent);
   pointer-events: none;
 }
 
@@ -150,9 +155,9 @@ export const DRAG_CSS = `
   position: absolute;
   left: 24px;
   right: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--dsh-railist-accent);
+  height: 1px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--dsh-railist-accent) 35%, transparent);
   pointer-events: none;
   transform: none;
 }
