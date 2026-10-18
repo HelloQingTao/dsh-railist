@@ -22,6 +22,7 @@ import { emptyProfileConfig, type ProfileConfig } from '../src/shared/config.ts'
 import { buildPlan, type Plan } from '../src/shared/model.ts'
 import type { GlyphRequest } from '../src/client/contracts.ts'
 import { ROW_ATTR } from '../src/client/rail/dom.ts'
+import { EVOKE_CSS, PANEL_ROW_SELECTOR } from '../src/client/rail/css.ts'
 import { createRailAdapter } from '../src/client/registry/rail.tsx'
 import type { ClientContext } from '../src/client/ctx.ts'
 import { FakeLedger, fakeContext } from './helpers/fake-ledger.ts'
@@ -173,5 +174,54 @@ describe('createRailAdapter: evoked group member', () => {
     expect(neighbourPressed).toEqual([])
 
     adapter.dispose()
+  })
+})
+
+/**
+ * The evoked row must leave the rail's LAYOUT, not just lose its marker.
+ *
+ * Rendering the contributor is what makes the click work, but the shell puts the
+ * row back in its own seat — the bottom-left corner for a footer action — so
+ * dropping `suppressed` alone painted a second copy of a grouped capability
+ * panel under the rail for as long as its popover stayed open. `EVOKE_CSS` takes
+ * the row's box away while leaving the node in place: moving it in the DOM threw
+ * `NotFoundError: The node to be removed is not a child of this node` on the next
+ * unmount, because React still tracked the old parent.
+ */
+describe('EVOKE_CSS', () => {
+  it('collapses the shell row that carries an evoked marker, and nothing else', () => {
+    // The selector is built from the shell's class-hashed row selector, so it is
+    // assembled here from the same constant the runtime uses rather than copied.
+    expect(EVOKE_CSS).toContain(':has([data-dsh-railist-evoked])')
+    // The top seat's row IS the flex item, so `contents` collapses it without
+    // disturbing the row's own children.
+    expect(EVOKE_CSS).toContain('display: contents')
+    expect(EVOKE_CSS).toContain(PANEL_ROW_SELECTOR)
+    // The footer seat is the opposite shape: the shell row is a plain `div`
+    // whose only child is the `span` the contributor renders, so it has no
+    // layout of its own and `contents` hides nothing (measured live: the row
+    // kept its 42px). Only `display: none` collapses it.
+    expect(EVOKE_CSS).toContain('display: none')
+  })
+
+  it('matches the row an evoked footer member renders in', () => {
+    // jsdom's selector engine is enough for `:has` on these simple trees, so the
+    // rule is exercised against the markup shape the shell produces.
+    const shellRow = document.createElement('button')
+    shellRow.className = '_panelRow_x1'
+    const wrapper = document.createElement('span')
+    wrapper.innerHTML = '<span data-dsh-railist-evoked="power"></span><span>Power</span>'
+    shellRow.appendChild(wrapper)
+    const nav = document.createElement('nav')
+    nav.className = '_panelList_x1'
+    nav.appendChild(shellRow)
+    document.body.appendChild(nav)
+
+    expect(document.querySelectorAll(`${PANEL_ROW_SELECTOR}:has([data-dsh-railist-evoked])`)).toHaveLength(1)
+    // Once the evoke ends the marker becomes `suppressed`, which HIDE_CSS owns.
+    wrapper.firstElementChild?.removeAttribute('data-dsh-railist-evoked')
+    wrapper.firstElementChild?.setAttribute('data-dsh-railist-suppressed', '')
+    expect(document.querySelectorAll(`${PANEL_ROW_SELECTOR}:has([data-dsh-railist-evoked])`)).toHaveLength(0)
+    document.body.removeChild(nav)
   })
 })

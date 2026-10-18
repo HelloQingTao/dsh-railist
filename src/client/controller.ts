@@ -31,7 +31,7 @@ import { createRailAdapter, SEAT_SLOTS } from './registry/rail.tsx'
 import { createSettingsUnit } from './settings/index.tsx'
 import { createPluginInfoStore, type FetchLike } from './settings/pluginInfo.ts'
 import { createSelfCheck } from './rail/probe.ts'
-import { createSettingsNavMarker, HIDE_CSS, SETTINGS_SEAT_ORDER_CSS, settingsNavCss } from './rail/css.ts'
+import { createSettingsNavMarker, EVOKE_CSS, HIDE_CSS, SETTINGS_SEAT_ORDER_CSS, settingsNavCss } from './rail/css.ts'
 import { createRailDom, ROW_ATTR, type DomRow } from './rail/dom.ts'
 import type { StyleRegistry } from './styles.ts'
 
@@ -205,6 +205,9 @@ export function createController(deps: ControllerDeps): RailistController {
   let cascade = 0
 
   styles.register('rail', HIDE_CSS)
+  // An evoked row leaves the rail's layout for the one interaction it is used
+  // for, instead of reappearing in the corner its seat sits in.
+  styles.register('rail-evoke', EVOKE_CSS)
   // The foot area is a two-child column (footer actions, then Settings). Other
   // sidebar plugins may re-order it to suit themselves; this keeps the shell's
   // Settings seat pinned to the bottom, which is the arrangement this rail's

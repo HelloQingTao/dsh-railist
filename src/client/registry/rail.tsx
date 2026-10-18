@@ -59,6 +59,14 @@ export const SEAT_SLOTS = {
 } as const
 
 /**
+ * An evoked row LEAVES the rail's layout without leaving the DOM.
+ *
+ * The rule itself lives in `rail/css.ts` (`EVOKE_CSS`), because the controller
+ * registers it with the plugin's own stylesheet: this file only stamps the
+ * marker it matches on.
+ */
+
+/**
  * The Settings seat is deliberately NOT taken over.
  *
  * `sidebar.settings` holds the shell's Settings row — and that row is what
@@ -360,6 +368,14 @@ export function createRailAdapter(
    * the ghost read this set (see `wrapperFor` / `ghostFor`) — and the
    * document-level pointerdown installed with `activateRow` ends the evoke once
    * the user clicks somewhere else.
+   *
+   * Dropping `suppressed` alone is not enough: the row would come back where the
+   * shell rows it, which for a footer action is the bottom-left corner, so
+   * activating a grouped capability panel painted a second copy of that row
+   * under the rail for as long as its popover stayed open. The evoke therefore
+   * also LIFTS the row out of the rail's layout without moving it in the DOM
+   * ({@link EVOKE_CSS}), which is what makes it invisible in its seat while the
+   * button it renders still takes the click.
    */
   const evokedRows = new Set<string>()
 
@@ -417,6 +433,12 @@ export function createRailAdapter(
           suppressed: panel.suppressed === true && !evokedRows.has(id),
         }
       },
+      /**
+       * Evoking a row needs nothing from the ghost: the evoked row leaves the
+       * rail's layout through a rule on its marker (`EVOKE_CSS` in
+       * `rail/css.ts`), which reaches the ghost's slot because the slot sits
+       * inside the row the shell renders.
+       */
       subscribe: subscribeGhosts,
       version: ghostVersion,
     })
@@ -520,14 +542,15 @@ export function createRailAdapter(
   }
 
   /**
-   * Make the shell re-project the rail: one ledger mutation pair per seat slot,
-   * one task.
+   * Make the shell re-read the seats.
    *
-   * Every MANAGED seat gets its own probe, not just the panel list: a nudge's
-   * purpose is to re-render the glyph wrappers, and the wrappers the evoke needs
-   * to re-render usually live in the FOOTER seat (a suppressed group member's
-   * row is a footer card). A panel-list-only probe leaves that slot's React
-   * subtree untouched, so the evoked marker would never surface.
+   * A raw field write bumps no ledger version, so the shell has no reason to
+   * re-project `order`/`label`; a throwaway registration that is disposed in the
+   * same task mutates the ledger twice and does exactly that. Every seat is
+   * nudged, because the wrappers the evoke has to re-render usually live in the
+   * FOOTER seat (a suppressed group member's row is a footer card) and a
+   * panel-list-only probe would leave that slot's React subtree untouched, so
+   * the evoked marker would never surface.
    */
   const nudge = (): void => {
     if (nudged || disposed) return
@@ -588,6 +611,11 @@ export function createRailAdapter(
           visual = Native === null ? null : <Native {...props} />
         }
       }
+      // Park an evoked row offscreen once it has rendered: the shell puts it
+      // back where it came from (the bottom-left corner for a footer action) and
+      // the user must not see a second copy of a row that lives in a group now.
+      // The effect runs after the layout pass and the store is filled in the
+      // same task, so there is no frame in which the row is painted in its seat.
       return <><span {...marker} />{visual}</>
     }
     // Registered against the CAPTURE, not against the live map: the getter must
@@ -826,17 +854,24 @@ export function createRailAdapter(
   }
 
   /**
-   * An outside pointerdown ends the evoke: the row hides back into its group.
-   * Clicks inside the evoked row keep it (the contributor's popover lives
-   * there); the contributor's own outside-click handling — the capability
-   * panel's backdrop, for one — closes its popover in step.
+   * Any pointerdown ends the evoke: the row hides back into its group.
+   *
+   * EVERY press counts, including one inside the contributor's popover, which
+   * renders as a CHILD of the row's container (`skp-popover` sits inside the
+   * capability panel's action div). Testing the container instead would keep the
+   * evoke alive for the popover's whole lifetime and survive even the click on
+   * its close button — leaving the row stamped and visible in its seat with
+   * nothing left to activate, i.e. the "extra icon at the bottom" the user
+   * reported.
+   *
+   * Ending the evoke on the opening click is safe because the evoke has already
+   * done its job by then: the press that started it came from the flyout, and
+   * the popover is now open on the contributor's own state. A later press on the
+   * same row re-runs {@link activateRow}, which re-stamps the row and re-opens
+   * the popover from scratch.
    */
-  const onDocumentPointerDown = (event: PointerEvent): void => {
+  const onDocumentPointerDown = (): void => {
     if (disposed || evokedRows.size === 0) return
-    const target = event.target
-    if (!(target instanceof Node)) return
-    const marker = document.querySelector('[data-dsh-railist-evoked]')
-    if (marker !== null && marker.parentElement !== null && marker.parentElement.contains(target)) return
     endEvoke()
   }
   if (typeof document !== 'undefined') {

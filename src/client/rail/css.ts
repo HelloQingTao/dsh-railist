@@ -30,6 +30,9 @@ export const SETTINGS_NAV_ATTR = 'data-dsh-railist-settings-nav'
  */
 export const PANEL_ROW_SELECTOR = 'nav[class*="_panelList"] > button[class*="_panelRow"]'
 
+/** The ghost slot's stamp — the anchor for a row the plan moved out of its seat. */
+const GHOST_ATTR = 'data-dsh-railist-ghost'
+
 /**
  * Row hiding. `hidden` = "hide unless this panel is selected"; `suppressed` =
  * "always hide, it is shown inside a group instead". Both markers are rendered
@@ -42,6 +45,46 @@ export const HIDE_CSS = `
 ${PANEL_ROW_SELECTOR}:has([data-dsh-railist-hidden]),
 ${PANEL_ROW_SELECTOR}:has([data-dsh-railist-suppressed]) {
   display: none;
+}
+`
+
+/**
+ * An evoked row LEAVES the rail's layout without leaving the DOM.
+ *
+ * A group member whose contributor renders no `main` page (the capability panel)
+ * is activated by rendering that contributor for one interaction and pressing
+ * the button inside it — its popover is anchored to that button. The row cannot
+ * simply be shown again, though: it would come back in the seat the shell rows
+ * it in, which for a footer action is the bottom-left corner, so activating a
+ * grouped member painted a SECOND copy of the row under the rail and left it
+ * there until long after the popover closed.
+ *
+ * Moving the node is not an option — the shell's React tree owns it, and its
+ * removal from the old position throws `NotFoundError: The node to be removed is
+ * not a child of this node` on the next unmount. So the row stays exactly where
+ * React put it and only its box is taken away: `display: contents` makes the row
+ * contribute no area at all (nothing is painted in its seat, no gap is left
+ * behind) while the contributor's subtree still renders and still takes the
+ * click.
+ *
+ * It has to be the shell's ROW that gets `display: contents` and not just the
+ * marker's parent: a footer row is the contributor's `<button>` inside it, which
+ * carries its own background and padding, and a top-seat row is that row itself.
+ *
+ * A member the plan takes OUT of its seat is rendered by the ghost instead
+ * (`registry/Ghost.tsx`), and its slot is not a shell row at all: the slot is a
+ * `display: contents` div the contributor renders into, parked in the footnote
+ * host next to every other footer action. The slot therefore needs a rule of its
+ * own — measured live, `display: none` on the marker alone collapses the row to
+ * nothing, which is what the evoke needs.
+ */
+export const EVOKE_CSS = `
+${PANEL_ROW_SELECTOR}:has([data-dsh-railist-evoked]) {
+  display: contents;
+}
+[${GHOST_ATTR}]:has([data-dsh-railist-evoked]) {
+  display: none;
+  flex: 0 0 auto;
 }
 `
 
