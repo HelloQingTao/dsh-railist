@@ -41,12 +41,23 @@ const GHOST_ATTR = 'data-dsh-railist-ghost'
  * "always hide, it is shown inside a group instead". Both markers are rendered
  * by the glyph wrapper in `registry/rail.ts`.
  *
+ * The panel list and the footer area are two SEPARATE seats and have to be
+ * hidden separately: a footer action (the capability panel) that a group takes
+ * over keeps its own row in `sidebar.footer.action`, not in `_panelList`, so a
+ * rule anchored on the panel row alone left it standing at the bottom left
+ * while it was "always hidden" — it disappeared only during an evoke, which is
+ * the opposite of the intent.
+ *
  * The group-active highlight is NOT here: it belongs to the group unit, whose
  * rule also carries the row's theme token (`groups/groups.css.ts`).
  */
 export const HIDE_CSS = `
 ${PANEL_ROW_SELECTOR}:has([data-dsh-railist-hidden]),
 ${PANEL_ROW_SELECTOR}:has([data-dsh-railist-suppressed]) {
+  display: none;
+}
+[data-slot="${FOOTER_SLOT_ATTR}"] > [data-dsh-railist-suppressed],
+[data-slot="${FOOTER_SLOT_ATTR}"] > [data-dsh-railist-hidden] {
   display: none;
 }
 `
