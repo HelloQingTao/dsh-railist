@@ -127,6 +127,19 @@ function resolveLabel(label: SlotLabel | undefined): string | undefined {
  */
 const WRAPPER_REGISTRY_KEY = '__dshRailistGlyphWrappers'
 
+/**
+ * The floating panel a contributor may open from inside its own slot.
+ *
+ * Deliberately structural, not capability-panel-specific: a footer action that
+ * opens a dialog names it with one of these nouns and renders it as a descendant
+ * of its slot container — that is what the capability panel's `skp-popover`
+ * does. Matching the pattern instead of one plugin's exact class keeps this
+ * working for any contributor that does the same; an in-flow child of the slot
+ * (a plain button, its label) never matches, so it cannot keep an evoke alive
+ * by accident.
+ */
+const INTERACTIVE_POPOVER_SELECTOR = '[data-slot] :is([class*="popover"], [class*="dialog"], [class*="modal"])'
+
 /** Tells one of our wrappers apart from a contributor's component, and unwraps it. */
 interface WrapperRegistry extends WeakMap<GlyphComponent, () => unknown> {}
 
@@ -854,26 +867,48 @@ export function createRailAdapter(
   }
 
   /**
-   * Any pointerdown ends the evoke: the row hides back into its group.
+   * A pointerdown outside ends the evoke; one that lands inside the
+   * contributor's own popover must NOT, or the popover closes itself.
    *
-   * EVERY press counts, including one inside the contributor's popover, which
-   * renders as a CHILD of the row's container (`skp-popover` sits inside the
-   * capability panel's action div). Testing the container instead would keep the
-   * evoke alive for the popover's whole lifetime and survive even the click on
-   * its close button — leaving the row stamped and visible in its seat with
-   * nothing left to activate, i.e. the "extra icon at the bottom" the user
-   * reported.
+   * The popover is a CHILD of the evoked row's container, so it looks "inside"
+   * to a containment test — but ending the evoke is not a passive act: it clears
+   * the marker, the row's placeholder span grows back to its natural height, and
+   * the whole footer strip reflows *between* this `pointerdown` and the `click`
+   * that follows it. The contributor (capability panel) runs its own
+   * outside-click guard on the same capture-phase event:
    *
-   * Ending the evoke on the opening click is safe because the evoke has already
-   * done its job by then: the press that started it came from the flyout, and
-   * the popover is now open on the contributor's own state. A later press on the
-   * same row re-runs {@link activateRow}, which re-stamps the row and re-opens
-   * the popover from scratch.
+   *     !rootRef.current.contains(event.target) → setOpen(false)
+   *
+   * Once the reflow has moved the popover, the target it recorded no longer
+   * resolves inside that root, so pressing ANY button in the panel reads as an
+   * outside click and closes it. That is the bug the user hit: every button in
+   * the popover dismissed it.
+   *
+   * The fix is to decide in a LATER frame. By then the contributor has installed
+   * or torn down its own popover, so the answer is simply whether one is still
+   * on screen: if it is, the press was inside it and the evoke stays; if the
+   * press was the popover's own close button (or anything outside), the popover
+   * is gone and the evoke ends with it. A `pointercancel` never gets here, so
+   * the evoke can still be ended by the activation deadline.
    */
-  const onDocumentPointerDown = (): void => {
+  const onDocumentPointerDown = (event: PointerEvent): void => {
     if (disposed || evokedRows.size === 0) return
-    endEvoke()
+    // Only a press that could have started inside the popover can spare it;
+    // everything else ends the evoke immediately, with no frame of lag.
+    const target = event.target
+    if (!(target instanceof Element) || target.closest(INTERACTIVE_POPOVER_SELECTOR) === null) {
+      endEvoke()
+      return
+    }
+    requestAnimationFrame(() => {
+      if (disposed || evokedRows.size === 0) return
+      // Still mounted after the contributor's own handler ran: the press was an
+      // interaction with the popover, not a dismissal of it.
+      if (document.querySelector(INTERACTIVE_POPOVER_SELECTOR) !== null) return
+      endEvoke()
+    })
   }
+
   if (typeof document !== 'undefined') {
     document.addEventListener('pointerdown', onDocumentPointerDown, true)
   }

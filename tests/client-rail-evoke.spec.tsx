@@ -178,6 +178,142 @@ describe('createRailAdapter: evoked group member', () => {
 })
 
 /**
+ * Pressing a button INSIDE the contributor's popover must not end the evoke.
+ *
+ * Ending it clears the marker, the row's placeholder span grows back to its
+ * natural height, and the footer strip reflows between `pointerdown` and the
+ * `click` that follows. The capability panel runs its own outside-click guard on
+ * the same capture-phase event:
+ *
+ *     !rootRef.current.contains(event.target) → setOpen(false)
+ *
+ * so once the reflow had moved things, every button in the panel read as an
+ * outside click and dismissed it. Reported live as "clicking any button in the
+ * popover closes the popover".
+ *
+ * The evoke therefore now decides in a LATER frame, on whether a popover is
+ * still on screen. That is what these cases pin: inside → still evoked;
+ * outside → ended immediately, with no frame of lag.
+ */
+describe('createRailAdapter: a popover press keeps the evoke alive', () => {
+  /** A footer member whose card renders a popover while its own state says so. */
+  function popoverMember(open: { value: boolean }): () => ReactNode {
+    return () => (
+      <div className="skp-foot">
+        {open.value
+          ? (
+            <>
+              <div className="skp-popover" data-testid="member-popover">
+                <button type="button" data-testid="popover-button">{'inside'}</button>
+              </div>
+            </>
+          )
+          : null}
+        <button type="button" data-testid="member-button" onClick={() => { open.value = true }}>{'Power'}</button>
+      </div>
+    )
+  }
+
+  /** Mount an evoked footer member inside its `data-slot` container. */
+  async function mountedEvoked(open: { value: boolean }) {
+    const ledger = new FakeLedger()
+    seedFooter(ledger, popoverMember(open))
+    const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, planWithGroupIcon, glyph)
+    adapter.applyOverrides()
+    const Wrapper = wrapperOf(ledger)
+    const mount = (): ReactNode => (
+      <div data-slot={FOOTER_SLOT} style={{ display: 'contents' }}>
+        <Wrapper wide />
+      </div>
+    )
+    const view = render(mount())
+    act(() => { adapter.activateRow(MEMBER) })
+    view.rerender(mount())
+    await waitForFrame()
+    await waitForFrame()
+    return { adapter, view, mount }
+  }
+
+  it('leaves the evoke running when the press lands inside the popover', async () => {
+    const open = { value: true }
+    const { adapter, view, mount } = await mountedEvoked(open)
+    expect(view.container.querySelector(`[data-dsh-railist-evoked="${MEMBER}"]`)).not.toBeNull()
+
+    const button = view.getByTestId('popover-button')
+    // Capture phase, exactly as the shell and the contributor both listen.
+    act(() => { button.dispatchEvent(new Event('pointerdown', { bubbles: true })) })
+    await waitForFrame()
+    await waitForFrame()
+    view.rerender(mount())
+
+    expect(view.container.querySelector(`[data-dsh-railist-evoked="${MEMBER}"]`)).not.toBeNull()
+    adapter.dispose()
+  })
+
+  it('ends the evoke as soon as the press lands outside the popover', async () => {
+    const open = { value: true }
+    const { adapter, view, mount } = await mountedEvoked(open)
+
+    const outside = document.createElement('div')
+    document.body.appendChild(outside)
+    act(() => { outside.dispatchEvent(new Event('pointerdown', { bubbles: true })) })
+    // The wrapper reads the evoke set on render, so a re-render is what projects
+    // the cleared set into the DOM — but the CLEARING itself is synchronous, and
+    // that is what this case pins: no frame, no deadline, no lag.
+    view.rerender(mount())
+
+    expect(view.container.querySelector(`[data-dsh-railist-evoked="${MEMBER}"]`)).toBeNull()
+    expect(view.container.querySelector('[data-dsh-railist-suppressed]')).not.toBeNull()
+
+    document.body.removeChild(outside)
+    adapter.dispose()
+  })
+
+  it('ends the evoke once the popover is gone, so nothing is left behind', async () => {
+    // The press that CLOSES the popover starts inside it, so the first frame
+    // must spare it; the frame after the contributor unmounts it is the one that
+    // ends the evoke. Otherwise the row stays stamped with visible height and
+    // nothing to activate — the "extra icon at the bottom-left" bug.
+    const open = { value: true }
+    const ledger = new FakeLedger()
+    seedFooter(ledger, popoverMember(open))
+    const adapter = createRailAdapter(fakeContext(ledger) as ClientContext, planWithGroupIcon, glyph)
+    adapter.applyOverrides()
+    const Wrapper = wrapperOf(ledger)
+    const mount = (): ReactNode => (
+      <div data-slot={FOOTER_SLOT} style={{ display: 'contents' }}>
+        <Wrapper wide />
+      </div>
+    )
+
+    const view = render(mount())
+    act(() => { adapter.activateRow(MEMBER) })
+    view.rerender(mount())
+    await waitForFrame()
+    await waitForFrame()
+    expect(view.container.querySelector('[data-testid="member-popover"]')).not.toBeNull()
+
+    // Press inside the popover, then let the contributor's own guard tear it
+    // down before the deferred frame runs — that is what its close button does.
+    act(() => {
+      view.getByTestId('popover-button').dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      open.value = false
+    })
+    view.rerender(mount())
+    await waitForFrame()
+    await waitForFrame()
+    // The deferred frame cleared the evoke set; project it, the wrapper reads the
+    // set on render rather than subscribing to it.
+    view.rerender(mount())
+
+    expect(view.container.querySelector('[data-testid="member-popover"]')).toBeNull()
+    expect(view.container.querySelector(`[data-dsh-railist-evoked="${MEMBER}"]`)).toBeNull()
+    expect(view.container.querySelector('[data-dsh-railist-suppressed]')).not.toBeNull()
+    adapter.dispose()
+  })
+})
+
+/**
  * The evoked row must leave the rail's LAYOUT, not just lose its marker.
  *
  * Rendering the contributor is what makes the click work, but the shell puts the
@@ -271,8 +407,7 @@ describe('EVOKE_CSS', () => {
     document.body.removeChild(row)
   })
 
-  it('hides the evoked footer button but not the popover inside its card', () => {
-    // The capability panel's card is
+  it('hides the evoked footer button but not the popover inside its card', () => {    // The capability panel's card is
     //   <div class="skp-foot"><div class="skp-backdrop"/><div class="skp-popover"/>
     //   <button class="skp-foot-btn"/></div>
     // and only the button is in flow: `.skp-foot` is `position: relative` with no
