@@ -85,13 +85,22 @@ export const en = {
   'settings.io.title': 'Configuration',
   'settings.io.filePath': 'File: {path}',
 
+  'settings.discover.title': 'Automatic discovery',
+  'settings.discover.hint': 'Entries that register a sidebar slot are managed automatically. This lists any button the shell draws itself that is not adopted yet.',
+  'settings.discover.none': 'No unmanaged entry — every rail button is managed.',
+  'settings.discover.count': 'Found {count} unmanaged entry.',
+  'settings.discover.snippetHint': 'Paste this line into more/adapters.ts (narrow the selector so it matches only this button):',
+  'settings.discover.copy': 'Copy',
+  'settings.discover.copied': 'Copied',
+
   'warning.single-member-group': 'Group “{groupId}” holds a single panel. Consider dropping the group.',
   'warning.empty-group': 'Group “{groupId}” has no live member and is not rendered.',
   'warning.group-id-collision': 'Group id “{groupId}” collides with a panel id and was ignored.',
   'warning.duplicate-in-sequence': '“{panelId}” appears more than once; the first placement wins.',
 
   'rail.group.open': 'Open group {name}',
-  'rail.group.menuTitle': 'Group: {name}',
+  // The proxy row that stands in for the shell's own "More" launcher.
+  'rail.more.label': 'More',
   'rail.group.missing': 'missing',
   'rail.group.emptyMenu': 'No panel is shown in this group.',
   'rail.group.overviewTitle': 'Group “{name}”',
@@ -176,13 +185,22 @@ export const zh: Record<I18nKey, string> = {
   'settings.io.title': '配置',
   'settings.io.filePath': '文件：{path}',
 
+  'settings.discover.title': '自动发现',
+  'settings.discover.hint': '通过侧栏槽位注册的入口会自动纳入管理。这里列出外壳自己绘制、尚未纳管的按钮。',
+  'settings.discover.none': '没有未纳管的入口——侧栏按钮都已纳入管理。',
+  'settings.discover.count': '发现 {count} 个未纳管入口。',
+  'settings.discover.snippetHint': '把这行粘到 more/adapters.ts（把选择器改窄，确保只命中这个按钮）：',
+  'settings.discover.copy': '复制',
+  'settings.discover.copied': '已复制',
+
   'warning.single-member-group': '分组「{groupId}」只有一个面板，建议解散。',
   'warning.empty-group': '分组「{groupId}」没有可用成员，不渲染。',
   'warning.group-id-collision': '分组 id「{groupId}」与某个面板 id 冲突，已忽略。',
   'warning.duplicate-in-sequence': '「{panelId}」出现了多次，以第一次为准。',
 
   'rail.group.open': '展开分组 {name}',
-  'rail.group.menuTitle': '分组：{name}',
+  // 「更多」代理行：顶替外壳自带的 More 启动按钮，可排序/隐藏/分组。
+  'rail.more.label': '更多',
   'rail.group.missing': '已缺失',
   'rail.group.emptyMenu': '该分组内没有显示的页签。',
   'rail.group.overviewTitle': '分组「{name}」',

@@ -111,6 +111,21 @@ export function isManagedSeat(value: unknown): value is ManagedSeat {
  */
 export const SETTINGS_ROW_ID = 'settings'
 
+/**
+ * The rail id of the proxy row that stands in for the shell's own "More"
+ * launcher (`sidebar.panellist.actions` menu). `dsh-client-ui-sidebar` appends
+ * that button directly to `nav.panelList` WITHOUT registering it in the slot,
+ * so the sequence editor cannot see it. `client/more/` registers a real slot
+ * entry under this id and forwards its clicks to the shell's button, which
+ * makes the launcher an ordinary orderable / hideable / groupable row.
+ *
+ * Deliberately outside {@link isOwnRailId}'s namespace: an own id would be
+ * filtered out of `rail.panels()` and `applyOverrides()`, i.e. invisible to the
+ * plan and to the settings page. As far as the rail is concerned this row is a
+ * panel contributed by someone else.
+ */
+export const MORE_ROW_ID = 'dsh-railist-more'
+
 /** Per-panel display overrides. Absent keys mean "no opinion". */
 export interface EntryOverride {
   /** Display-name override: rail row text, collapsed tooltip, accessible name. */

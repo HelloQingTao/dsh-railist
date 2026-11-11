@@ -17,6 +17,7 @@ import type { SettingsUnitDeps } from '../contracts.ts'
 import type { I18nKey, Translator } from '../i18n/index.ts'
 import { AppearanceEditor } from './AppearanceEditor.tsx'
 import { ConfigBlock } from './ConfigBlock.tsx'
+import { DiscoveryBlock } from '../more/DiscoveryBlock.tsx'
 import { SequenceEditor, type SequenceSelection } from './SequenceEditor.tsx'
 import type { PluginInfoStore } from './pluginInfo.ts'
 import { sourceLabel } from './sourceLabel.ts'
@@ -251,6 +252,8 @@ export function Section({ deps }: SectionProps): ReactNode {
             applyStructural={applyStructural}
           />
         )}
+
+      <DiscoveryBlock t={t} />
 
       <ConfigBlock
         plan={plan}

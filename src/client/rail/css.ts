@@ -213,3 +213,107 @@ export function createSettingsNavMarker(label: () => string): () => void {
     }
   }
 }
+
+/**
+ * The shell's own "More" launcher, parked out of the rail.
+ *
+ * `SidebarRoot` appends `PanelMoreMenu` to `nav.panelList` without registering
+ * it in `sidebar.panellist`, so a row the sequence editor can order/hide/group
+ * cannot be made from it. `client/more/` registers a proxy slot entry instead
+ * and forwards its clicks here; this rule takes the REAL button out of the
+ * layout so the two do not appear at once.
+ *
+ * A descendant combinator (not `>`) is deliberate: `Menu` may wrap its anchor
+ * in a `_moreAnchor` container, so the button need not be a direct child of the
+ * nav. Group rows also set `aria-haspopup="menu"` on their button; both their
+ * DOM stamp and their `data-dsh-railist-group` marker exclude them here, so a
+ * group the user opens never gets hidden by mistake.
+ *
+ * `display: none` is NOT an option: the shell's menu is `portal: true` and
+ * anchors to this button's rectangle, which would collapse to zero and open
+ * the menu in the viewport corner. `position: fixed` with a 1px transparent
+ * box keeps a measurable anchor, which `forward()` moves to the proxy row's
+ * rectangle for the one interaction. CSS never removes the button from the
+ * DOM, so the self-check's row/entry difference is unchanged.
+ */
+/** `:has()`-free base for every panel-row button the shell draws. */
+export const PANEL_HOST_BUTTON_SELECTOR =
+  'nav[class*="_panelList"] button[class*="_panelRow"]'
+
+/** `:has()`-free base, shared by the CSS hide rule and the runtime forward() scan. */
+export const MORE_HOST_BUTTON_SELECTOR =
+  `${PANEL_HOST_BUTTON_SELECTOR}[aria-haspopup="menu"]`
+
+/** Marker inside a railist group row (those buttons also set aria-haspopup). */
+export const GROUP_MARKER_SELECTOR = '[data-dsh-railist-group]'
+
+/** CSS-only suffix that keeps railist's own group rows out of a hide rule. */
+export const HOST_ROW_HIDE_SUFFIX = `:not(:has(${GROUP_MARKER_SELECTOR}))`
+
+/** CSS-only refinement that also excludes railist's own group rows. */
+export const MORE_HOST_SELECTOR = `${MORE_HOST_BUTTON_SELECTOR}${HOST_ROW_HIDE_SUFFIX}`
+
+/**
+ * The declarations that park a host button out of the rail (see the long
+ * comment above): measurable for the portal anchor, but invisible and inert.
+ * Shared by every adapter rule, so a new declaration needs no CSS edit here.
+ */
+const HOST_BUTTON_HIDE_DECLARATIONS = `
+  position: fixed !important;
+  left: 0;
+  top: 0;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  overflow: hidden;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -1;
+`
+
+/**
+ * One hide rule per declared host row. `client/more/` walks its adapter table
+ * and registers the result; adding a declaration adds its rule automatically.
+ * The parameter is structural on purpose: this low-level CSS module must not
+ * import the feature module that imports it.
+ */
+export function hostRowsHideCss(adapters: readonly { hostSelector: string }[]): string {
+  return adapters
+    .map(adapter => `${adapter.hostSelector}${HOST_ROW_HIDE_SUFFIX} {${HOST_BUTTON_HIDE_DECLARATIONS}\n}`)
+    .join('\n')
+}
+
+/** The rule for the built-in "More" adapter (kept as a stable export). */
+export const MORE_HIDE_CSS = hostRowsHideCss([{ hostSelector: MORE_HOST_BUTTON_SELECTOR }])
+
+/**
+ * Evoke-state override for host-row proxy rows (the "grouped more" fix).
+ *
+ * EVOKE_CSS turns an evoked panel row into `display: contents` so a footer
+ * action's inline popover can render in the row. A host-row proxy is different:
+ * its menu is `portal: true` and anchored to the parked host button, so nothing
+ * needs to render inside the row. `display: contents` there only spills the
+ * proxy's glyph + title into `nav.panelList` as bare flex children (the stray
+ * ⊞ icon and big "更多" label). Hiding the row outright is safe: `.click()` is
+ * dispatched on a live element regardless of `display`, so the forwarded click
+ * still reaches the parked host button and the portal menu keeps its anchor.
+ *
+ * Scoped by the evoke marker's VALUE (= the adapter id), so footer actions'
+ * `display: contents` evoke (which is legitimate) is untouched. Specificity
+ * (id-valued attribute inside `:has`, driven by the adapter list) + `!important`
+ * beats EVOKE_CSS's plain `:has([data-dsh-railist-evoked])` no matter which
+ * stylesheet is registered later. Structural parameter keeps this module free
+ * of feature imports.
+ */
+export function hostRowsEvokeCss(adapters: readonly { id: string }[]): string {
+  return adapters
+    .map(adapter => {
+      const id = adapter.id.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+      return `${PANEL_ROW_SELECTOR}:has([data-dsh-railist-evoked="${id}"]) { display: none !important; }`
+    })
+    .join('\n')
+}

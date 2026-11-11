@@ -14,6 +14,7 @@ import { createRailistStore } from './config/store.ts'
 import { createController, type RailistController } from './controller.ts'
 import { createTranslator, type LocaleLike, type Translator } from './i18n/index.ts'
 import { BuiltinGlyph, Glyph, glyphDataUri, sanitizeSvg } from './icons/index.tsx'
+import { createMoreUnit } from './more/index.ts'
 import { beginExclusiveMount } from './mount.ts'
 import { optionalService } from './service.ts'
 import { createStyleRegistry } from './styles.ts'
@@ -51,6 +52,14 @@ export function apply(ctx: ClientContext): () => void {
   const translate: Translator = createTranslator(optionalService<LocaleLike>(ctx, 'locale'))
   const styles = createStyleRegistry()
   const store = createRailistStore()
+  // The shell's "More" launcher is registered as an ordinary slot row so the
+  // sequence editor can order / hide / group it. This is a browser mount-layer
+  // concern (document listeners, slot injection, host DOM lookup), so it lives
+  // here rather than inside createController — that keeps the controller's
+  // isolated "fake ledger" specs free of a host row with no sidebar to render
+  // into. Created before the controller so its entry is in `rail.panels()` on
+  // the first projection (and a ledger bump re-projects it anyway).
+  const moreUnit = createMoreUnit({ ctx, translate, glyph: Glyph, styles })
   const controller: RailistController = createController({
     ctx,
     store,
@@ -94,6 +103,7 @@ export function apply(ctx: ClientContext): () => void {
 
   return registerMount(() => {
     controller.dispose()
+    moreUnit.dispose()
     store.dispose()
     translate.dispose()
   })

@@ -613,4 +613,25 @@ export const SETTINGS_CSS = `
   width: 18px;
   min-height: 22px;
 }
+
+/* Automatic-discovery card: one row per unmanaged shell button. */
+.dsh-railist-settings-discovery-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* The paste-ready declaration; select-all so a click-drag copies it whole. */
+.dsh-railist-settings-discovery-snippet {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--dsh-railist-line);
+  border-radius: 8px;
+  background: var(--dsh-railist-fill);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: all;
+}
 `.trim()
