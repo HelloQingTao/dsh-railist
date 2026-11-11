@@ -101,6 +101,7 @@ export const en = {
   'rail.group.open': 'Open group {name}',
   // The proxy row that stands in for the shell's own "More" launcher.
   'rail.more.label': 'More',
+  'rail.group.menuTitle': 'Group: {name}',
   'rail.group.missing': 'missing',
   'rail.group.emptyMenu': 'No panel is shown in this group.',
   'rail.group.overviewTitle': 'Group “{name}”',
@@ -201,6 +202,7 @@ export const zh: Record<I18nKey, string> = {
   'rail.group.open': '展开分组 {name}',
   // 「更多」代理行：顶替外壳自带的 More 启动按钮，可排序/隐藏/分组。
   'rail.more.label': '更多',
+  'rail.group.menuTitle': '分组：{name}',
   'rail.group.missing': '已缺失',
   'rail.group.emptyMenu': '该分组内没有显示的页签。',
   'rail.group.overviewTitle': '分组「{name}」',
