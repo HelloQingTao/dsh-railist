@@ -24,7 +24,7 @@ export const SETTINGS_CSS = `
   --dsh-railist-fill-strong: color-mix(in srgb, currentColor 11%, transparent);
   --dsh-railist-muted: var(--dsw-alias-label-tertiary, color-mix(in srgb, currentColor 62%, transparent));
   --dsh-railist-secondary: var(--dsw-alias-label-secondary, currentColor);
-  --dsh-railist-accent: var(--dsw-alias-accent, currentColor);
+  --dsh-railist-accent: var(--dsw-alias-brand-primary, var(--dsw-alias-accent, currentColor));
   --dsh-railist-danger: var(--dsw-alias-state-error-primary, currentColor);
   --dsh-railist-warn: var(--dsw-alias-state-warn-primary, currentColor);
 
@@ -94,6 +94,92 @@ export const SETTINGS_CSS = `
 .dsh-railist-settings-hint {
   margin: 0;
   color: var(--dsh-railist-muted);
+}
+
+/* A single toggle row inside a block: the label and its hint stack on the left,
+   the control is pinned to the right edge — the shape the shell's own toggle
+   rows use. (The old markup reused the stacked .field + .radio classes, which
+   made the checkbox and its label render centred one above the other.) */
+.dsh-railist-settings-toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+}
+
+.dsh-railist-settings-toggleText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dsh-railist-settings-toggleText .dsh-railist-settings-fieldLabel {
+  color: var(--dsh-railist-secondary);
+  font-weight: 500;
+}
+
+.dsh-railist-settings-toggleText .dsh-railist-settings-hint {
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* A switch built from a real checkbox, so it stays keyboard- and
+   screen-reader-operable while looking like the shell's own toggles. The input
+   fills the pill and is transparent; the track carries the visuals. */
+.dsh-railist-settings-switch {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  width: 36px;
+  height: 20px;
+}
+
+.dsh-railist-settings-switchInput {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dsh-railist-settings-switchTrack {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--dsh-railist-fill-strong);
+  box-shadow: inset 0 0 0 1px var(--dsh-railist-line);
+  transition: background-color 120ms ease;
+}
+
+.dsh-railist-settings-switchTrack::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 120ms ease;
+}
+
+.dsh-railist-settings-switchInput:checked + .dsh-railist-settings-switchTrack {
+  background: var(--dsh-railist-accent);
+}
+
+.dsh-railist-settings-switchInput:checked + .dsh-railist-settings-switchTrack::after {
+  transform: translateX(16px);
+}
+
+.dsh-railist-settings-switchInput:focus-visible + .dsh-railist-settings-switchTrack {
+  outline: 2px solid var(--dsh-railist-accent);
+  outline-offset: 2px;
 }
 
 .dsh-railist-settings-banner {

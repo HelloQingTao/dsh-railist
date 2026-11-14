@@ -476,12 +476,21 @@ export const SETTINGS_POLISH_CSS = `
 .dsh-panellist-settings-commitBar[hidden] { display: none; }
 
 /*
- * Keep the floating bar from landing on the last row of a long page. The
- * padding is unconditional rather than tied to the bar being visible, so the
- * reserved strip never appears or disappears with it — that is the whole point
- * of floating the bar out of flow.
+ * Keep the floating, viewport-pinned bar from covering the last card — but only
+ * while an edit is actually pending, and only at the very bottom of the page.
+ *
+ * The reservation used to sit on the sequence above the other cards, so the
+ * moment the page turned dirty everything below the list dropped by 72px (and
+ * snapped back once the write finished) — the reported "elements below jump"
+ * when toggling the Interaction switch. Bottom padding on the page itself is
+ * added below every card, so it buys the same scroll room without moving a
+ * single element above it.
  */
 .dsh-panellist-settings-sequence {
+  padding-bottom: 0;
+}
+
+.dsh-railist-settings[data-dirty='true'] {
   padding-bottom: 72px;
 }
 

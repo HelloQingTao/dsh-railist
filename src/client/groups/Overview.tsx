@@ -3,8 +3,8 @@
  *
  * Click interception means `selectPanel(groupRailId)` should never run from the
  * rail, but the layout throws when `main` has no entry for a key — so the group
- * registers a real, minimal page under the same key as insurance, and the flyout
- * It has no UI entry point of its own: the menu's job is its members.
+ * registers a real, minimal page under the same key as insurance. The page has
+ * no UI entry point of its own: the menu's job is its members.
  *
  * The page reads the group from the live plan, so it stays correct when a member
  * is uninstalled while the page is open.

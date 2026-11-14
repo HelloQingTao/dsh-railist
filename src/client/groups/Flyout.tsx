@@ -3,17 +3,19 @@
  *
  * The pattern is the ecosystem's proven `AnchoredPopover` (dsh-better-sidebar):
  * a `div` appended to `document.body` once, a card portaled into it, geometry
- * measured from the anchor's `getBoundingClientRect()` in a layout effect so the
- * first paint is already in place (never a visible jump), and dismissal driven by
- * capture-phase document listeners.
+ * measured in a layout effect so the first paint is already in place (never a
+ * visible jump), and dismissal driven by capture-phase document listeners.
  *
  * Differences that come from this shell:
- * - the anchor is a rail row, so placement depends on the rail's state: a
- *   collapsed 56 px rail flies out to the RIGHT of the row, a wide rail drops
- *   BELOW it; both flip at the viewport edges with an 8 px margin;
- * - a missing member (no registration answers its id) is rendered disabled and
- *   labelled as missing rather than silently dropped, so the configured group
- *   stays readable while its contributor is uninstalled.
+ * - the menu drops straight down from the pointer's x (both click and hover open
+ *   under the cursor), with a small breathing gap above it, and it never sits
+ *   flush on the trigger row — when the pointer is over the row it drops just
+ *   below it; it flips horizontally / above at the viewport edges, keeping an
+ *   8 px margin. With no pointer (a keyboard press) it hangs from the row's
+ *   bottom-right corner;
+ * - a member that is hidden or whose contributor is not installed leaves the
+ *   menu entirely (README §2.3); the group stays readable in the settings page,
+ *   where a missing member is marked as missing.
  */
 import {
   useEffect, useLayoutEffect, useMemo, useRef, useState,
@@ -26,14 +28,12 @@ import type { GroupUnitRuntime } from './index.ts'
 /** Attribute on the portal target appended to `document.body`. */
 const PORTAL_CONTAINER_ATTRIBUTE = 'data-dsh-railist-portal'
 
-/** Gap between the anchor row and the card. */
-const ANCHOR_GAP = 8
+/** Breathing gap between the pointer (or row corner) and the card. */
+const POINTER_GAP = 10
 /** Free space kept at every viewport edge. */
 const VIEWPORT_MARGIN = 8
-/** Widest row that still means "the rail is collapsed" (56 px track + padding). */
-const COLLAPSED_ROW_MAX_WIDTH = 60
-/** Member glyph size inside the flyout. */
-const MEMBER_GLYPH_SIZE = 18
+/** Member glyph size inside the flyout; the shell's menu item icon is 14. */
+const MEMBER_GLYPH_SIZE = 14
 
 /** Lower bound of the "flip into the viewport" clamp, kept total for a 0-size viewport. */
 function clampLow(limit: number): number {
@@ -64,12 +64,30 @@ export function removePortalContainer(): void {
 /** Why the menu is closing: an Escape restores focus to the row, a click does not. */
 export type FlyoutCloseReason = 'escape' | 'outside'
 
+/** A screen point the menu hangs from (bottom-right of the pointer). */
+export interface FlyoutPoint { x: number; y: number }
+
 export interface FlyoutProps {
   runtime: GroupUnitRuntime
   /** The group as the latest plan has it. */
   group: PlanGroup
-  /** The row button the flyout is anchored to. */
+  /** The row button the flyout is anchored to (dismissal + no-pointer fallback). */
   anchor: HTMLElement
+  /**
+   * Where the pointer was when the menu opened. The card hangs from the point's
+   * bottom-right; when absent (a keyboard press) the row's bottom-right corner is
+   * used instead.
+   */
+  point?: FlyoutPoint | null
+  /**
+   * Which trigger opened the menu. `click` (the default) moves focus into the
+   * menu; `hover` does not steal focus. Placement is pointer-based for both.
+   */
+  mode?: 'click' | 'hover'
+  /** Pointer entered the card: cancel any pending hover-close (keep-alive). */
+  onCardEnter?(): void
+  /** Pointer left the card: let the hover menu close after its grace period. */
+  onCardLeave?(): void
   onSelect(panelId: string): void
   onClose(reason: FlyoutCloseReason): void
 }
@@ -86,7 +104,8 @@ function stopRowLeak(event: { stopPropagation(): void }): void {
 
 /** One menu row: the member's effective glyph and name, or a disabled "missing" row. */
 export function Flyout(props: FlyoutProps): ReactElement {
-  const { runtime, group, anchor, onSelect, onClose } = props
+  const { runtime, group, anchor, point, onSelect, onClose, onCardEnter, onCardLeave } = props
+  const hoverMode = props.mode === 'hover'
   const { deps } = runtime
   const translate = deps.translate
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -95,6 +114,10 @@ export function Flyout(props: FlyoutProps): ReactElement {
   const [activeIndex, setActiveIndex] = useState(-1)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
+  const onCardEnterRef = useRef(onCardEnter)
+  onCardEnterRef.current = onCardEnter
+  const onCardLeaveRef = useRef(onCardLeave)
+  onCardLeaveRef.current = onCardLeave
   const container = useMemo(ensurePortalContainer, [])
   // Hidden members stay in the group (count, order, highlight) but leave the
   // menu: their rail row is already suppressed, so "hidden" for a member is
@@ -104,40 +127,68 @@ export function Flyout(props: FlyoutProps): ReactElement {
   const members = group.members.filter(member => !member.hidden && !member.missing)
   const activePanelId = deps.rail.activePanelId()
 
-  // Measure once the card is in the DOM; keyed on the member count so a plan
-  // change while the menu is open re-measures instead of clipping.
+  // Measure once the card is in the DOM; keyed on the member count / pointer so a
+  // plan change or a fresh open re-measures instead of clipping.
   useLayoutEffect(() => {
     const card = rootRef.current
     if (card === null) return
-    const rect = anchor.getBoundingClientRect()
     const width = card.offsetWidth
     const height = card.offsetHeight
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
-    let left: number
-    let top: number
-    if (rect.width <= COLLAPSED_ROW_MAX_WIDTH) {
-      // Collapsed rail: fly out to the right, unless that clips the right edge.
-      left = rect.right + ANCHOR_GAP
-      if (left + width > viewportWidth - VIEWPORT_MARGIN) {
-        left = clampLow(rect.left - width - ANCHOR_GAP)
-      }
-      top = Math.min(clampLow(rect.top), clampLow(viewportHeight - height - VIEWPORT_MARGIN))
-    } else {
-      // Wide rail: drop below the row, unless that clips the bottom edge.
-      left = rect.left
-      top = rect.bottom + ANCHOR_GAP
-      if (top + height > viewportHeight - VIEWPORT_MARGIN) {
-        top = clampLow(rect.top - height - ANCHOR_GAP)
-      }
-      left = Math.min(clampLow(left), clampLow(viewportWidth - width - VIEWPORT_MARGIN))
+    // Anchor: the pointer when we have one (click and hover both open at the
+    // cursor), else the row's bottom-right corner for a keyboard press. The card
+    // hangs to the bottom-right, with a small breathing gap, and flips left /
+    // above at the viewport edges.
+    const rect = anchor.getBoundingClientRect()
+    const baseX = point?.x ?? rect.right
+    const baseY = point?.y ?? rect.bottom
+    // Directly below the pointer: the card's left edge sits on the pointer's x.
+    let left = baseX
+    let top = baseY + POINTER_GAP
+    // Never sit flush on the row that opened the menu: when the pointer is on
+    // (or above the bottom of) the row, the pointer-anchored card would overlap
+    // it — drop it just below the row instead, keeping the breathing gap.
+    const overlapsRow = left < rect.right && left + width > rect.left
+      && top < rect.bottom && top + height > rect.top
+    if (overlapsRow) {
+      top = rect.bottom + POINTER_GAP
     }
+    // Flip at the viewport edges: left of the pointer, or above the row.
+    if (left + width > viewportWidth - VIEWPORT_MARGIN) {
+      left = clampLow(baseX - width - POINTER_GAP)
+    }
+    if (top + height > viewportHeight - VIEWPORT_MARGIN) {
+      top = clampLow((overlapsRow ? rect.top : baseY) - height - POINTER_GAP)
+    }
+    left = clampLow(left)
+    top = clampLow(top)
     setPosition(previous =>
       previous !== null && previous.left === left && previous.top === top ? previous : { left, top })
-  }, [anchor, members.length])
+  }, [anchor, members.length, hoverMode, point?.x, point?.y])
 
-  // Move focus into the menu so arrow keys and Enter reach it immediately.
-  useEffect(() => { menuRef.current?.focus() }, [])
+  // Keep-alive, via NATIVE enter/leave on the portal root. React's synthetic
+  // enter/leave is unreliable across this portal because the card's React parent
+  // is the anchor button while its DOM parent is `document.body`: a pointer that
+  // jumps straight from the row into the card can miss `onMouseEnter`. Native
+  // listeners fire on the DOM node regardless.
+  useEffect(() => {
+    const el = rootRef.current
+    if (el === null) return undefined
+    const enter = (): void => { onCardEnterRef.current?.() }
+    const leave = (): void => { onCardLeaveRef.current?.() }
+    el.addEventListener('mouseenter', enter)
+    el.addEventListener('mouseleave', leave)
+    return () => {
+      el.removeEventListener('mouseenter', enter)
+      el.removeEventListener('mouseleave', leave)
+    }
+  }, [])
+
+  // Move focus into the menu so arrow keys and Enter reach it immediately — but
+  // NOT for a hover-opened menu: hovering must not steal keyboard focus from
+  // wherever the user was. A click still focuses it.
+  useEffect(() => { if (!hoverMode) menuRef.current?.focus() }, [hoverMode])
 
   // Dismissal, following the selection-popup contract: a mousedown outside the
   // card (and outside its own trigger row) closes it; Escape closes it and hands
@@ -235,6 +286,8 @@ export function Flyout(props: FlyoutProps): ReactElement {
       onClick={stopRowLeak}
       onKeyDown={stopRowLeak}
       onMouseDown={stopRowLeak}
+      // Keep-alive is wired with native listeners in an effect above; React's
+      // synthetic enter/leave is unreliable across this portal (see the effect).
       // Geometry stays inline (the measurement owns `left`/`top`); everything
       // else is the registered CSS chunk. Hidden until measured so the card
       // never flashes at its default position.
@@ -245,14 +298,17 @@ export function Flyout(props: FlyoutProps): ReactElement {
         visibility: position === null ? 'hidden' : 'visible',
       }}
     >
-      {/* Title only: the menu's job is the members, so an "Overview" link to the
-          group's own page sat in the header as a second, unrelated destination
-          (that page remains registered as the group's `main` fallback). */}
-      <div data-dsh-railist-flyout-header="">
-        <span data-dsh-railist-flyout-title="">
-          {translate.t('rail.group.menuTitle', { name: group.label })}
-        </span>
-      </div>
+      {/* The shell's own menu surface is TWO layers (MenuSurface: `_material_`
+          paints the translucent fill, `_backing_` — macOS only — puts an opaque
+          plate under it, because the menu fill there is only ~45–58% alpha). The
+          card used to paint the fill on its root, so on macOS it had no plate to
+          sit on and the rail's rows read straight through it while every native
+          menu looked solid. Layer them the same way. */}
+      <div data-dsh-railist-flyout-backing="" aria-hidden="true" />
+      <div data-dsh-railist-flyout-material="" aria-hidden="true" />
+      {/* No header: the members ARE the menu. A "Group: <name>" title above them
+          only repeated what the trigger row already shows, and it pushed the
+          first member down by a line (user feedback, 2026-10-25). */}
       <div
         ref={menuRef}
         role="menu"

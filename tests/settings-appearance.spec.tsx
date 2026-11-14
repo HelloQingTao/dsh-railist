@@ -117,7 +117,9 @@ describe('AppearanceEditor (panel row)', () => {
     // so this editor offers no checkbox for it at all.
     renderPage(profileWith(['plugins']))
     selectRow('plugins')
-    expect(screen.queryByRole('checkbox')).toBeNull()
+    // Scope to the appearance editor: the page also carries the global
+    // "open groups on hover" switch, which is not a visibility control.
+    expect(document.querySelector('[data-editor] input[type="checkbox"]')).toBeNull()
   })
 
   it('previews the rail icon itself while nothing is overridden', () => {
@@ -216,7 +218,7 @@ describe('AppearanceEditor (group row)', () => {
     // entry point for visibility, so neither editor renders a checkbox for it.
     renderPage(GROUPED)
     selectRow('group:g1')
-    expect(screen.queryByRole('checkbox')).toBeNull()
+    expect(document.querySelector('[data-editor] input[type="checkbox"]')).toBeNull()
   })
 
   it('opens a member’s own editor from the member list', () => {

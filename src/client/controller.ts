@@ -18,7 +18,12 @@
  * re-registration to become visible.
  */
 import type { ReactNode } from 'react'
-import type { BuiltinIconName, ProfileConfig } from '../shared/config.ts'
+import {
+  DEFAULT_HOVER_OPEN_DELAY_MS,
+  DEFAULT_HOVER_OPEN_GROUPS,
+  type BuiltinIconName,
+  type ProfileConfig,
+} from '../shared/config.ts'
 import { buildPlan, type Plan, type PlanPanel, type RegisteredPanel } from '../shared/model.ts'
 import type { HealthReport } from '../shared/protocol.ts'
 import type { ClientContext } from './ctx.ts'
@@ -287,6 +292,16 @@ export function createController(deps: ControllerDeps): RailistController {
     ctx,
     rail,
     plan: settledPlan,
+    // The row reads this at event time, so a toggle takes effect on the very next
+    // hover without waiting for a re-registration. It reads the WORKING copy (not
+    // `saved`): an unsaved behaviour change still applies while the dialog is open.
+    behavior: () => {
+      const behavior = store.getSnapshot().profile.behavior
+      return {
+        hoverOpenGroups: behavior?.hoverOpenGroups ?? DEFAULT_HOVER_OPEN_GROUPS,
+        hoverOpenDelayMs: behavior?.hoverOpenDelayMs ?? DEFAULT_HOVER_OPEN_DELAY_MS,
+      }
+    },
     translate,
     glyph: deps.glyph,
     subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } },

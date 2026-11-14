@@ -103,6 +103,7 @@ function createHarness(registered: RegisteredPanel[], initialProfile: ProfileCon
     ctx: {} as unknown as GroupUnitDeps['ctx'],
     rail,
     plan: () => plan,
+    behavior: () => ({ hoverOpenGroups: false, hoverOpenDelayMs: 150 }),
     translate: createTranslator(undefined),
     glyph: (props) => {
       glyphRequests.push(props)

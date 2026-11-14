@@ -18,6 +18,7 @@ import type { I18nKey, Translator } from '../i18n/index.ts'
 import { AppearanceEditor } from './AppearanceEditor.tsx'
 import { ConfigBlock } from './ConfigBlock.tsx'
 import { DiscoveryBlock } from '../more/DiscoveryBlock.tsx'
+import { InteractionBlock } from './InteractionBlock.tsx'
 import { SequenceEditor, type SequenceSelection } from './SequenceEditor.tsx'
 import type { PluginInfoStore } from './pluginInfo.ts'
 import { sourceLabel } from './sourceLabel.ts'
@@ -182,7 +183,7 @@ export function Section({ deps }: SectionProps): ReactNode {
     : null
 
   return (
-    <section className="dsh-railist-settings" aria-label={t('settings.title')}>
+    <section className="dsh-railist-settings" data-dirty={dirty ? 'true' : 'false'} aria-label={t('settings.title')}>
       {/* The header is text only: the settings dialog already owns the close
           affordance (its X, next to this text), and a second button for the same
           action was one more thing to keep in sync with it. */}
@@ -232,6 +233,24 @@ export function Section({ deps }: SectionProps): ReactNode {
         apply={apply}
         applyStructural={applyStructural}
         pluginInfo={pluginSources}
+      />
+
+      <InteractionBlock
+        behavior={snapshot.profile.behavior}
+        onToggleHoverOpen={(next) => {
+          const edit = (profile: ProfileConfig): ProfileConfig => ({
+            ...profile,
+            behavior: { ...profile.behavior, hoverOpenGroups: next },
+          })
+          // A switch applies instantly and is NOT a "pending edit". With nothing
+          // else pending we write it straight through via `commit`, which does
+          // not publish an optimistic copy — an optimistic copy would flip the
+          // page to dirty for one frame and shove the layout (see polish.css.ts).
+          // While a drag is pending, fold it into that batch instead.
+          if (dirty) apply(edit)
+          else void deps.store.commit(edit)
+        }}
+        t={t}
       />
 
       {selection === null

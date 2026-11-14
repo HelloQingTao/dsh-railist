@@ -195,6 +195,14 @@ export interface SettingsUnit {
 
 /* ----------------------------------------------------------------- groups */
 
+/** Resolved group-hover behaviour handed to the row (defaults already applied). */
+export interface GroupHoverBehavior {
+  /** Whether resting the pointer on a group row opens its flyout. */
+  hoverOpenGroups: boolean
+  /** Delay before a hover opens it, in ms. */
+  hoverOpenDelayMs: number
+}
+
 /** Everything the groups unit is handed. */
 export interface GroupUnitDeps {
   ctx: ClientContext
@@ -202,6 +210,8 @@ export interface GroupUnitDeps {
   rail: RailHost
   /** Current plan: the source of truth for which rows exist. */
   plan: () => Plan
+  /** Current group-hover behaviour, resolved from the live profile. */
+  behavior: () => GroupHoverBehavior
   translate: Translator
   glyph: (request: GlyphRequest) => ReactNode
   /** Watch plan changes so rows can be re-registered. Returns the unsubscribe handle. */

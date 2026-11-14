@@ -10,6 +10,7 @@
  */
 import {
   BUILTIN_ICON_NAMES,
+  MAX_HOVER_OPEN_DELAY_MS,
   MAX_LABEL_LENGTH,
   MAX_PANEL_ID_LENGTH,
   MAX_SVG_LENGTH,
@@ -23,6 +24,7 @@ import {
   type EntryOverride,
   type GroupItem,
   type IconRef,
+  type ProfileBehavior,
   type RailistConfig,
   type ProfileConfig,
   type SequenceItem,
@@ -134,6 +136,25 @@ function normalizeProfileConfig(value: unknown): { profile: ProfileConfig; repai
   if (isRecord(meta)) {
     const updatedAt = meta['updatedAt']
     if (typeof updatedAt === 'string') profile.meta = { updatedAt }
+  }
+
+  // Group-row behaviour. Absent means "defaults" (hover opens groups); an
+  // unreadable field is dropped and the profile is flagged as repaired, so a
+  // hand edit degrades to the default instead of pretending it was honoured.
+  const rawBehavior = value['behavior']
+  if (isRecord(rawBehavior)) {
+    const behavior: ProfileBehavior = {}
+    const hoverOpenGroups = rawBehavior['hoverOpenGroups']
+    if (typeof hoverOpenGroups === 'boolean') behavior.hoverOpenGroups = hoverOpenGroups
+    else if (hoverOpenGroups !== undefined) repaired = true
+    const hoverOpenDelayMs = rawBehavior['hoverOpenDelayMs']
+    if (typeof hoverOpenDelayMs === 'number' && Number.isInteger(hoverOpenDelayMs)
+      && hoverOpenDelayMs >= 0 && hoverOpenDelayMs <= MAX_HOVER_OPEN_DELAY_MS) {
+      behavior.hoverOpenDelayMs = hoverOpenDelayMs
+    } else if (hoverOpenDelayMs !== undefined) repaired = true
+    if (behavior.hoverOpenGroups !== undefined || behavior.hoverOpenDelayMs !== undefined) profile.behavior = behavior
+  } else if (rawBehavior !== undefined) {
+    repaired = true
   }
 
   return { profile, repaired }

@@ -11,7 +11,7 @@
  */
 
 /** Bumped whenever the stored shape changes; see `./migrate.ts`. */
-export const SCHEMA_VERSION = 2 as const
+export const SCHEMA_VERSION = 3 as const
 
 /**
  * Names in the icon set bundled with this plugin (see `client/icons/builtin`).
@@ -56,6 +56,13 @@ export const MAX_PANEL_ID_LENGTH = 200
 /** Custom-SVG size window (schema: 16 .. 65536). */
 export const MIN_SVG_LENGTH = 16
 export const MAX_SVG_LENGTH = 65536
+
+/** Default: resting the pointer on a group row opens its flyout. */
+export const DEFAULT_HOVER_OPEN_GROUPS = true
+/** Default delay before that hover opens the flyout, in ms. */
+export const DEFAULT_HOVER_OPEN_DELAY_MS = 150
+/** Upper bound on the configurable hover delay (schema: 2000). */
+export const MAX_HOVER_OPEN_DELAY_MS = 2000
 
 /** Where a row's glyph comes from. */
 export type IconRef =
@@ -184,6 +191,20 @@ export interface GroupItem {
 
 export type SequenceItem = EntryItem | GroupItem
 
+/**
+ * How the group rows respond to the pointer.
+ *
+ * Every field is optional in the stored document; an absent field means the
+ * default. Keeping "no opinion" absent (rather than writing `true`) is what lets
+ * a fresh profile carry no interaction config at all until the user touches it.
+ */
+export interface ProfileBehavior {
+  /** Whether resting the pointer on a group row opens its flyout. */
+  hoverOpenGroups?: boolean
+  /** Delay before a hover opens the flyout, in ms. */
+  hoverOpenDelayMs?: number
+}
+
 /** One profile's section of the document. */
 export interface ProfileConfig {
   /**
@@ -197,6 +218,8 @@ export interface ProfileConfig {
   meta?: {
     updatedAt?: string
   }
+  /** Group-row interaction behaviour; absent means "all defaults". */
+  behavior?: ProfileBehavior
 }
 
 /** The whole document: one section per DSH profile. */
@@ -275,5 +298,6 @@ export function cloneProfileConfig(profile: ProfileConfig): ProfileConfig {
       }]),
     ),
     ...(profile.meta === undefined ? {} : { meta: { ...profile.meta } }),
+    ...(profile.behavior === undefined ? {} : { behavior: { ...profile.behavior } }),
   }
 }

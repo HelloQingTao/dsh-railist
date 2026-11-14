@@ -41,8 +41,23 @@ const dropLockedPanels: MigrationStep = {
   },
 }
 
+/**
+ * v2 → v3: the per-profile group hover behaviour settings are added.
+ *
+ * The new `behavior` object is optional and every field defaults, so no stored
+ * data has to change shape: the step only bumps the version so an old file is
+ * read through the current schema (whose `profile` rejects unknown keys, but
+ * accepts the absent `behavior`). Kept as a step rather than a silent bump so
+ * the migration list stays the single source of truth for "what changed".
+ */
+const addHoverBehavior: MigrationStep = {
+  from: 2,
+  summary: 'added the group hover behaviour settings',
+  apply: () => {},
+}
+
 /** Ordered steps, oldest first. */
-export const MIGRATION_STEPS: readonly MigrationStep[] = [dropLockedPanels]
+export const MIGRATION_STEPS: readonly MigrationStep[] = [dropLockedPanels, addHoverBehavior]
 
 /** Outcome of a raw read. */
 export type MigrationResult =

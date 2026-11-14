@@ -7,7 +7,7 @@
  * full restoration on unload.
  */
 import { afterEach, describe, expect, it } from 'vitest'
-import { BUILTIN_ICON_NAMES, emptyProfileConfig, type RailistConfig, type ProfileConfig } from '../src/shared/config.ts'
+import { BUILTIN_ICON_NAMES, SCHEMA_VERSION, emptyProfileConfig, type RailistConfig, type ProfileConfig } from '../src/shared/config.ts'
 import { createController, type RailistController } from '../src/client/controller.ts'
 import { createTranslator } from '../src/client/i18n/index.ts'
 import { BuiltinGlyph, Glyph, glyphDataUri, sanitizeSvg } from '../src/client/icons/index.tsx'
@@ -43,7 +43,7 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): RailistStore 
     status: 'ready',
     profileId: 'desktop',
     profile,
-    document: { schemaVersion: 2, profiles: { desktop: profile } } satisfies RailistConfig,
+    document: { schemaVersion: SCHEMA_VERSION, profiles: { desktop: profile } } satisfies RailistConfig,
     health: HEALTH,
     error: null,
     movedRow: null,
@@ -52,7 +52,7 @@ function fakeStore(initial: ProfileConfig = emptyProfileConfig()): RailistStore 
   }
   const publish = (): void => {
     revision += 1
-    snapshot = { ...snapshot, profile, saved, revision, document: { schemaVersion: 2, profiles: { desktop: profile } } }
+    snapshot = { ...snapshot, profile, saved, revision, document: { schemaVersion: SCHEMA_VERSION, profiles: { desktop: profile } } }
     for (const listener of listeners) listener()
   }
   const store: RailistStore & { profile: ProfileConfig; writes: number } = {

@@ -59,6 +59,10 @@ export const en = {
   'settings.sequence.pinned': 'Always last',
   'settings.sequence.pinnedHint': 'This row belongs to the shell itself, so it always sits at the bottom of the bottom-left seat.',
 
+  'settings.interaction.title': 'Interaction',
+  'settings.interaction.hoverOpen': 'Open groups on hover',
+  'settings.interaction.hoverOpenHint': 'Resting the pointer on a grouped row opens its panel menu after a moment. Clicking always works.',
+
   'settings.group.rename': 'Group name',
   'settings.group.icon': 'Group icon',
   'settings.group.members': 'Members',
@@ -101,7 +105,6 @@ export const en = {
   'rail.group.open': 'Open group {name}',
   // The proxy row that stands in for the shell's own "More" launcher.
   'rail.more.label': 'More',
-  'rail.group.menuTitle': 'Group: {name}',
   'rail.group.missing': 'missing',
   'rail.group.emptyMenu': 'No panel is shown in this group.',
   'rail.group.overviewTitle': 'Group “{name}”',
@@ -160,6 +163,10 @@ export const zh: Record<I18nKey, string> = {
   'settings.sequence.pinned': '永远最后',
   'settings.sequence.pinnedHint': '这一行属于外壳本身，因此它始终排在左下角分区的最底部。',
 
+  'settings.interaction.title': '交互',
+  'settings.interaction.hoverOpen': '悬停自动展开分组',
+  'settings.interaction.hoverOpenHint': '鼠标在分组行上稍停即展开面板菜单；点击仍然可用。',
+
   'settings.group.rename': '分组名称',
   'settings.group.icon': '分组图标',
   'settings.group.members': '成员',
@@ -202,7 +209,6 @@ export const zh: Record<I18nKey, string> = {
   'rail.group.open': '展开分组 {name}',
   // 「更多」代理行：顶替外壳自带的 More 启动按钮，可排序/隐藏/分组。
   'rail.more.label': '更多',
-  'rail.group.menuTitle': '分组：{name}',
   'rail.group.missing': '已缺失',
   'rail.group.emptyMenu': '该分组内没有显示的页签。',
   'rail.group.overviewTitle': '分组「{name}」',

@@ -8,8 +8,8 @@
   "required": ["schemaVersion", "profiles"],
   "properties": {
     "schemaVersion": {
-      "const": 2,
-      "description": "Bumped when the shape changes: this const is what `src/shared/config.ts` and the migration table in `src/shared/migrate.ts` are held to. Version 2 removed the retired `locked` panel list; older documents are migrated on read, and a document that cannot be read is backed up before defaults are used."
+      "const": 3,
+      "description": "Bumped when the shape changes: this const is what `src/shared/config.ts` and the migration table in `src/shared/migrate.ts` are held to. Version 2 removed the retired `locked` panel list; version 3 added the optional per-profile `behavior` (group hover settings). Older documents are migrated on read, and a document that cannot be read is backed up before defaults are used."
     },
     "profiles": {
       "type": "object",
@@ -57,7 +57,8 @@
           "maxProperties": 200,
           "additionalProperties": { "$ref": "#/$defs/entryOverride" }
         },
-        "meta": { "$ref": "#/$defs/meta" }
+        "meta": { "$ref": "#/$defs/meta" },
+        "behavior": { "$ref": "#/$defs/behavior" }
       }
     },
     "entryItem": {
@@ -171,6 +172,25 @@
       "additionalProperties": false,
       "properties": {
         "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "behavior": {
+      "type": "object",
+      "description": "Group-row interaction behaviour. Every field is optional; an absent field means its default. An absent `behavior` entirely means all defaults.",
+      "additionalProperties": false,
+      "properties": {
+        "hoverOpenGroups": {
+          "type": "boolean",
+          "description": "Whether resting the pointer on a group row opens its flyout. Defaults to true.",
+          "default": true
+        },
+        "hoverOpenDelayMs": {
+          "type": "integer",
+          "description": "Delay before a hover opens the flyout, in milliseconds. Defaults to 150.",
+          "minimum": 0,
+          "maximum": 2000,
+          "default": 150
+        }
       }
     }
   }

@@ -150,7 +150,7 @@ describe('migrateConfigDocument', () => {
     if (!result.ok) return
     expect(result.from).toBe(1)
     expect(result.migrated).toBe(true)
-    expect(result.applied).toEqual([expect.stringContaining('locked')])
+    expect(result.applied).toEqual([expect.stringContaining('locked'), expect.stringContaining('hover')])
     expect(result.config.schemaVersion).toBe(SCHEMA_VERSION)
     expect(Object.keys(result.config.profiles['desktop'] ?? {})).toEqual(['sequence', 'entries'])
   })
