@@ -27,7 +27,7 @@
  *
  * | seat | row element | where the id lives |
  * | --- | --- | --- |
- * | `top` | `nav._panelList > button` | the `PanelRow` fiber's `props.id` |
+ * | `top` | `nav._panelList > button` (older) or `nav._panelList > div._panelEntry` (0.2.2-rc.3+) | the `PanelRow` fiber's `props.id` (read through the wrapper) |
  * | `footer` | the anchor's element children | a `RootEntry` fiber's `props.entry.options.id` |
  *
  * The shell's own **Settings seat is never touched** (see `SETTINGS_SLOT` in
@@ -344,19 +344,30 @@ function rowsUnder(seat: ManagedSeat, host: HTMLElement): HTMLElement[] {
   if (seat === 'top') {
     const nav = host.tagName === 'NAV' ? host : host.querySelector('nav')
     if (nav === null) return []
-    // A contributor's top row is a BUTTON the shell renders. A footer row moved
-    // up here is not: it is rendered by the ghost host, whose slot is a plain
-    // DIV (Ghost.tsx `createSlot`) carrying the ghost attribute. Filtering on
-    // the tag alone drops it, so the pass never stamps an order on it and it
-    // stays glued to the end of the list — which is exactly the "moved it in
-    // settings but the rail did not follow" report. The ghost attribute is the
-    // reliable second shape; the element is this module's own, so accepting it
-    // is safe (the DOM pass may place it anywhere).
+    // A top row is a direct child of the panel list in one of THREE shapes, and
+    // every one of them is a row this module must recognise:
+    //
+    // - older shells render the row itself as a BUTTON (`nav > button._panelRow`);
+    // - newer shells (0.2.2-rc.3+) wrap each row in a `div._panelEntry`, so the
+    //   direct child is that wrapper DIV and the button is one level deeper;
+    // - a footer row moved up here is neither: it is rendered by the ghost host,
+    //   whose slot is a plain DIV (Ghost.tsx `createSlot`) carrying the ghost
+    //   attribute.
+    //
+    // Filtering on the tag alone drops the rc.3 wrapper (and the ghost), so the
+    // pass never learns the row's id and never stamps an order on it — which is
+    // exactly the "moved it in settings but the rail did not follow" report, plus
+    // here the hidden-row marker pass going silent. The ghost attribute and the
+    // panel-entry class are the reliable extra shapes; the ghost element is this
+    // module's own, so accepting it is safe (the DOM pass may place it anywhere).
+    // `span._moreAnchor` (PanelMoreMenu, height 0) is deliberately NOT matched.
     return [...nav.children].filter(
       (child): child is HTMLElement =>
         child instanceof HTMLElement &&
-        (child.tagName === 'BUTTON' || child.hasAttribute(GHOST_ATTR)) &&
-        child.tagName !== 'STYLE',
+        child.tagName !== 'STYLE' &&
+        (child.tagName === 'BUTTON' ||
+          child.hasAttribute(GHOST_ATTR) ||
+          child.matches('div[class*="_panelEntry"]')),
     )
   }
   // Rows live inside the seat's own anchor.

@@ -216,6 +216,48 @@ describe('rail DOM: seat placement', () => {
     expect(nav?.children[1]?.getAttribute('data-dsh-railist-order')).toBe('1')
   })
 
+  it('recognises the 0.2.2-rc.3 wrapper row shape (div._panelEntry > button._panelRow)', () => {
+    // Newer shells wrap every panel row in a `<div>`, so the direct child of the
+    // panel list is the wrapper, not the button. Matching only the button found
+    // nothing: grouped members were never hidden and no order stamp reached the
+    // rows. The wrapper must be treated as the row, while the zero-height
+    // `span._moreAnchor` beside it stays out of the scan.
+    const nav = document.createElement('nav')
+    nav.className = 'hHd-Xa_panelList'
+    for (const [id, label] of [['plugins', '插件'], ['usage', '使用统计']] as const) {
+      const wrapper = document.createElement('div')
+      wrapper.className = 'hHd-Xa_panelEntry hHd-Xa_panelEntryWide'
+      wrapper.setAttribute(ROW_ATTR, id)
+      const button = document.createElement('button')
+      button.className = 'hHd-Xa_panelRow'
+      button.textContent = label
+      const anchor = document.createElement('div')
+      anchor.setAttribute('data-slot', SEAT_SLOT_ATTR.top)
+      anchor.style.display = 'contents'
+      button.append(anchor)
+      wrapper.append(button)
+      nav.append(wrapper)
+    }
+    const more = document.createElement('span')
+    more.className = 'hHd-Xa_moreAnchor'
+    more.textContent = 'More'
+    nav.append(more)
+    document.body.append(nav)
+
+    dom = createRailDom()
+    dom.apply([
+      { id: 'plugins', container: 'top', order: 0, hidden: false },
+      { id: 'usage', container: 'top', order: 1, hidden: false },
+    ])
+
+    const entries = [...nav.children].filter(child => child.tagName === 'DIV')
+    expect(entries).toHaveLength(2)
+    expect(entries[0]?.getAttribute('data-dsh-railist-order')).toBe('0')
+    expect(entries[1]?.getAttribute('data-dsh-railist-order')).toBe('1')
+    // The more-anchor is a zero-height sibling, not a row: it is never stamped.
+    expect(more.getAttribute('data-dsh-railist-order')).toBeNull()
+  })
+
   it('puts a moved row back on dispose', () => {
     // Only a row this module actually moved is restored: a ghost row's home is
     // the ghost itself, and the footer host node never left React's care.

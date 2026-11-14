@@ -30,8 +30,21 @@ const FOOTER_SLOT_ATTR = 'sidebar.footer.action'
  * (a direct child of the panel list), and the self-check has to measure the same
  * thing the rule matches. Two copies drifted apart the moment the shell re-rolled
  * its class hash, so there is one string, and `rail/probe.ts` imports it.
+ *
+ * A row is a DIRECT child of the panel list in either of two shapes, and both
+ * must match or the hide rule silently misses one shell generation:
+ *
+ * - older shells render the row itself as the child: `nav > button._panelRow`;
+ * - newer shells (0.2.2-rc.3+) wrap each row in a `<div>`: `nav > div._panelEntry
+ *   > button._panelRow`. Matching only the inner button finds nothing (it is no
+ *   longer a direct child), so grouped members never got hidden.
+ *
+ * The wrapper is what carries the row's box in the new shape, so hiding it takes
+ * the whole row out of flow — matching the wrapper is exactly right for both the
+ * hide rule and the evoke rule.
  */
-export const PANEL_ROW_SELECTOR = 'nav[class*="_panelList"] > button[class*="_panelRow"]'
+export const PANEL_ROW_SELECTOR =
+  'nav[class*="_panelList"] > :is(button[class*="_panelRow"], div[class*="_panelEntry"])'
 
 /** The ghost slot's stamp — the anchor for a row the plan moved out of its seat. */
 const GHOST_ATTR = 'data-dsh-railist-ghost'
